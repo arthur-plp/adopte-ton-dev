@@ -1,0 +1,43 @@
+services:
+  # ─── PostgreSQL (instance unique, bases séparées par service) ───────────────
+  postgres:
+    image: postgres:16-alpine
+    container_name: atd-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: atd
+      POSTGRES_PASSWORD: atd_dev_password
+      POSTGRES_MULTIPLE_DATABASES: atd_users,atd_jobs,atd_applications,atd_messaging,atd_notifications,atd_payment
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init-multiple-dbs.sh:/docker-entrypoint-initdb.d/init-multiple-dbs.sh:ro
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U atd"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # ─── RabbitMQ ────────────────────────────────────────────────────────────────
+  rabbitmq:
+    image: rabbitmq:3.13-management-alpine
+    container_name: atd-rabbitmq
+    restart: unless-stopped
+    environment:
+      RABBITMQ_DEFAULT_USER: atd
+      RABBITMQ_DEFAULT_PASS: atd_dev_password
+    ports:
+      - "5672:5672"   # AMQP
+      - "15672:15672" # Management UI → http://localhost:15672
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres_data:
+  rabbitmq_data:
