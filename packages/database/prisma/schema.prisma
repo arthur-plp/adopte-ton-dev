@@ -1,0 +1,40 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  role      Role     @default(DEVELOPER)
+  createdAt DateTime @default(now())
+  profile   Profile?
+  jobs      Job[]
+}
+
+model Profile {
+  id         String   @id @default(cuid())
+  userId     String   @unique
+  user       User     @relation(fields: [userId], references: [id])
+  skills     String[]
+  github     String?
+  linkedin   String?
+}
+
+model Job {
+  id          String   @id @default(cuid())
+  title       String
+  description String
+  authorId    String
+  author      User     @relation(fields: [authorId], references: [id])
+  createdAt   DateTime @default(now())
+}
+
+enum Role {
+  DEVELOPER
+  RECRUITER
+  ADMIN
+}
