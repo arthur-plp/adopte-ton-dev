@@ -38,6 +38,14 @@ yarn-error.log*
 
 # Prisma generated client
 **/prisma/generated
+**/generated/prisma
+**/src/generated
+
+# Agent interne
+.agents/
+
+# Fichiers auto-générés divers
+skills-lock.json
 
 # Docker volumes locaux
 infra/volumes/
