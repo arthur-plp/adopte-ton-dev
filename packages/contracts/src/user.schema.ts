@@ -37,6 +37,18 @@ export const ProjectSchema = z.object({
 
 export type ProjectDto = z.infer<typeof ProjectSchema>;
 
+export const UpdateProjectSchema = ProjectSchema.partial().extend({
+  visible: z.boolean().optional(),
+});
+
+export type UpdateProjectDto = z.infer<typeof UpdateProjectSchema>;
+
+export const UpdateLevelSchema = z.object({
+  level: z.nativeEnum(SkillLevel),
+});
+
+export type UpdateLevelDto = z.infer<typeof UpdateLevelSchema>;
+
 export const CreateDeveloperProfileSchema = z.object({
   firstName: z.string().min(1).max(100),
   lastName: z.string().min(1).max(100),
@@ -48,6 +60,7 @@ export const CreateDeveloperProfileSchema = z.object({
   githubUrl: z.string().url().optional(),
   portfolioUrl: z.string().url().optional(),
   linkedinUrl: z.string().url().optional(),
+  avatarUrl: z.string().url().optional(),
 });
 
 export type CreateDeveloperProfileDto = z.infer<typeof CreateDeveloperProfileSchema>;

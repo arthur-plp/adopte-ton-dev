@@ -38,8 +38,8 @@ jobs:
       - name: Build
         run: pnpm build
 
-      - name: Test
-        run: pnpm test --if-present
+      - name: Test with coverage (≥ 70% gate)
+        run: pnpm test:cov --if-present
 
       - name: Upload coverage
         if: always()

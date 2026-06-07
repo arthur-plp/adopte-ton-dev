@@ -15,8 +15,8 @@ const JobOfferBaseSchema = z.object({
 
 export const CreateJobOfferSchema = JobOfferBaseSchema.refine(
   (data) =>
-    data.salaryMin === undefined ||
-    data.salaryMax === undefined ||
+    data.salaryMin == null ||
+    data.salaryMax == null ||
     data.salaryMin <= data.salaryMax,
   { message: "salaryMin doit être inférieur ou égal à salaryMax", path: ["salaryMin"] },
 );
@@ -25,8 +25,8 @@ export type CreateJobOfferDto = z.infer<typeof CreateJobOfferSchema>;
 
 export const UpdateJobOfferSchema = JobOfferBaseSchema.partial().refine(
   (data) =>
-    data.salaryMin === undefined ||
-    data.salaryMax === undefined ||
+    data.salaryMin == null ||
+    data.salaryMax == null ||
     data.salaryMin <= data.salaryMax,
   { message: "salaryMin doit être inférieur ou égal à salaryMax", path: ["salaryMin"] },
 );

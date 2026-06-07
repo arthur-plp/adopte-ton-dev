@@ -1,0 +1,192 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ─── Tables BetterAuth (source de vérité des sessions & comptes OAuth) ────────
+
+model User {
+  id            String    @id @default(cuid())
+  name          String
+  email         String    @unique
+  emailVerified Boolean   @default(false)
+  image         String?
+  role          String    @default("DEVELOPER")
+  onboarded     Boolean   @default(false)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  sessions         Session[]
+  accounts         Account[]
+  developerProfile DeveloperProfile?
+  recruiterProfile RecruiterProfile?
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  expiresAt DateTime
+  token     String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  ipAddress String?
+  userAgent String?
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Account {
+  id                    String    @id @default(cuid())
+  accountId             String
+  providerId            String
+  userId                String
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessToken           String?   @db.Text
+  refreshToken          String?   @db.Text
+  idToken               String?   @db.Text
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  password              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+}
+
+model Verification {
+  id         String    @id @default(cuid())
+  identifier String
+  value      String    @db.Text
+  expiresAt  DateTime
+  createdAt  DateTime? @default(now())
+  updatedAt  DateTime? @updatedAt
+}
+
+// ─── Enums domaine ────────────────────────────────────────────────────────────
+
+enum Availability {
+  IMMEDIATE
+  ONE_MONTH
+  LATER
+  NOT_LOOKING
+}
+
+enum SkillLevel {
+  BEGINNER
+  INTERMEDIATE
+  ADVANCED
+}
+
+// ─── Profils ──────────────────────────────────────────────────────────────────
+
+model DeveloperProfile {
+  id           String       @id @default(cuid())
+  userId       String       @unique
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  firstName    String
+  lastName     String
+  title        String?
+  bio          String?
+  location     String?
+  remoteOk     Boolean      @default(false)
+  availability Availability @default(IMMEDIATE)
+  githubUrl    String?
+  portfolioUrl String?
+  linkedinUrl  String?
+  avatarUrl    String?
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  skills       DeveloperSkill[]
+  technologies DeveloperTechnology[]
+  projects     Project[]
+}
+
+model RecruiterProfile {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  firstName String
+  lastName  String
+  companyId String
+  company   Company  @relation(fields: [companyId], references: [id])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Company {
+  id          String             @id @default(cuid())
+  name        String
+  website     String?
+  logoUrl     String?
+  description String?
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+  recruiters  RecruiterProfile[]
+}
+
+// ─── Compétences & technologies ───────────────────────────────────────────────
+
+model Skill {
+  id         String           @id @default(cuid())
+  name       String           @unique
+  category   String           @default("technique") // "technique" | "soft"
+  developers DeveloperSkill[]
+}
+
+model DeveloperSkill {
+  id        String           @id @default(cuid())
+  profileId String
+  profile   DeveloperProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  skillId   String
+  skill     Skill            @relation(fields: [skillId], references: [id])
+  level     SkillLevel       @default(INTERMEDIATE)
+
+  @@unique([profileId, skillId])
+}
+
+model DeveloperTechnology {
+  id        String           @id @default(cuid())
+  profileId String
+  profile   DeveloperProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  name      String
+  level     SkillLevel       @default(INTERMEDIATE)
+
+  @@unique([profileId, name])
+}
+
+// ─── Portfolio ────────────────────────────────────────────────────────────────
+
+// ─── Outbox Pattern (§28) ─────────────────────────────────────────────────────
+// Émission fiable d'événements : écriture atomique avec la mutation,
+// publication RabbitMQ via un relay périodique.
+
+model OutboxEvent {
+  id        String   @id @default(cuid())
+  type      String
+  payload   Json
+  status    String   @default("PENDING") // PENDING | SENT | FAILED
+  attempts  Int      @default(0)
+  createdAt DateTime @default(now())
+  sentAt    DateTime?
+}
+
+model Project {
+  id           String           @id @default(cuid())
+  profileId    String
+  profile      DeveloperProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  title        String
+  description  String
+  repoUrl      String?
+  liveUrl      String?
+  technologies   String[]
+  githubStars    Int?
+  githubPushedAt DateTime?
+  visible        Boolean          @default(true)
+  displayOrder   Int              @default(0)
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  @@unique([profileId, repoUrl])
+}
