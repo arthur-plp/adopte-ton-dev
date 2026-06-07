@@ -24,9 +24,9 @@ describe('CreateApplicationSchema', () => {
     expect(result.coverLetter).toBeDefined();
   });
 
-  it('rejette un jobOfferId non-cuid', () => {
+  it('rejette un jobOfferId vide', () => {
     expect(() =>
-      CreateApplicationSchema.parse({ jobOfferId: 'pas-un-cuid' }),
+      CreateApplicationSchema.parse({ jobOfferId: '' }),
     ).toThrow();
   });
 

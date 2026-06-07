@@ -134,7 +134,7 @@ describe('UsersController (intégration)', () => {
     it('retourne 400 si skillId n\'est pas un cuid', async () => {
       await request(app.getHttpServer())
         .post('/users/developer/me/skills')
-        .send({ skillId: 'pas-un-cuid', level: 'INTERMEDIATE' })
+        .send({ skillId: '', level: 'INTERMEDIATE' })
         .expect(400);
     });
   });

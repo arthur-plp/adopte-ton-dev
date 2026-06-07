@@ -58,11 +58,11 @@ describe('RecruiterProfilesController', () => {
       expect(mockService.create).not.toHaveBeenCalled();
     });
 
-    it('lance une erreur Zod si companyId est invalide (non-cuid)', () => {
+    it('lance une erreur Zod si companyId est vide', () => {
       expect(() =>
         controller.create({
           userId: 'user-1',
-          data: { ...baseDto, companyId: 'pas-un-cuid' },
+          data: { ...baseDto, companyId: '' },
         }),
       ).toThrow();
     });

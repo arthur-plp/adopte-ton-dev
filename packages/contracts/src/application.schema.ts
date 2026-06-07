@@ -2,7 +2,7 @@ import { z } from "zod";
 import { ApplicationStatus } from "@repo/types";
 
 export const CreateApplicationSchema = z.object({
-  jobOfferId: z.string().cuid(),
+  jobOfferId: z.string().min(1),
   coverLetter: z.string().max(5000).optional(),
 });
 
