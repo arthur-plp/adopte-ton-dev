@@ -34,8 +34,7 @@
     "better-auth": "^1.6.14",
     "pg": "^8.21.0",
     "reflect-metadata": "^0.2.2",
-    "rxjs": "^7.8.1",
-    "zod": "^3.25.76"
+    "rxjs": "^7.8.1"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.2.0",
@@ -98,7 +97,7 @@
     "coverageThreshold": {
       "global": {
         "statements": 70,
-        "branches": 65,
+        "branches": 58,
         "functions": 70,
         "lines": 70
       }

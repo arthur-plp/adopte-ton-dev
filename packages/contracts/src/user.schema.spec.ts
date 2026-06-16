@@ -183,7 +183,13 @@ describe('CreateRecruiterProfileSchema', () => {
     ).toThrow();
   });
 
-  it('rejette un companyId non-cuid', () => {
+  it('rejette un companyId vide', () => {
+    expect(() =>
+      CreateRecruiterProfileSchema.parse({ firstName: 'Bob', lastName: 'Rec', companyId: '' }),
+    ).toThrow();
+  });
+
+  it('rejette un companyId au format invalide (non-cuid)', () => {
     expect(() =>
       CreateRecruiterProfileSchema.parse({ firstName: 'Bob', lastName: 'Rec', companyId: 'pas-un-cuid' }),
     ).toThrow();

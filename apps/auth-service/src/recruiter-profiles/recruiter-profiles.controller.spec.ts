@@ -20,7 +20,9 @@ describe('RecruiterProfilesController', () => {
       providers: [{ provide: RecruiterProfilesService, useValue: mockService }],
     }).compile();
 
-    controller = module.get<RecruiterProfilesController>(RecruiterProfilesController);
+    controller = module.get<RecruiterProfilesController>(
+      RecruiterProfilesController,
+    );
     jest.clearAllMocks();
   });
 
@@ -42,7 +44,10 @@ describe('RecruiterProfilesController', () => {
       };
       mockService.create.mockResolvedValue(created);
 
-      const result = await controller.create({ userId: 'user-1', data: baseDto });
+      const result = await controller.create({
+        userId: 'user-1',
+        data: baseDto,
+      });
 
       expect(result).toEqual(created);
       expect(mockService.create).toHaveBeenCalledWith('user-1', baseDto);
@@ -58,7 +63,16 @@ describe('RecruiterProfilesController', () => {
       expect(mockService.create).not.toHaveBeenCalled();
     });
 
-    it('lance une erreur Zod si companyId est invalide (non-cuid)', () => {
+    it('lance une erreur Zod si companyId est vide', () => {
+      expect(() =>
+        controller.create({
+          userId: 'user-1',
+          data: { ...baseDto, companyId: '' },
+        }),
+      ).toThrow();
+    });
+
+    it('lance une erreur Zod si companyId est au format invalide (non-cuid)', () => {
       expect(() =>
         controller.create({
           userId: 'user-1',
@@ -91,7 +105,9 @@ describe('RecruiterProfilesController', () => {
         new NotFoundException('Profil recruteur introuvable'),
       );
 
-      await expect(controller.findOne('user-inconnu')).rejects.toThrow(NotFoundException);
+      await expect(controller.findOne('user-inconnu')).rejects.toThrow(
+        NotFoundException,
+      );
     });
   });
 });

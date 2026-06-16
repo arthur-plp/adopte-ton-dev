@@ -13,7 +13,11 @@ const mockPrisma = {
 };
 
 const baseProfile = { id: 'dev-1', userId: 'user-1' };
-const githubAccount = { userId: 'user-1', providerId: 'github', accessToken: 'ghp_token123' };
+const githubAccount = {
+  userId: 'user-1',
+  providerId: 'github',
+  accessToken: 'ghp_token123',
+};
 
 // Helper: crée un fake repo avec tous les champs attendus
 function makeRepo(override: object = {}) {
@@ -33,12 +37,18 @@ function makeRepo(override: object = {}) {
 }
 
 // Helper: mockFetch qui distingue repos list vs languages URL
-function mockGitHubFetch(repos: object[], languagesMap: Record<string, Record<string, number>> = {}) {
+function mockGitHubFetch(
+  repos: object[],
+  languagesMap: Record<string, Record<string, number>> = {},
+) {
   mockFetch.mockImplementation((url: string) => {
     // Appel à l'API languages d'un repo spécifique
     for (const [repoUrl, langs] of Object.entries(languagesMap)) {
       if (url === repoUrl) {
-        return Promise.resolve({ ok: true, json: () => Promise.resolve(langs) });
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve(langs),
+        });
       }
     }
     // Appel à la liste des repos ou languages URL sans mock spécifique → vide
@@ -66,9 +76,11 @@ describe('GitHubSyncService', () => {
   });
 
   describe('syncForUser', () => {
-    it('lance NotFoundException si le profil n\'existe pas', async () => {
+    it("lance NotFoundException si le profil n'existe pas", async () => {
       mockPrisma.developerProfile.findUnique.mockResolvedValue(null);
-      await expect(service.syncForUser('user-inconnu')).rejects.toThrow(NotFoundException);
+      await expect(service.syncForUser('user-inconnu')).rejects.toThrow(
+        NotFoundException,
+      );
     });
 
     it('retourne { synced: 0, skipped: 0 } si pas de compte GitHub', async () => {
@@ -83,7 +95,10 @@ describe('GitHubSyncService', () => {
 
     it('retourne { synced: 0, skipped: 0 } si le token est absent', async () => {
       mockPrisma.developerProfile.findUnique.mockResolvedValue(baseProfile);
-      mockPrisma.account.findFirst.mockResolvedValue({ ...githubAccount, accessToken: null });
+      mockPrisma.account.findFirst.mockResolvedValue({
+        ...githubAccount,
+        accessToken: null,
+      });
 
       const result = await service.syncForUser('user-1');
       expect(result).toEqual({ synced: 0, skipped: 0 });
@@ -96,7 +111,11 @@ describe('GitHubSyncService', () => {
 
       const repos = [
         makeRepo({ name: 'proj-1', description: 'Desc 1' }),
-        makeRepo({ name: 'proj-2', description: 'Desc 2', language: 'JavaScript' }),
+        makeRepo({
+          name: 'proj-2',
+          description: 'Desc 2',
+          language: 'JavaScript',
+        }),
       ];
       mockGitHubFetch(repos);
 
@@ -140,15 +159,20 @@ describe('GitHubSyncService', () => {
       expect(mockFetch).toHaveBeenCalledWith(
         expect.stringContaining('api.github.com'),
         expect.objectContaining({
-          headers: expect.objectContaining({ Authorization: 'Bearer ghp_token123' }),
+          headers: expect.objectContaining({
+            Authorization: 'Bearer ghp_token123',
+          }),
         }),
       );
     });
 
-    it('retourne { synced: 0, skipped: 0 } si l\'API GitHub répond non-ok', async () => {
+    it("retourne { synced: 0, skipped: 0 } si l'API GitHub répond non-ok", async () => {
       mockPrisma.developerProfile.findUnique.mockResolvedValue(baseProfile);
       mockPrisma.account.findFirst.mockResolvedValue(githubAccount);
-      mockFetch.mockResolvedValue({ ok: false, json: () => Promise.resolve([]) });
+      mockFetch.mockResolvedValue({
+        ok: false,
+        json: () => Promise.resolve([]),
+      });
 
       const result = await service.syncForUser('user-1');
       expect(result).toEqual({ synced: 0, skipped: 0 });
@@ -179,14 +203,21 @@ describe('GitHubSyncService', () => {
       expect(mockPrisma.project.upsert).toHaveBeenCalledWith(
         expect.objectContaining({
           where: {
-            profileId_repoUrl: { profileId: 'dev-1', repoUrl: 'https://github.com/user/ts-api' },
+            profileId_repoUrl: {
+              profileId: 'dev-1',
+              repoUrl: 'https://github.com/user/ts-api',
+            },
           },
           create: expect.objectContaining({
             profileId: 'dev-1',
             title: 'ts-api',
             githubStars: 10,
             // TypeScript vient des langues détectées + topics normalisés
-            technologies: expect.arrayContaining(['TypeScript', 'NestJS', 'api']),
+            technologies: expect.arrayContaining([
+              'TypeScript',
+              'NestJS',
+              'api',
+            ]),
           }),
         }),
       );

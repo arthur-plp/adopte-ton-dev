@@ -24,15 +24,15 @@ describe('CreateApplicationSchema', () => {
     expect(result.coverLetter).toBeDefined();
   });
 
-  it('rejette un jobOfferId non-cuid', () => {
-    expect(() =>
-      CreateApplicationSchema.parse({ jobOfferId: 'pas-un-cuid' }),
-    ).toThrow();
-  });
-
   it('rejette un jobOfferId vide', () => {
     expect(() =>
       CreateApplicationSchema.parse({ jobOfferId: '' }),
+    ).toThrow();
+  });
+
+  it('rejette un jobOfferId au format invalide (non-cuid)', () => {
+    expect(() =>
+      CreateApplicationSchema.parse({ jobOfferId: 'pas-un-cuid' }),
     ).toThrow();
   });
 

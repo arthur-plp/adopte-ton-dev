@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { useSession, linkSocial, unlinkAccount } from "@/lib/auth-client";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
@@ -662,6 +663,7 @@ export default function ProfileEditPage() {
               <div className="relative size-20 shrink-0">
                 <div className="size-20 overflow-hidden rounded-2xl bg-muted">
                   {form.avatarUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
                     <img
                       src={form.avatarUrl}
                       alt="Photo de profil"
@@ -719,10 +721,12 @@ export default function ProfileEditPage() {
                       onClick={() => set("avatarUrl", opt.avatarUrl)}
                       className="flex items-center gap-1.5 rounded-lg border border-border bg-muted/50 px-2.5 py-1 text-xs text-foreground transition-colors hover:bg-muted"
                     >
-                      <img
+                      <Image
                         src={opt.avatarUrl}
                         alt={opt.provider}
-                        className="size-4 rounded-full object-cover"
+                        width={16}
+                        height={16}
+                        className="rounded-full object-cover"
                       />
                       Avatar {opt.provider === "github" ? "GitHub" : "Google"}
                     </button>
@@ -862,7 +866,7 @@ export default function ProfileEditPage() {
                 <div key={provider} className="flex items-center justify-between gap-4">
                   <div className="flex items-center gap-3">
                     {linked ? (
-                      <img src={linked.avatarUrl} alt={provider} className="size-8 rounded-full object-cover" />
+                      <Image src={linked.avatarUrl} alt={provider} width={32} height={32} className="rounded-full object-cover" />
                     ) : (
                       <div className="flex size-8 items-center justify-center rounded-full bg-muted text-muted-foreground">
                         {provider === "github" ? "GH" : "G"}
@@ -947,7 +951,7 @@ export default function ProfileEditPage() {
 
 function compressImage(file: File, size: number): Promise<string> {
   return new Promise((resolve, reject) => {
-    const img = new Image();
+    const img = new globalThis.Image();
     const objectUrl = URL.createObjectURL(file);
     img.onload = () => {
       const canvas = document.createElement("canvas");

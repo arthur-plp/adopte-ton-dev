@@ -4,7 +4,10 @@ import { DeveloperProfilesController } from './developer-profiles.controller';
 import { DeveloperProfilesService } from './developer-profiles.service';
 import { GitHubSyncService } from './github-sync.service';
 import { Availability } from '@repo/types';
-import type { CreateDeveloperProfileDto, UpdateDeveloperProfileDto } from '@repo/contracts';
+import type {
+  CreateDeveloperProfileDto,
+  UpdateDeveloperProfileDto,
+} from '@repo/contracts';
 
 const mockService = {
   create: jest.fn(),
@@ -28,7 +31,9 @@ describe('DeveloperProfilesController', () => {
       ],
     }).compile();
 
-    controller = module.get<DeveloperProfilesController>(DeveloperProfilesController);
+    controller = module.get<DeveloperProfilesController>(
+      DeveloperProfilesController,
+    );
     jest.clearAllMocks();
   });
 
@@ -82,7 +87,14 @@ describe('DeveloperProfilesController', () => {
 
   describe('findOne', () => {
     it('retourne le profil correspondant au userId', async () => {
-      const profile = { id: 'dev-1', userId: 'user-1', ...baseDto, skills: [], technologies: [], projects: [] };
+      const profile = {
+        id: 'dev-1',
+        userId: 'user-1',
+        ...baseDto,
+        skills: [],
+        technologies: [],
+        projects: [],
+      };
       mockService.findByUserId.mockResolvedValue(profile);
 
       const result = await controller.findOne('user-1');
@@ -92,9 +104,13 @@ describe('DeveloperProfilesController', () => {
     });
 
     it('propage NotFoundException si profil introuvable', async () => {
-      mockService.findByUserId.mockRejectedValue(new NotFoundException('Profil développeur introuvable'));
+      mockService.findByUserId.mockRejectedValue(
+        new NotFoundException('Profil développeur introuvable'),
+      );
 
-      await expect(controller.findOne('user-inconnu')).rejects.toThrow(NotFoundException);
+      await expect(controller.findOne('user-inconnu')).rejects.toThrow(
+        NotFoundException,
+      );
     });
   });
 
@@ -102,20 +118,41 @@ describe('DeveloperProfilesController', () => {
 
   describe('update', () => {
     it('parse le DTO et délègue au service avec ownership', async () => {
-      const updateDto: UpdateDeveloperProfileDto = { firstName: 'Alice Updated' };
-      const updated = { id: 'dev-1', userId: 'user-1', ...baseDto, ...updateDto };
+      const updateDto: UpdateDeveloperProfileDto = {
+        firstName: 'Alice Updated',
+      };
+      const updated = {
+        id: 'dev-1',
+        userId: 'user-1',
+        ...baseDto,
+        ...updateDto,
+      };
       mockService.update.mockResolvedValue(updated);
 
-      const result = await controller.update('user-1', { requesterId: 'user-1', data: updateDto });
+      const result = await controller.update('user-1', {
+        requesterId: 'user-1',
+        data: updateDto,
+      });
 
       expect(result).toEqual(updated);
-      expect(mockService.update).toHaveBeenCalledWith('user-1', 'user-1', updateDto);
+      expect(mockService.update).toHaveBeenCalledWith(
+        'user-1',
+        'user-1',
+        updateDto,
+      );
     });
 
     it('accepte un update partiel (objet vide)', async () => {
-      mockService.update.mockResolvedValue({ id: 'dev-1', userId: 'user-1', ...baseDto });
+      mockService.update.mockResolvedValue({
+        id: 'dev-1',
+        userId: 'user-1',
+        ...baseDto,
+      });
 
-      const result = await controller.update('user-1', { requesterId: 'user-1', data: {} });
+      const result = await controller.update('user-1', {
+        requesterId: 'user-1',
+        data: {},
+      });
 
       expect(mockService.update).toHaveBeenCalledWith('user-1', 'user-1', {});
       expect(result).toBeDefined();
@@ -125,11 +162,14 @@ describe('DeveloperProfilesController', () => {
       mockService.update.mockRejectedValue(new ForbiddenException());
 
       await expect(
-        controller.update('user-1', { requesterId: 'attaquant', data: { firstName: 'Hacked' } }),
+        controller.update('user-1', {
+          requesterId: 'attaquant',
+          data: { firstName: 'Hacked' },
+        }),
       ).rejects.toThrow(ForbiddenException);
     });
 
-    it('lance une erreur Zod si portfolioUrl est invalide dans l\'update', () => {
+    it("lance une erreur Zod si portfolioUrl est invalide dans l'update", () => {
       expect(() =>
         controller.update('user-1', {
           requesterId: 'user-1',

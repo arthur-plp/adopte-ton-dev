@@ -37,7 +37,12 @@ describe('UsersController', () => {
       });
 
       expect(result).toEqual(expected);
-      expect(mockUsersService.setRole).toHaveBeenCalledWith('user-1', Role.DEVELOPER, 'Alice', 'Dev');
+      expect(mockUsersService.setRole).toHaveBeenCalledWith(
+        'user-1',
+        Role.DEVELOPER,
+        'Alice',
+        'Dev',
+      );
     });
 
     it('délègue sans firstName/lastName (valeurs optionnelles)', async () => {
@@ -46,10 +51,15 @@ describe('UsersController', () => {
 
       await controller.onboarding({ userId: 'user-1', role: Role.DEVELOPER });
 
-      expect(mockUsersService.setRole).toHaveBeenCalledWith('user-1', Role.DEVELOPER, undefined, undefined);
+      expect(mockUsersService.setRole).toHaveBeenCalledWith(
+        'user-1',
+        Role.DEVELOPER,
+        undefined,
+        undefined,
+      );
     });
 
-    it('propage ConflictException si l\'onboarding est déjà effectué', async () => {
+    it("propage ConflictException si l'onboarding est déjà effectué", async () => {
       mockUsersService.setRole.mockRejectedValue(
         new ConflictException('Onboarding déjà effectué pour cet utilisateur'),
       );
@@ -60,9 +70,15 @@ describe('UsersController', () => {
     });
 
     it('fonctionne pour le rôle RECRUITER', async () => {
-      mockUsersService.setRole.mockResolvedValue({ userId: 'user-2', role: Role.RECRUITER });
+      mockUsersService.setRole.mockResolvedValue({
+        userId: 'user-2',
+        role: Role.RECRUITER,
+      });
 
-      const result = await controller.onboarding({ userId: 'user-2', role: Role.RECRUITER });
+      const result = await controller.onboarding({
+        userId: 'user-2',
+        role: Role.RECRUITER,
+      });
 
       expect(result.role).toBe(Role.RECRUITER);
     });
@@ -82,7 +98,10 @@ describe('UsersController', () => {
     });
 
     it('retourne le profil recruteur', async () => {
-      const profile = { role: Role.RECRUITER, profile: { firstName: 'Bob', company: {} } };
+      const profile = {
+        role: Role.RECRUITER,
+        profile: { firstName: 'Bob', company: {} },
+      };
       mockUsersService.getProfile.mockResolvedValue(profile);
 
       const result = await controller.getProfile('user-2');
@@ -91,9 +110,13 @@ describe('UsersController', () => {
     });
 
     it('propage NotFoundException si profil introuvable', async () => {
-      mockUsersService.getProfile.mockRejectedValue(new NotFoundException('Profil introuvable'));
+      mockUsersService.getProfile.mockRejectedValue(
+        new NotFoundException('Profil introuvable'),
+      );
 
-      await expect(controller.getProfile('user-inconnu')).rejects.toThrow(NotFoundException);
+      await expect(controller.getProfile('user-inconnu')).rejects.toThrow(
+        NotFoundException,
+      );
     });
   });
 });

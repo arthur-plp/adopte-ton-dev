@@ -1,4 +1,9 @@
-import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  OnModuleDestroy,
+  OnModuleInit,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as amqplib from 'amqplib';
 
@@ -28,12 +33,23 @@ export class OutboxRelayService implements OnModuleInit, OnModuleDestroy {
 
   async onModuleDestroy() {
     if (this.timer) clearInterval(this.timer);
-    try { await this.channel?.close(); } catch { /* ignore */ }
-    try { await this.connection?.close(); } catch { /* ignore */ }
+    try {
+      await this.channel?.close();
+    } catch {
+      /* ignore */
+    }
+    try {
+      await this.connection?.close();
+    } catch {
+      /* ignore */
+    }
   }
 
   private async connectAmqp() {
-    const url = this.config.get<string>('CLOUDAMQP_URL', 'amqp://atd:atd_dev_password@localhost:5672');
+    const url = this.config.get<string>(
+      'CLOUDAMQP_URL',
+      'amqp://atd:atd_dev_password@localhost:5672',
+    );
     try {
       const conn = await amqplib.connect(url);
       this.connection = conn;
@@ -41,7 +57,9 @@ export class OutboxRelayService implements OnModuleInit, OnModuleDestroy {
       await this.channel.assertExchange(EXCHANGE, 'topic', { durable: true });
       this.logger.log('Connexion RabbitMQ établie');
     } catch (err) {
-      this.logger.warn(`RabbitMQ non disponible — outbox en attente : ${String(err)}`);
+      this.logger.warn(
+        `RabbitMQ non disponible — outbox en attente : ${String(err)}`,
+      );
     }
   }
 
@@ -62,7 +80,10 @@ export class OutboxRelayService implements OnModuleInit, OnModuleDestroy {
       await client.connect();
 
       const { rows: events } = await client.query<{
-        id: string; type: string; payload: unknown; attempts: number;
+        id: string;
+        type: string;
+        payload: unknown;
+        attempts: number;
       }>(
         `SELECT id, type, payload, attempts FROM "OutboxEvent"
          WHERE status = 'PENDING' AND attempts < $1
@@ -73,14 +94,18 @@ export class OutboxRelayService implements OnModuleInit, OnModuleDestroy {
       for (const event of events) {
         try {
           const payload = Buffer.from(JSON.stringify(event.payload));
-          this.channel.publish(EXCHANGE, event.type, payload, { persistent: true });
+          this.channel.publish(EXCHANGE, event.type, payload, {
+            persistent: true,
+          });
 
           await client.query(
             `UPDATE "OutboxEvent" SET status = 'SENT', "sentAt" = NOW() WHERE id = $1`,
             [event.id],
           );
         } catch (err) {
-          this.logger.error(`Échec publication event ${event.id} : ${String(err)}`);
+          this.logger.error(
+            `Échec publication event ${event.id} : ${String(err)}`,
+          );
           const newAttempts = event.attempts + 1;
           const newStatus = newAttempts >= MAX_ATTEMPTS ? 'FAILED' : 'PENDING';
           await client.query(
@@ -92,7 +117,9 @@ export class OutboxRelayService implements OnModuleInit, OnModuleDestroy {
     } catch (err) {
       this.logger.warn(`Outbox flush échoué : ${String(err)}`);
     } finally {
-      await client.end().catch(() => { /* ignore */ });
+      await client.end().catch(() => {
+        /* ignore */
+      });
     }
   }
 }

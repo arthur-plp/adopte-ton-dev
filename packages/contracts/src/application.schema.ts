@@ -1,8 +1,10 @@
 import { z } from "zod";
 import { ApplicationStatus } from "@repo/types";
 
+import { cuidLike } from "./id.schema";
+
 export const CreateApplicationSchema = z.object({
-  jobOfferId: z.string().cuid(),
+  jobOfferId: cuidLike,
   coverLetter: z.string().max(5000).optional(),
 });
 

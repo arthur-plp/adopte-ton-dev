@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 
 export function ProfileAvatar() {
   const [failed, setFailed] = useState(false);
@@ -14,10 +15,12 @@ export function ProfileAvatar() {
   }
 
   return (
-    <img
+    <Image
       src="https://github.com/arthur-plp.png"
       alt="Arthur Philippe"
-      className="size-full object-cover"
+      fill
+      sizes="(max-width: 768px) 100vw, 50vw"
+      className="object-cover"
       onError={() => setFailed(true)}
     />
   );

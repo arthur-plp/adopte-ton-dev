@@ -5,6 +5,8 @@ import {
   SkillLevel,
 } from "@repo/types";
 
+import { cuidLike } from "./id.schema";
+
 export const CreateUserSchema = z.object({
   email: z.string().email(),
   role: z.nativeEnum(Role),
@@ -21,7 +23,7 @@ export const TechnologySchema = z.object({
 export type TechnologyDto = z.infer<typeof TechnologySchema>;
 
 export const SkillSchema = z.object({
-  skillId: z.string().cuid(),
+  skillId: cuidLike,
   level: z.nativeEnum(SkillLevel).default(SkillLevel.INTERMEDIATE),
 });
 
@@ -65,7 +67,20 @@ export const CreateDeveloperProfileSchema = z.object({
 
 export type CreateDeveloperProfileDto = z.infer<typeof CreateDeveloperProfileSchema>;
 
-export const UpdateDeveloperProfileSchema = CreateDeveloperProfileSchema.partial();
+// Défini sans .default() pour que .partial() en Zod v4 retourne uniquement les champs fournis
+export const UpdateDeveloperProfileSchema = z.object({
+  firstName: z.string().min(1).max(100),
+  lastName: z.string().min(1).max(100),
+  title: z.string().max(200),
+  bio: z.string().max(2000),
+  location: z.string().max(200),
+  remoteOk: z.boolean(),
+  availability: z.nativeEnum(Availability),
+  githubUrl: z.string().url(),
+  portfolioUrl: z.string().url(),
+  linkedinUrl: z.string().url(),
+  avatarUrl: z.string().url(),
+}).partial();
 
 export type UpdateDeveloperProfileDto = z.infer<typeof UpdateDeveloperProfileSchema>;
 
@@ -80,7 +95,7 @@ export type CreateCompanyDto = z.infer<typeof CreateCompanySchema>;
 export const CreateRecruiterProfileSchema = z.object({
   firstName: z.string().min(1).max(100),
   lastName: z.string().min(1).max(100),
-  companyId: z.string().cuid(),
+  companyId: cuidLike,
 });
 
 export type CreateRecruiterProfileDto = z.infer<typeof CreateRecruiterProfileSchema>;

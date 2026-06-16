@@ -1,8 +1,15 @@
-import { ForbiddenException, NotFoundException, ConflictException } from '@nestjs/common';
+import {
+  ForbiddenException,
+  NotFoundException,
+  ConflictException,
+} from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { DeveloperProfilesService } from './developer-profiles.service';
 import { PrismaService } from '../prisma/prisma.service';
-import type { CreateDeveloperProfileDto, UpdateDeveloperProfileDto } from '@repo/contracts';
+import type {
+  CreateDeveloperProfileDto,
+  UpdateDeveloperProfileDto,
+} from '@repo/contracts';
 import { Availability } from '@repo/types';
 
 const mockPrisma = {
@@ -102,15 +109,19 @@ describe('DeveloperProfilesService', () => {
 
     it('lance NotFoundException si profil introuvable', async () => {
       mockPrisma.developerProfile.findUnique.mockResolvedValue(null);
-      await expect(service.findByUserId('inconnu')).rejects.toThrow(NotFoundException);
+      await expect(service.findByUserId('inconnu')).rejects.toThrow(
+        NotFoundException,
+      );
     });
   });
 
   // ─── update ───────────────────────────────────────────────────────────────
 
   describe('update', () => {
-    it('met à jour le profil et écrit dans l\'Outbox en transaction', async () => {
-      const updateDto: UpdateDeveloperProfileDto = { firstName: 'Alice Updated' };
+    it("met à jour le profil et écrit dans l'Outbox en transaction", async () => {
+      const updateDto: UpdateDeveloperProfileDto = {
+        firstName: 'Alice Updated',
+      };
       const updated = { ...profile, ...updateDto };
 
       mockPrisma.developerProfile.findUnique.mockResolvedValue(profile);
@@ -123,13 +134,17 @@ describe('DeveloperProfilesService', () => {
 
     it('lance ForbiddenException si requesterId ≠ propriétaire', async () => {
       mockPrisma.developerProfile.findUnique.mockResolvedValue(profile);
-      await expect(service.update('user-1', 'attaquant', {})).rejects.toThrow(ForbiddenException);
+      await expect(service.update('user-1', 'attaquant', {})).rejects.toThrow(
+        ForbiddenException,
+      );
       expect(mockPrisma.$transaction).not.toHaveBeenCalled();
     });
 
     it('lance NotFoundException si profil introuvable', async () => {
       mockPrisma.developerProfile.findUnique.mockResolvedValue(null);
-      await expect(service.update('inconnu', 'inconnu', {})).rejects.toThrow(NotFoundException);
+      await expect(service.update('inconnu', 'inconnu', {})).rejects.toThrow(
+        NotFoundException,
+      );
     });
   });
 
@@ -137,13 +152,21 @@ describe('DeveloperProfilesService', () => {
 
   describe('addTechnology', () => {
     it('ajoute une technologie et émet un event Outbox', async () => {
-      const tech = { id: 'tech-1', profileId: 'dev-1', name: 'TypeScript', level: 'ADVANCED' };
+      const tech = {
+        id: 'tech-1',
+        profileId: 'dev-1',
+        name: 'TypeScript',
+        level: 'ADVANCED',
+      };
 
       mockPrisma.developerProfile.findUnique.mockResolvedValue(profile);
       mockPrisma.developerTechnology.findFirst.mockResolvedValue(null);
       mockPrisma.$transaction.mockResolvedValue([tech, {}]);
 
-      const result = await service.addTechnology('user-1', 'user-1', { name: 'TypeScript', level: 'ADVANCED' });
+      const result = await service.addTechnology('user-1', 'user-1', {
+        name: 'TypeScript',
+        level: 'ADVANCED',
+      });
 
       expect(result).toEqual(tech);
       expect(mockPrisma.$transaction).toHaveBeenCalled();
@@ -151,17 +174,25 @@ describe('DeveloperProfilesService', () => {
 
     it('lance ConflictException si la technologie existe déjà', async () => {
       mockPrisma.developerProfile.findUnique.mockResolvedValue(profile);
-      mockPrisma.developerTechnology.findFirst.mockResolvedValue({ id: 'tech-existing' });
+      mockPrisma.developerTechnology.findFirst.mockResolvedValue({
+        id: 'tech-existing',
+      });
 
       await expect(
-        service.addTechnology('user-1', 'user-1', { name: 'TypeScript', level: 'ADVANCED' }),
+        service.addTechnology('user-1', 'user-1', {
+          name: 'TypeScript',
+          level: 'ADVANCED',
+        }),
       ).rejects.toThrow(ConflictException);
     });
 
     it('lance ForbiddenException si requesterId ≠ propriétaire', async () => {
       mockPrisma.developerProfile.findUnique.mockResolvedValue(profile);
       await expect(
-        service.addTechnology('user-1', 'hacker', { name: 'React', level: 'BEGINNER' }),
+        service.addTechnology('user-1', 'hacker', {
+          name: 'React',
+          level: 'BEGINNER',
+        }),
       ).rejects.toThrow(ForbiddenException);
     });
   });
@@ -174,15 +205,24 @@ describe('DeveloperProfilesService', () => {
       mockPrisma.developerTechnology.findUnique.mockResolvedValue(tech);
       mockPrisma.$transaction.mockResolvedValue([{}, {}]);
 
-      const result = await service.deleteTechnology('user-1', 'user-1', 'tech-1');
+      const result = await service.deleteTechnology(
+        'user-1',
+        'user-1',
+        'tech-1',
+      );
       expect(result).toEqual({ deleted: true });
     });
 
     it('lance NotFoundException si la technologie appartient à un autre profil', async () => {
       mockPrisma.developerProfile.findUnique.mockResolvedValue(profile);
-      mockPrisma.developerTechnology.findUnique.mockResolvedValue({ id: 'tech-1', profileId: 'autre-profil' });
+      mockPrisma.developerTechnology.findUnique.mockResolvedValue({
+        id: 'tech-1',
+        profileId: 'autre-profil',
+      });
 
-      await expect(service.deleteTechnology('user-1', 'user-1', 'tech-1')).rejects.toThrow(NotFoundException);
+      await expect(
+        service.deleteTechnology('user-1', 'user-1', 'tech-1'),
+      ).rejects.toThrow(NotFoundException);
     });
   });
 
@@ -191,30 +231,49 @@ describe('DeveloperProfilesService', () => {
   describe('addSkill', () => {
     it('ajoute une compétence au profil et émet un event', async () => {
       const skill = { id: 'skill-1', name: 'API REST' };
-      const entry = { id: 'ds-1', profileId: 'dev-1', skillId: 'skill-1', level: 'INTERMEDIATE' };
+      const entry = {
+        id: 'ds-1',
+        profileId: 'dev-1',
+        skillId: 'skill-1',
+        level: 'INTERMEDIATE',
+      };
 
       mockPrisma.developerProfile.findUnique.mockResolvedValue(profile);
       mockPrisma.skill.findUnique.mockResolvedValue(skill);
       mockPrisma.developerSkill.findFirst.mockResolvedValue(null);
       mockPrisma.$transaction.mockResolvedValue([entry, {}]);
 
-      const result = await service.addSkill('user-1', 'user-1', 'skill-1', 'INTERMEDIATE');
+      const result = await service.addSkill(
+        'user-1',
+        'user-1',
+        'skill-1',
+        'INTERMEDIATE',
+      );
       expect(result).toEqual(entry);
     });
 
     it('lance ConflictException si la compétence est déjà ajoutée', async () => {
       mockPrisma.developerProfile.findUnique.mockResolvedValue(profile);
-      mockPrisma.skill.findUnique.mockResolvedValue({ id: 'skill-1', name: 'API REST' });
-      mockPrisma.developerSkill.findFirst.mockResolvedValue({ id: 'ds-existing' });
+      mockPrisma.skill.findUnique.mockResolvedValue({
+        id: 'skill-1',
+        name: 'API REST',
+      });
+      mockPrisma.developerSkill.findFirst.mockResolvedValue({
+        id: 'ds-existing',
+      });
 
-      await expect(service.addSkill('user-1', 'user-1', 'skill-1', 'INTERMEDIATE')).rejects.toThrow(ConflictException);
+      await expect(
+        service.addSkill('user-1', 'user-1', 'skill-1', 'INTERMEDIATE'),
+      ).rejects.toThrow(ConflictException);
     });
 
-    it('lance NotFoundException si la compétence du catalogue n\'existe pas', async () => {
+    it("lance NotFoundException si la compétence du catalogue n'existe pas", async () => {
       mockPrisma.developerProfile.findUnique.mockResolvedValue(profile);
       mockPrisma.skill.findUnique.mockResolvedValue(null);
 
-      await expect(service.addSkill('user-1', 'user-1', 'inconnu', 'BEGINNER')).rejects.toThrow(NotFoundException);
+      await expect(
+        service.addSkill('user-1', 'user-1', 'inconnu', 'BEGINNER'),
+      ).rejects.toThrow(NotFoundException);
     });
   });
 
@@ -222,20 +281,32 @@ describe('DeveloperProfilesService', () => {
 
   describe('createProject', () => {
     it('crée un projet manuel et le retourne', async () => {
-      const projectData = { title: 'Mon app', description: 'Super projet', technologies: ['React'] };
+      const projectData = {
+        title: 'Mon app',
+        description: 'Super projet',
+        technologies: ['React'],
+      };
       const created = { id: 'proj-1', profileId: 'dev-1', ...projectData };
 
       mockPrisma.developerProfile.findUnique.mockResolvedValue(profile);
       mockPrisma.project.create.mockResolvedValue(created);
 
-      const result = await service.createProject('user-1', 'user-1', projectData);
+      const result = await service.createProject(
+        'user-1',
+        'user-1',
+        projectData,
+      );
       expect(result).toEqual(created);
     });
 
     it('lance ForbiddenException si requesterId ≠ propriétaire', async () => {
       mockPrisma.developerProfile.findUnique.mockResolvedValue(profile);
       await expect(
-        service.createProject('user-1', 'hacker', { title: 'x', description: 'y', technologies: [] }),
+        service.createProject('user-1', 'hacker', {
+          title: 'x',
+          description: 'y',
+          technologies: [],
+        }),
       ).rejects.toThrow(ForbiddenException);
     });
   });
@@ -254,9 +325,14 @@ describe('DeveloperProfilesService', () => {
 
     it('lance NotFoundException si le projet appartient à un autre profil', async () => {
       mockPrisma.developerProfile.findUnique.mockResolvedValue(profile);
-      mockPrisma.project.findUnique.mockResolvedValue({ id: 'proj-1', profileId: 'autre' });
+      mockPrisma.project.findUnique.mockResolvedValue({
+        id: 'proj-1',
+        profileId: 'autre',
+      });
 
-      await expect(service.deleteProject('user-1', 'user-1', 'proj-1')).rejects.toThrow(NotFoundException);
+      await expect(
+        service.deleteProject('user-1', 'user-1', 'proj-1'),
+      ).rejects.toThrow(NotFoundException);
     });
   });
 });

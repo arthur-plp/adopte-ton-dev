@@ -18,7 +18,13 @@ describe('CreateConversationSchema', () => {
     expect(result.jobOfferId).toBe(validCuid);
   });
 
-  it('rejette un recruiterId non-cuid', () => {
+  it('rejette un recruiterId vide', () => {
+    expect(() =>
+      CreateConversationSchema.parse({ recruiterId: '', developerId: validCuid }),
+    ).toThrow();
+  });
+
+  it('rejette un recruiterId au format invalide (non-cuid)', () => {
     expect(() =>
       CreateConversationSchema.parse({ recruiterId: 'pas-un-cuid', developerId: validCuid }),
     ).toThrow();
@@ -49,7 +55,13 @@ describe('SendMessageSchema', () => {
     ).toThrow();
   });
 
-  it('rejette un conversationId non-cuid', () => {
+  it('rejette un conversationId vide', () => {
+    expect(() =>
+      SendMessageSchema.parse({ conversationId: '', content: 'Texte' }),
+    ).toThrow();
+  });
+
+  it('rejette un conversationId au format invalide (non-cuid)', () => {
     expect(() =>
       SendMessageSchema.parse({ conversationId: 'pas-un-cuid', content: 'Texte' }),
     ).toThrow();

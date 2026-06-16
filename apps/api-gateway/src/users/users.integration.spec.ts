@@ -4,13 +4,19 @@
  * fetch est mocké ; seul le pipeline NestJS est réel.
  */
 jest.mock('../auth/auth.guard', () => ({
-  AuthGuard: class { canActivate() { return true; } },
+  AuthGuard: class {
+    canActivate() {
+      return true;
+    }
+  },
 }));
 
 import { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 // eslint-disable-next-line @typescript-eslint/no-require-imports
-const request = require('supertest') as (app: unknown) => import('supertest').SuperTest<import('supertest').Test>;
+const request = require('supertest') as (
+  app: unknown,
+) => import('supertest').SuperTest<import('supertest').Test>;
 import { ConfigService } from '@nestjs/config';
 import { UsersController } from './users.controller';
 import { AuthGuard } from '../auth/auth.guard';
@@ -42,10 +48,14 @@ describe('UsersController (intégration)', () => {
       ],
     })
       .overrideGuard(AuthGuard)
-      .useValue({ canActivate: (ctx: { switchToHttp: () => { getRequest: () => object } }) => {
-        ctx.switchToHttp().getRequest()['user'] = mockUser;
-        return true;
-      }})
+      .useValue({
+        canActivate: (ctx: {
+          switchToHttp: () => { getRequest: () => object };
+        }) => {
+          ctx.switchToHttp().getRequest()['user'] = mockUser;
+          return true;
+        },
+      })
       .overrideGuard(RolesGuard)
       .useValue({ canActivate: () => true })
       .compile();
@@ -131,7 +141,14 @@ describe('UsersController (intégration)', () => {
       expect(mockFetch).not.toHaveBeenCalled();
     });
 
-    it('retourne 400 si skillId n\'est pas un cuid', async () => {
+    it("retourne 400 si skillId est vide", async () => {
+      await request(app.getHttpServer())
+        .post('/users/developer/me/skills')
+        .send({ skillId: '', level: 'INTERMEDIATE' })
+        .expect(400);
+    });
+
+    it("retourne 400 si skillId est au format invalide (non-cuid)", async () => {
       await request(app.getHttpServer())
         .post('/users/developer/me/skills')
         .send({ skillId: 'pas-un-cuid', level: 'INTERMEDIATE' })
@@ -145,7 +162,11 @@ describe('UsersController (intégration)', () => {
     it('retourne 201 avec un payload valide', async () => {
       await request(app.getHttpServer())
         .post('/users/developer/me/projects')
-        .send({ title: 'Mon projet', description: 'Super app', technologies: [] })
+        .send({
+          title: 'Mon projet',
+          description: 'Super app',
+          technologies: [],
+        })
         .expect(201);
     });
 
@@ -168,7 +189,12 @@ describe('UsersController (intégration)', () => {
     it('retourne 400 si repoUrl est une URL invalide', async () => {
       await request(app.getHttpServer())
         .post('/users/developer/me/projects')
-        .send({ title: 'Test', description: 'Desc', technologies: [], repoUrl: 'pas-une-url' })
+        .send({
+          title: 'Test',
+          description: 'Desc',
+          technologies: [],
+          repoUrl: 'pas-une-url',
+        })
         .expect(400);
     });
   });
