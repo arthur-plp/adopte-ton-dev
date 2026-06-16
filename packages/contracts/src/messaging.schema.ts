@@ -1,15 +1,17 @@
 import { z } from "zod";
 
+import { cuidLike } from "./id.schema";
+
 export const CreateConversationSchema = z.object({
-  recruiterId: z.string().min(1),
-  developerId: z.string().min(1),
-  jobOfferId: z.string().min(1).optional(),
+  recruiterId: cuidLike,
+  developerId: cuidLike,
+  jobOfferId: cuidLike.optional(),
 });
 
 export type CreateConversationDto = z.infer<typeof CreateConversationSchema>;
 
 export const SendMessageSchema = z.object({
-  conversationId: z.string().min(1),
+  conversationId: cuidLike,
   content: z.string().min(1).max(5000),
 });
 

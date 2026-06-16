@@ -19,6 +19,7 @@ export function ProfileAvatar() {
       src="https://github.com/arthur-plp.png"
       alt="Arthur Philippe"
       fill
+      sizes="(max-width: 768px) 100vw, 50vw"
       className="object-cover"
       onError={() => setFailed(true)}
     />

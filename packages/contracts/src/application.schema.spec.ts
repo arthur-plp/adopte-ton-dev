@@ -30,9 +30,9 @@ describe('CreateApplicationSchema', () => {
     ).toThrow();
   });
 
-  it('rejette un jobOfferId vide', () => {
+  it('rejette un jobOfferId au format invalide (non-cuid)', () => {
     expect(() =>
-      CreateApplicationSchema.parse({ jobOfferId: '' }),
+      CreateApplicationSchema.parse({ jobOfferId: 'pas-un-cuid' }),
     ).toThrow();
   });
 

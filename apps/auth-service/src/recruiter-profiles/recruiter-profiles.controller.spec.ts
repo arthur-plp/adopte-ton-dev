@@ -71,6 +71,15 @@ describe('RecruiterProfilesController', () => {
         }),
       ).toThrow();
     });
+
+    it('lance une erreur Zod si companyId est au format invalide (non-cuid)', () => {
+      expect(() =>
+        controller.create({
+          userId: 'user-1',
+          data: { ...baseDto, companyId: 'pas-un-cuid' },
+        }),
+      ).toThrow();
+    });
   });
 
   // ─── GET /:userId ─────────────────────────────────────────────────────────

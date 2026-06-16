@@ -9,6 +9,7 @@
     "GOOGLE_CLIENT_ID",
     "GOOGLE_CLIENT_SECRET",
     "NEXT_PUBLIC_API_URL",
+    "NEXT_PUBLIC_BETTER_AUTH_URL",
     "NODE_ENV"
   ],
   "tasks": {
