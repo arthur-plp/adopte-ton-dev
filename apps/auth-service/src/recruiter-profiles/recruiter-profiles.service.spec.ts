@@ -64,7 +64,9 @@ describe('RecruiterProfilesService', () => {
       await service.create('user-2', baseCreateDto);
 
       expect(mockPrisma.recruiterProfile.create).toHaveBeenCalledWith(
-        expect.objectContaining({ data: expect.objectContaining({ userId: 'user-2' }) }),
+        expect.objectContaining({
+          data: expect.objectContaining({ userId: 'user-2' }),
+        }),
       );
     });
   });
@@ -94,7 +96,9 @@ describe('RecruiterProfilesService', () => {
     it('lance NotFoundException si profil introuvable', async () => {
       mockPrisma.recruiterProfile.findUnique.mockResolvedValue(null);
 
-      await expect(service.findByUserId('user-inconnu')).rejects.toThrow(NotFoundException);
+      await expect(service.findByUserId('user-inconnu')).rejects.toThrow(
+        NotFoundException,
+      );
       await expect(service.findByUserId('user-inconnu')).rejects.toThrow(
         'Profil recruteur introuvable',
       );
@@ -116,30 +120,30 @@ describe('RecruiterProfilesService', () => {
     it('lance NotFoundException si le profil est introuvable', async () => {
       mockPrisma.recruiterProfile.findUnique.mockResolvedValue(null);
 
-      await expect(service.ensureOwnership('user-inconnu', 'user-inconnu')).rejects.toThrow(
-        NotFoundException,
-      );
+      await expect(
+        service.ensureOwnership('user-inconnu', 'user-inconnu'),
+      ).rejects.toThrow(NotFoundException);
     });
 
     it('lance ForbiddenException si le requesterId est différent du userId', async () => {
       const profile = { id: 'rec-1', userId: 'user-1', ...baseCreateDto };
       mockPrisma.recruiterProfile.findUnique.mockResolvedValue(profile);
 
-      await expect(service.ensureOwnership('user-1', 'attaquant-42')).rejects.toThrow(
-        ForbiddenException,
-      );
+      await expect(
+        service.ensureOwnership('user-1', 'attaquant-42'),
+      ).rejects.toThrow(ForbiddenException);
     });
 
-    it('ownership: ne retourne rien si attaquant tente d\'accéder', async () => {
+    it("ownership: ne retourne rien si attaquant tente d'accéder", async () => {
       mockPrisma.recruiterProfile.findUnique.mockResolvedValue({
         id: 'rec-1',
         userId: 'legitime',
         ...baseCreateDto,
       });
 
-      await expect(service.ensureOwnership('legitime', 'imposteur')).rejects.toThrow(
-        ForbiddenException,
-      );
+      await expect(
+        service.ensureOwnership('legitime', 'imposteur'),
+      ).rejects.toThrow(ForbiddenException);
     });
   });
 });

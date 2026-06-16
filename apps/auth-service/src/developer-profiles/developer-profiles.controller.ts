@@ -1,6 +1,17 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiParam, ApiBody, ApiResponse } from '@nestjs/swagger';
-import { DeveloperProfilesService, type SkillLevel } from './developer-profiles.service';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  Patch,
+  Post,
+} from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiParam, ApiResponse } from '@nestjs/swagger';
+import {
+  DeveloperProfilesService,
+  type SkillLevel,
+} from './developer-profiles.service';
 import { GitHubSyncService } from './github-sync.service';
 import {
   CreateDeveloperProfileSchema,
@@ -9,7 +20,11 @@ import {
   type UpdateDeveloperProfileDto,
 } from '@repo/contracts';
 
-type CreateBody = { userId: string; requesterId: string; data: CreateDeveloperProfileDto };
+type CreateBody = {
+  userId: string;
+  requesterId: string;
+  data: CreateDeveloperProfileDto;
+};
 type UpdateBody = { requesterId: string; data: UpdateDeveloperProfileDto };
 
 @ApiTags('developer-profiles')
@@ -30,7 +45,9 @@ export class DeveloperProfilesController {
   }
 
   @Get(':userId')
-  @ApiOperation({ summary: 'Profil développeur complet (skills, technologies, projets)' })
+  @ApiOperation({
+    summary: 'Profil développeur complet (skills, technologies, projets)',
+  })
   @ApiParam({ name: 'userId' })
   findOne(@Param('userId') userId: string) {
     return this.service.findByUserId(userId);
@@ -60,11 +77,14 @@ export class DeveloperProfilesController {
     @Param('userId') userId: string,
     @Body() body: { requesterId: string; name: string; level: SkillLevel },
   ) {
-    return this.service.addTechnology(userId, body.requesterId, { name: body.name, level: body.level });
+    return this.service.addTechnology(userId, body.requesterId, {
+      name: body.name,
+      level: body.level,
+    });
   }
 
   @Patch(':userId/technologies/:techId')
-  @ApiOperation({ summary: 'Modifier le niveau d\'une technologie' })
+  @ApiOperation({ summary: "Modifier le niveau d'une technologie" })
   @ApiParam({ name: 'userId' })
   @ApiParam({ name: 'techId' })
   updateTechnology(
@@ -72,7 +92,12 @@ export class DeveloperProfilesController {
     @Param('techId') techId: string,
     @Body() body: { requesterId: string; level: SkillLevel },
   ) {
-    return this.service.updateTechnology(userId, body.requesterId, techId, body.level);
+    return this.service.updateTechnology(
+      userId,
+      body.requesterId,
+      techId,
+      body.level,
+    );
   }
 
   @Delete(':userId/technologies/:techId')
@@ -90,7 +115,9 @@ export class DeveloperProfilesController {
   // ── Skills ────────────────────────────────────────────────────────────────
 
   @Get('skills/catalog')
-  @ApiOperation({ summary: 'Lister toutes les compétences disponibles dans le catalogue' })
+  @ApiOperation({
+    summary: 'Lister toutes les compétences disponibles dans le catalogue',
+  })
   @ApiResponse({ status: 200, description: 'Liste des Skill' })
   listSkills() {
     return this.service.listAvailableSkills();
@@ -110,11 +137,16 @@ export class DeveloperProfilesController {
     @Param('userId') userId: string,
     @Body() body: { requesterId: string; skillId: string; level: SkillLevel },
   ) {
-    return this.service.addSkill(userId, body.requesterId, body.skillId, body.level);
+    return this.service.addSkill(
+      userId,
+      body.requesterId,
+      body.skillId,
+      body.level,
+    );
   }
 
   @Patch(':userId/skills/:skillId')
-  @ApiOperation({ summary: 'Modifier le niveau d\'une compétence' })
+  @ApiOperation({ summary: "Modifier le niveau d'une compétence" })
   @ApiParam({ name: 'userId' })
   @ApiParam({ name: 'skillId' })
   updateSkill(
@@ -122,7 +154,12 @@ export class DeveloperProfilesController {
     @Param('skillId') skillId: string,
     @Body() body: { requesterId: string; level: SkillLevel },
   ) {
-    return this.service.updateSkill(userId, body.requesterId, skillId, body.level);
+    return this.service.updateSkill(
+      userId,
+      body.requesterId,
+      skillId,
+      body.level,
+    );
   }
 
   @Delete(':userId/skills/:skillId')
@@ -158,7 +195,15 @@ export class DeveloperProfilesController {
   @ApiParam({ name: 'userId' })
   createProject(
     @Param('userId') userId: string,
-    @Body() body: { requesterId: string; title: string; description: string; repoUrl?: string; liveUrl?: string; technologies: string[] },
+    @Body()
+    body: {
+      requesterId: string;
+      title: string;
+      description: string;
+      repoUrl?: string;
+      liveUrl?: string;
+      technologies: string[];
+    },
   ) {
     return this.service.createProject(userId, body.requesterId, {
       title: body.title,
@@ -170,23 +215,38 @@ export class DeveloperProfilesController {
   }
 
   @Post(':userId/projects/reorder')
-  @ApiOperation({ summary: 'Mettre à jour l\'ordre des projets' })
+  @ApiOperation({ summary: "Mettre à jour l'ordre des projets" })
   @ApiParam({ name: 'userId' })
   reorderProjects(
     @Param('userId') userId: string,
-    @Body() body: { requesterId: string; order: { id: string; displayOrder: number }[] },
+    @Body()
+    body: {
+      requesterId: string;
+      order: { id: string; displayOrder: number }[];
+    },
   ) {
     return this.service.reorderProjects(userId, body.requesterId, body.order);
   }
 
   @Patch(':userId/projects/:projectId')
-  @ApiOperation({ summary: 'Modifier un projet (visibilité, titre, description…)' })
+  @ApiOperation({
+    summary: 'Modifier un projet (visibilité, titre, description…)',
+  })
   @ApiParam({ name: 'userId' })
   @ApiParam({ name: 'projectId' })
   updateProject(
     @Param('userId') userId: string,
     @Param('projectId') projectId: string,
-    @Body() body: { requesterId: string; title?: string; description?: string; repoUrl?: string; liveUrl?: string; technologies?: string[]; visible?: boolean },
+    @Body()
+    body: {
+      requesterId: string;
+      title?: string;
+      description?: string;
+      repoUrl?: string;
+      liveUrl?: string;
+      technologies?: string[];
+      visible?: boolean;
+    },
   ) {
     const { requesterId, ...dto } = body;
     return this.service.updateProject(userId, requesterId, projectId, dto);

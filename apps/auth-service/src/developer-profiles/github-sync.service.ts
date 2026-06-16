@@ -24,7 +24,9 @@ export class GitHubSyncService {
   constructor(private readonly prisma: PrismaService) {}
 
   async syncForUser(userId: string): Promise<GitHubSyncResult> {
-    const profile = await this.prisma.developerProfile.findUnique({ where: { userId } });
+    const profile = await this.prisma.developerProfile.findUnique({
+      where: { userId },
+    });
     if (!profile) throw new NotFoundException('Profil développeur introuvable');
 
     const account = await this.prisma.account.findFirst({
@@ -46,7 +48,10 @@ export class GitHubSyncService {
         continue;
       }
 
-      const languages = await this.fetchRepoLanguages(repo.languages_url, account.accessToken);
+      const languages = await this.fetchRepoLanguages(
+        repo.languages_url,
+        account.accessToken,
+      );
       const technologies = this.extractTechnologies(repo, languages);
       const githubPushedAt = repo.pushed_at ? new Date(repo.pushed_at) : null;
 
@@ -84,13 +89,16 @@ export class GitHubSyncService {
   }
 
   private async fetchGitHubRepos(accessToken: string): Promise<GitHubRepo[]> {
-    const response = await fetch('https://api.github.com/user/repos?per_page=100&sort=pushed', {
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        Accept: 'application/vnd.github+json',
-        'X-GitHub-Api-Version': '2022-11-28',
+    const response = await fetch(
+      'https://api.github.com/user/repos?per_page=100&sort=pushed',
+      {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          Accept: 'application/vnd.github+json',
+          'X-GitHub-Api-Version': '2022-11-28',
+        },
       },
-    });
+    );
 
     if (!response.ok) return [];
     return response.json() as Promise<GitHubRepo[]>;
@@ -115,7 +123,10 @@ export class GitHubSyncService {
     }
   }
 
-  private extractTechnologies(repo: GitHubRepo, languages: Record<string, number>): string[] {
+  private extractTechnologies(
+    repo: GitHubRepo,
+    languages: Record<string, number>,
+  ): string[] {
     const techs = new Set<string>();
 
     // Toutes les langues détectées par GitHub (triées par bytes de code)
@@ -139,33 +150,49 @@ export class GitHubSyncService {
 
   private normalizeTopic(topic: string): string {
     const map: Record<string, string> = {
-      'nextjs': 'Next.js', 'next-js': 'Next.js',
-      'reactjs': 'React', 'react-js': 'React', 'react': 'React',
-      'nodejs': 'Node.js', 'node-js': 'Node.js', 'node': 'Node.js',
-      'nestjs': 'NestJS', 'nest-js': 'NestJS',
-      'vuejs': 'Vue.js', 'vue-js': 'Vue.js', 'vue': 'Vue.js',
-      'nuxtjs': 'Nuxt.js', 'nuxt': 'Nuxt.js',
-      'typescript': 'TypeScript', 'ts': 'TypeScript',
-      'javascript': 'JavaScript', 'js': 'JavaScript',
-      'tailwindcss': 'TailwindCSS', 'tailwind': 'TailwindCSS',
-      'postgresql': 'PostgreSQL', 'postgres': 'PostgreSQL',
-      'mongodb': 'MongoDB', 'mongo': 'MongoDB',
-      'graphql': 'GraphQL',
-      'docker': 'Docker',
-      'prisma': 'Prisma',
-      'trpc': 'tRPC',
-      'svelte': 'Svelte', 'sveltekit': 'SvelteKit',
-      'angular': 'Angular',
-      'express': 'Express',
-      'fastapi': 'FastAPI',
-      'django': 'Django',
-      'laravel': 'Laravel',
-      'spring': 'Spring',
-      'rust': 'Rust',
-      'go': 'Go',
-      'python': 'Python',
-      'java': 'Java',
-      'csharp': 'C#', 'dotnet': '.NET',
+      nextjs: 'Next.js',
+      'next-js': 'Next.js',
+      reactjs: 'React',
+      'react-js': 'React',
+      react: 'React',
+      nodejs: 'Node.js',
+      'node-js': 'Node.js',
+      node: 'Node.js',
+      nestjs: 'NestJS',
+      'nest-js': 'NestJS',
+      vuejs: 'Vue.js',
+      'vue-js': 'Vue.js',
+      vue: 'Vue.js',
+      nuxtjs: 'Nuxt.js',
+      nuxt: 'Nuxt.js',
+      typescript: 'TypeScript',
+      ts: 'TypeScript',
+      javascript: 'JavaScript',
+      js: 'JavaScript',
+      tailwindcss: 'TailwindCSS',
+      tailwind: 'TailwindCSS',
+      postgresql: 'PostgreSQL',
+      postgres: 'PostgreSQL',
+      mongodb: 'MongoDB',
+      mongo: 'MongoDB',
+      graphql: 'GraphQL',
+      docker: 'Docker',
+      prisma: 'Prisma',
+      trpc: 'tRPC',
+      svelte: 'Svelte',
+      sveltekit: 'SvelteKit',
+      angular: 'Angular',
+      express: 'Express',
+      fastapi: 'FastAPI',
+      django: 'Django',
+      laravel: 'Laravel',
+      spring: 'Spring',
+      rust: 'Rust',
+      go: 'Go',
+      python: 'Python',
+      java: 'Java',
+      csharp: 'C#',
+      dotnet: '.NET',
     };
     return map[topic.toLowerCase()] ?? topic;
   }

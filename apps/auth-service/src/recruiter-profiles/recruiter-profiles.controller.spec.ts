@@ -20,7 +20,9 @@ describe('RecruiterProfilesController', () => {
       providers: [{ provide: RecruiterProfilesService, useValue: mockService }],
     }).compile();
 
-    controller = module.get<RecruiterProfilesController>(RecruiterProfilesController);
+    controller = module.get<RecruiterProfilesController>(
+      RecruiterProfilesController,
+    );
     jest.clearAllMocks();
   });
 
@@ -42,7 +44,10 @@ describe('RecruiterProfilesController', () => {
       };
       mockService.create.mockResolvedValue(created);
 
-      const result = await controller.create({ userId: 'user-1', data: baseDto });
+      const result = await controller.create({
+        userId: 'user-1',
+        data: baseDto,
+      });
 
       expect(result).toEqual(created);
       expect(mockService.create).toHaveBeenCalledWith('user-1', baseDto);
@@ -91,7 +96,9 @@ describe('RecruiterProfilesController', () => {
         new NotFoundException('Profil recruteur introuvable'),
       );
 
-      await expect(controller.findOne('user-inconnu')).rejects.toThrow(NotFoundException);
+      await expect(controller.findOne('user-inconnu')).rejects.toThrow(
+        NotFoundException,
+      );
     });
   });
 });

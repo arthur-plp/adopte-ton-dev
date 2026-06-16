@@ -26,12 +26,18 @@ export class PrismaService implements OnModuleInit, OnModuleDestroy {
 
     return new Proxy(this, {
       get(target, prop, receiver) {
-        if (prop === '_prisma' || prop === 'onModuleInit' || prop === 'onModuleDestroy') {
+        if (
+          prop === '_prisma' ||
+          prop === 'onModuleInit' ||
+          prop === 'onModuleDestroy'
+        ) {
           return Reflect.get(target, prop, receiver);
         }
         const val = Reflect.get(target._prisma, prop, target._prisma);
         if (val !== undefined) {
-          return typeof val === 'function' ? (val as (...args: unknown[]) => unknown).bind(target._prisma) : val;
+          return typeof val === 'function'
+            ? (val as (...args: unknown[]) => unknown).bind(target._prisma)
+            : val;
         }
         return Reflect.get(target, prop, receiver);
       },

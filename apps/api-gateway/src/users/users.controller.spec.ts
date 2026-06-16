@@ -52,7 +52,11 @@ describe('UsersController (api-gateway)', () => {
         {
           provide: ConfigService,
           useValue: {
-            get: jest.fn().mockImplementation((_key: string, defaultVal: string) => defaultVal),
+            get: jest
+              .fn()
+              .mockImplementation(
+                (_key: string, defaultVal: string) => defaultVal,
+              ),
           },
         },
       ],
@@ -74,14 +78,21 @@ describe('UsersController (api-gateway)', () => {
       const expected = { userId: 'user-1', role: Role.DEVELOPER };
       mockFetch.mockResolvedValue({ json: () => Promise.resolve(expected) });
 
-      const result = await controller.onboarding(mockReq(), { role: Role.DEVELOPER });
+      const result = await controller.onboarding(mockReq(), {
+        role: Role.DEVELOPER,
+      });
 
       expect(mockFetch).toHaveBeenCalledWith(
         'http://localhost:3001/api/v1/users/onboarding',
         expect.objectContaining({
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ userId: 'user-1', role: Role.DEVELOPER, firstName: 'Alice', lastName: 'Alice' }),
+          body: JSON.stringify({
+            userId: 'user-1',
+            role: Role.DEVELOPER,
+            firstName: 'Alice',
+            lastName: 'Alice',
+          }),
         }),
       );
       expect(result).toEqual(expected);
@@ -89,14 +100,21 @@ describe('UsersController (api-gateway)', () => {
 
     it('propage le rôle RECRUITER correctement', async () => {
       const recUser = { ...mockUser, role: Role.RECRUITER };
-      mockFetch.mockResolvedValue({ json: () => Promise.resolve({ userId: 'user-1', role: Role.RECRUITER }) });
+      mockFetch.mockResolvedValue({
+        json: () => Promise.resolve({ userId: 'user-1', role: Role.RECRUITER }),
+      });
 
       await controller.onboarding(mockReq(recUser), { role: Role.RECRUITER });
 
       expect(mockFetch).toHaveBeenCalledWith(
         expect.any(String),
         expect.objectContaining({
-          body: JSON.stringify({ userId: 'user-1', role: Role.RECRUITER, firstName: 'Alice', lastName: 'Alice' }),
+          body: JSON.stringify({
+            userId: 'user-1',
+            role: Role.RECRUITER,
+            firstName: 'Alice',
+            lastName: 'Alice',
+          }),
         }),
       );
     });
@@ -105,7 +123,7 @@ describe('UsersController (api-gateway)', () => {
   // ─── GET /me/profile ──────────────────────────────────────────────────────
 
   describe('getMyProfile', () => {
-    it('appelle users-svc avec l\'userId extrait du token', async () => {
+    it("appelle users-svc avec l'userId extrait du token", async () => {
       const profile = { role: Role.DEVELOPER, profile: { firstName: 'Alice' } };
       mockFetch.mockResolvedValue({ json: () => Promise.resolve(profile) });
 
@@ -143,7 +161,9 @@ describe('UsersController (api-gateway)', () => {
       const updated = { id: 'dev-1', firstName: 'Alice Updated' };
       mockFetch.mockResolvedValue({ json: () => Promise.resolve(updated) });
 
-      const result = await controller.updateDeveloperProfile(mockReq(), { firstName: 'Alice Updated' });
+      const result = await controller.updateDeveloperProfile(mockReq(), {
+        firstName: 'Alice Updated',
+      });
 
       expect(mockFetch).toHaveBeenCalledWith(
         'http://localhost:3001/api/v1/developer-profiles/user-1',

@@ -38,7 +38,12 @@ describe('UsersService', () => {
       mockPrisma.developerProfile.count.mockResolvedValue(0);
       mockPrisma.recruiterProfile.count.mockResolvedValue(0);
 
-      const result = await service.setRole('user-1', Role.DEVELOPER, 'Alice', 'Dev');
+      const result = await service.setRole(
+        'user-1',
+        Role.DEVELOPER,
+        'Alice',
+        'Dev',
+      );
 
       expect(result).toEqual({ userId: 'user-1', role: Role.DEVELOPER });
       expect(mockPrisma.developerProfile.create).toHaveBeenCalledWith({
@@ -71,7 +76,9 @@ describe('UsersService', () => {
       mockPrisma.developerProfile.count.mockResolvedValue(1);
       mockPrisma.recruiterProfile.count.mockResolvedValue(0);
 
-      await expect(service.setRole('user-1', Role.DEVELOPER)).rejects.toThrow(ConflictException);
+      await expect(service.setRole('user-1', Role.DEVELOPER)).rejects.toThrow(
+        ConflictException,
+      );
       await expect(service.setRole('user-1', Role.DEVELOPER)).rejects.toThrow(
         'Onboarding déjà effectué pour cet utilisateur',
       );
@@ -81,7 +88,9 @@ describe('UsersService', () => {
       mockPrisma.developerProfile.count.mockResolvedValue(0);
       mockPrisma.recruiterProfile.count.mockResolvedValue(1);
 
-      await expect(service.setRole('user-1', Role.RECRUITER)).rejects.toThrow(ConflictException);
+      await expect(service.setRole('user-1', Role.RECRUITER)).rejects.toThrow(
+        ConflictException,
+      );
     });
 
     it('vérifie les deux types de profils avant de répondre', async () => {
@@ -90,8 +99,12 @@ describe('UsersService', () => {
 
       await service.setRole('user-1', Role.DEVELOPER);
 
-      expect(mockPrisma.developerProfile.count).toHaveBeenCalledWith({ where: { userId: 'user-1' } });
-      expect(mockPrisma.recruiterProfile.count).toHaveBeenCalledWith({ where: { userId: 'user-1' } });
+      expect(mockPrisma.developerProfile.count).toHaveBeenCalledWith({
+        where: { userId: 'user-1' },
+      });
+      expect(mockPrisma.recruiterProfile.count).toHaveBeenCalledWith({
+        where: { userId: 'user-1' },
+      });
     });
   });
 
@@ -136,8 +149,12 @@ describe('UsersService', () => {
       mockPrisma.developerProfile.findUnique.mockResolvedValue(null);
       mockPrisma.recruiterProfile.findUnique.mockResolvedValue(null);
 
-      await expect(service.getProfile('user-unknown')).rejects.toThrow(NotFoundException);
-      await expect(service.getProfile('user-unknown')).rejects.toThrow('Profil introuvable');
+      await expect(service.getProfile('user-unknown')).rejects.toThrow(
+        NotFoundException,
+      );
+      await expect(service.getProfile('user-unknown')).rejects.toThrow(
+        'Profil introuvable',
+      );
     });
 
     it('cherche le profil dev avec les relations (skills, technologies, projects)', async () => {
@@ -153,7 +170,11 @@ describe('UsersService', () => {
 
       expect(mockPrisma.developerProfile.findUnique).toHaveBeenCalledWith({
         where: { userId: 'user-1' },
-        include: { skills: { include: { skill: true } }, technologies: true, projects: true },
+        include: {
+          skills: { include: { skill: true } },
+          technologies: true,
+          projects: true,
+        },
       });
     });
   });

@@ -1,6 +1,14 @@
-import { Injectable, NotFoundException, ForbiddenException, ConflictException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ForbiddenException,
+  ConflictException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import type { CreateDeveloperProfileDto, UpdateDeveloperProfileDto } from '@repo/contracts';
+import type {
+  CreateDeveloperProfileDto,
+  UpdateDeveloperProfileDto,
+} from '@repo/contracts';
 import { Events } from '@repo/contracts/events';
 
 export type SkillLevel = 'BEGINNER' | 'INTERMEDIATE' | 'ADVANCED';
@@ -22,7 +30,9 @@ export class DeveloperProfilesService {
   // ── Helpers ──────────────────────────────────────────────────────────────
 
   private async requireProfile(userId: string) {
-    const profile = await this.prisma.developerProfile.findUnique({ where: { userId } });
+    const profile = await this.prisma.developerProfile.findUnique({
+      where: { userId },
+    });
     if (!profile) throw new NotFoundException('Profil développeur introuvable');
     return profile;
   }
@@ -35,7 +45,10 @@ export class DeveloperProfilesService {
 
   private emitProfileUpdated(userId: string, changes: object) {
     return this.prisma.outboxEvent.create({
-      data: { type: Events.DEVELOPER_PROFILE_UPDATED, payload: { userId, changes } },
+      data: {
+        type: Events.DEVELOPER_PROFILE_UPDATED,
+        payload: { userId, changes },
+      },
     });
   }
 
@@ -51,14 +64,20 @@ export class DeveloperProfilesService {
       include: {
         skills: { include: { skill: true } },
         technologies: { orderBy: { name: 'asc' } },
-        projects: { orderBy: [{ displayOrder: 'asc' }, { githubPushedAt: 'desc' }] },
+        projects: {
+          orderBy: [{ displayOrder: 'asc' }, { githubPushedAt: 'desc' }],
+        },
       },
     });
     if (!profile) throw new NotFoundException('Profil développeur introuvable');
     return profile;
   }
 
-  async update(userId: string, requesterId: string, dto: UpdateDeveloperProfileDto) {
+  async update(
+    userId: string,
+    requesterId: string,
+    dto: UpdateDeveloperProfileDto,
+  ) {
     const profile = await this.requireOwner(userId, requesterId);
 
     const [updated] = await this.prisma.$transaction([
@@ -84,25 +103,42 @@ export class DeveloperProfilesService {
     const profile = await this.requireOwner(userId, requesterId);
 
     const exists = await this.prisma.developerTechnology.findFirst({
-      where: { profileId: profile.id, name: { equals: dto.name, mode: 'insensitive' } },
+      where: {
+        profileId: profile.id,
+        name: { equals: dto.name, mode: 'insensitive' },
+      },
     });
-    if (exists) throw new ConflictException(`Technologie "${dto.name}" déjà ajoutée`);
+    if (exists)
+      throw new ConflictException(`Technologie "${dto.name}" déjà ajoutée`);
 
     const [tech] = await this.prisma.$transaction([
-      this.prisma.developerTechnology.create({ data: { profileId: profile.id, ...dto } }),
+      this.prisma.developerTechnology.create({
+        data: { profileId: profile.id, ...dto },
+      }),
       this.emitProfileUpdated(userId, { addedTechnology: dto.name }),
     ]);
     return tech;
   }
 
-  async updateTechnology(userId: string, requesterId: string, techId: string, level: SkillLevel) {
+  async updateTechnology(
+    userId: string,
+    requesterId: string,
+    techId: string,
+    level: SkillLevel,
+  ) {
     const profile = await this.requireOwner(userId, requesterId);
 
-    const tech = await this.prisma.developerTechnology.findUnique({ where: { id: techId } });
-    if (!tech || tech.profileId !== profile.id) throw new NotFoundException('Technologie introuvable');
+    const tech = await this.prisma.developerTechnology.findUnique({
+      where: { id: techId },
+    });
+    if (!tech || tech.profileId !== profile.id)
+      throw new NotFoundException('Technologie introuvable');
 
     const [updated] = await this.prisma.$transaction([
-      this.prisma.developerTechnology.update({ where: { id: techId }, data: { level } }),
+      this.prisma.developerTechnology.update({
+        where: { id: techId },
+        data: { level },
+      }),
       this.emitProfileUpdated(userId, { updatedTechnology: tech.name, level }),
     ]);
     return updated;
@@ -111,8 +147,11 @@ export class DeveloperProfilesService {
   async deleteTechnology(userId: string, requesterId: string, techId: string) {
     const profile = await this.requireOwner(userId, requesterId);
 
-    const tech = await this.prisma.developerTechnology.findUnique({ where: { id: techId } });
-    if (!tech || tech.profileId !== profile.id) throw new NotFoundException('Technologie introuvable');
+    const tech = await this.prisma.developerTechnology.findUnique({
+      where: { id: techId },
+    });
+    if (!tech || tech.profileId !== profile.id)
+      throw new NotFoundException('Technologie introuvable');
 
     await this.prisma.$transaction([
       this.prisma.developerTechnology.delete({ where: { id: techId } }),
@@ -136,10 +175,17 @@ export class DeveloperProfilesService {
     return this.prisma.skill.findMany({ orderBy: { name: 'asc' } });
   }
 
-  async addSkill(userId: string, requesterId: string, skillId: string, level: SkillLevel) {
+  async addSkill(
+    userId: string,
+    requesterId: string,
+    skillId: string,
+    level: SkillLevel,
+  ) {
     const profile = await this.requireOwner(userId, requesterId);
 
-    const skill = await this.prisma.skill.findUnique({ where: { id: skillId } });
+    const skill = await this.prisma.skill.findUnique({
+      where: { id: skillId },
+    });
     if (!skill) throw new NotFoundException('Compétence introuvable');
 
     const exists = await this.prisma.developerSkill.findFirst({
@@ -148,22 +194,33 @@ export class DeveloperProfilesService {
     if (exists) throw new ConflictException('Compétence déjà ajoutée');
 
     const [entry] = await this.prisma.$transaction([
-      this.prisma.developerSkill.create({ data: { profileId: profile.id, skillId, level } }),
+      this.prisma.developerSkill.create({
+        data: { profileId: profile.id, skillId, level },
+      }),
       this.emitProfileUpdated(userId, { addedSkill: skill.name }),
     ]);
     return entry;
   }
 
-  async updateSkill(userId: string, requesterId: string, skillId: string, level: SkillLevel) {
+  async updateSkill(
+    userId: string,
+    requesterId: string,
+    skillId: string,
+    level: SkillLevel,
+  ) {
     const profile = await this.requireOwner(userId, requesterId);
 
     const entry = await this.prisma.developerSkill.findFirst({
       where: { profileId: profile.id, skillId },
     });
-    if (!entry) throw new NotFoundException('Compétence non trouvée dans le profil');
+    if (!entry)
+      throw new NotFoundException('Compétence non trouvée dans le profil');
 
     const [updated] = await this.prisma.$transaction([
-      this.prisma.developerSkill.update({ where: { id: entry.id }, data: { level } }),
+      this.prisma.developerSkill.update({
+        where: { id: entry.id },
+        data: { level },
+      }),
       this.emitProfileUpdated(userId, { updatedSkill: skillId, level }),
     ]);
     return updated;
@@ -175,7 +232,8 @@ export class DeveloperProfilesService {
     const entry = await this.prisma.developerSkill.findFirst({
       where: { profileId: profile.id, skillId },
     });
-    if (!entry) throw new NotFoundException('Compétence non trouvée dans le profil');
+    if (!entry)
+      throw new NotFoundException('Compétence non trouvée dans le profil');
 
     await this.prisma.$transaction([
       this.prisma.developerSkill.delete({ where: { id: entry.id } }),
@@ -190,11 +248,19 @@ export class DeveloperProfilesService {
     const profile = await this.requireProfile(userId);
     return this.prisma.project.findMany({
       where: { profileId: profile.id },
-      orderBy: [{ displayOrder: 'asc' }, { githubPushedAt: 'desc' }, { githubStars: 'desc' }],
+      orderBy: [
+        { displayOrder: 'asc' },
+        { githubPushedAt: 'desc' },
+        { githubStars: 'desc' },
+      ],
     });
   }
 
-  async createProject(userId: string, requesterId: string, dto: ProjectCreateDto) {
+  async createProject(
+    userId: string,
+    requesterId: string,
+    dto: ProjectCreateDto,
+  ) {
     const profile = await this.requireOwner(userId, requesterId);
 
     return this.prisma.project.create({
@@ -202,16 +268,28 @@ export class DeveloperProfilesService {
     });
   }
 
-  async updateProject(userId: string, requesterId: string, projectId: string, dto: ProjectUpdateDto) {
+  async updateProject(
+    userId: string,
+    requesterId: string,
+    projectId: string,
+    dto: ProjectUpdateDto,
+  ) {
     const profile = await this.requireOwner(userId, requesterId);
 
-    const project = await this.prisma.project.findUnique({ where: { id: projectId } });
-    if (!project || project.profileId !== profile.id) throw new NotFoundException('Projet introuvable');
+    const project = await this.prisma.project.findUnique({
+      where: { id: projectId },
+    });
+    if (!project || project.profileId !== profile.id)
+      throw new NotFoundException('Projet introuvable');
 
     return this.prisma.project.update({ where: { id: projectId }, data: dto });
   }
 
-  async reorderProjects(userId: string, requesterId: string, order: { id: string; displayOrder: number }[]) {
+  async reorderProjects(
+    userId: string,
+    requesterId: string,
+    order: { id: string; displayOrder: number }[],
+  ) {
     const profile = await this.requireOwner(userId, requesterId);
 
     await this.prisma.$transaction(
@@ -228,8 +306,11 @@ export class DeveloperProfilesService {
   async deleteProject(userId: string, requesterId: string, projectId: string) {
     const profile = await this.requireOwner(userId, requesterId);
 
-    const project = await this.prisma.project.findUnique({ where: { id: projectId } });
-    if (!project || project.profileId !== profile.id) throw new NotFoundException('Projet introuvable');
+    const project = await this.prisma.project.findUnique({
+      where: { id: projectId },
+    });
+    if (!project || project.profileId !== profile.id)
+      throw new NotFoundException('Projet introuvable');
 
     await this.prisma.project.delete({ where: { id: projectId } });
     return { deleted: true };

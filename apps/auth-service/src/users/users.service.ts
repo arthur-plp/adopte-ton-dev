@@ -1,4 +1,8 @@
-import { Injectable, ConflictException, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  ConflictException,
+  NotFoundException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { Role } from '@repo/types';
 
@@ -17,7 +21,9 @@ export class UsersService {
       (await this.prisma.recruiterProfile.count({ where: { userId } })) > 0;
 
     if (alreadyHasProfile) {
-      throw new ConflictException('Onboarding déjà effectué pour cet utilisateur');
+      throw new ConflictException(
+        'Onboarding déjà effectué pour cet utilisateur',
+      );
     }
 
     if (role === Role.DEVELOPER) {
@@ -66,7 +72,11 @@ export class UsersService {
   async getProfile(userId: string) {
     const dev = await this.prisma.developerProfile.findUnique({
       where: { userId },
-      include: { skills: { include: { skill: true } }, technologies: true, projects: true },
+      include: {
+        skills: { include: { skill: true } },
+        technologies: true,
+        projects: true,
+      },
     });
     if (dev) return { role: Role.DEVELOPER, profile: dev };
 

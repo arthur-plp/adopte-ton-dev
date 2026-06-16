@@ -66,7 +66,7 @@ describe('OutboxRelayService', () => {
   });
 
   describe('flush', () => {
-    it('ne fait rien si le channel n\'est pas connecté', async () => {
+    it("ne fait rien si le channel n'est pas connecté", async () => {
       // Sans onModuleInit(), le channel est null
       await service.flush();
 
@@ -77,8 +77,18 @@ describe('OutboxRelayService', () => {
       await service.onModuleInit();
 
       const events = [
-        { id: 'evt-1', type: 'developer.profile.updated', payload: { userId: 'u1' }, attempts: 0 },
-        { id: 'evt-2', type: 'developer.profile.updated', payload: { userId: 'u2' }, attempts: 1 },
+        {
+          id: 'evt-1',
+          type: 'developer.profile.updated',
+          payload: { userId: 'u1' },
+          attempts: 0,
+        },
+        {
+          id: 'evt-2',
+          type: 'developer.profile.updated',
+          payload: { userId: 'u2' },
+          attempts: 1,
+        },
       ];
       // Premier appel = SELECT, puis UPDATE par event
       mockQuery
@@ -98,8 +108,12 @@ describe('OutboxRelayService', () => {
       await service.onModuleInit();
 
       const event = { id: 'evt-fail', type: 'x', payload: {}, attempts: 2 };
-      mockQuery.mockResolvedValueOnce({ rows: [event] }).mockResolvedValue({ rows: [] });
-      mockChannel.publish.mockImplementation(() => { throw new Error('RMQ error'); });
+      mockQuery
+        .mockResolvedValueOnce({ rows: [event] })
+        .mockResolvedValue({ rows: [] });
+      mockChannel.publish.mockImplementation(() => {
+        throw new Error('RMQ error');
+      });
 
       await service.flush();
 

@@ -27,6 +27,11 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Generate Prisma clients
+        run: |
+          pnpm --filter auth-service exec prisma generate
+          pnpm --filter web exec prisma generate
+
       - name: Lint
         run: pnpm lint
 
@@ -37,7 +42,7 @@ jobs:
         run: pnpm build
 
       - name: Test with coverage (≥ 70% gate)
-        run: pnpm test:cov --if-present
+        run: pnpm test:cov
 
       - name: Upload coverage
         if: always()

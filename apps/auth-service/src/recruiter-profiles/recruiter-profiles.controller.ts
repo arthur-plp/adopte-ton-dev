@@ -1,5 +1,11 @@
 import { Body, Controller, Get, Param, Post } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiParam, ApiBody, ApiResponse } from '@nestjs/swagger';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiParam,
+  ApiBody,
+  ApiResponse,
+} from '@nestjs/swagger';
 import { RecruiterProfilesService } from './recruiter-profiles.service';
 import {
   CreateRecruiterProfileSchema,
@@ -15,7 +21,14 @@ export class RecruiterProfilesController {
 
   @Post()
   @ApiOperation({ summary: 'Créer un profil recruteur (lié à une entreprise)' })
-  @ApiBody({ schema: { example: { userId: 'cuid', data: { firstName: 'Bob', lastName: 'Rec', companyId: 'cuid' } } } })
+  @ApiBody({
+    schema: {
+      example: {
+        userId: 'cuid',
+        data: { firstName: 'Bob', lastName: 'Rec', companyId: 'cuid' },
+      },
+    },
+  })
   @ApiResponse({ status: 201, description: 'RecruiterProfile créé' })
   create(@Body() body: CreateBody) {
     const dto = CreateRecruiterProfileSchema.parse(body.data);

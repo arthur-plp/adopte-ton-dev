@@ -13,7 +13,9 @@ async function bootstrap() {
 
   const config = new DocumentBuilder()
     .setTitle('Adopte Ton Dev — API Gateway')
-    .setDescription('Point d\'entrée HTTP public. Authentification via cookie de session BetterAuth.')
+    .setDescription(
+      "Point d'entrée HTTP public. Authentification via cookie de session BetterAuth.",
+    )
     .setVersion('1.0')
     .addCookieAuth('better-auth.session_token')
     .addTag('users', 'Profils développeurs & recruteurs, onboarding')

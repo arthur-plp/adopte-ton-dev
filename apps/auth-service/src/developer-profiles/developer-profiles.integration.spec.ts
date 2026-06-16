@@ -6,7 +6,9 @@
 import { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 // eslint-disable-next-line @typescript-eslint/no-require-imports
-const request = require('supertest') as (app: unknown) => import('supertest').SuperTest<import('supertest').Test>;
+const request = require('supertest') as (
+  app: unknown,
+) => import('supertest').SuperTest<import('supertest').Test>;
 import {
   NotFoundException,
   ForbiddenException,
@@ -62,7 +64,9 @@ describe('DeveloperProfilesController (intégration)', () => {
 
   describe('GET /developer-profiles/skills/catalog (résolution de route)', () => {
     it('retourne 200 et ne confond pas avec /:userId/skills', async () => {
-      mockService.listAvailableSkills.mockResolvedValue([{ id: 's1', name: 'API REST', category: 'technique' }]);
+      mockService.listAvailableSkills.mockResolvedValue([
+        { id: 's1', name: 'API REST', category: 'technique' },
+      ]);
 
       const res = await request(app.getHttpServer())
         .get('/developer-profiles/skills/catalog')
@@ -77,7 +81,12 @@ describe('DeveloperProfilesController (intégration)', () => {
 
   describe('POST /developer-profiles/:userId/technologies', () => {
     it('retourne 201 sur ajout nominal', async () => {
-      const tech = { id: 'tech-1', profileId: 'dev-1', name: 'TypeScript', level: 'ADVANCED' };
+      const tech = {
+        id: 'tech-1',
+        profileId: 'dev-1',
+        name: 'TypeScript',
+        level: 'ADVANCED',
+      };
       mockService.addTechnology.mockResolvedValue(tech);
 
       const res = await request(app.getHttpServer())
@@ -89,11 +98,17 @@ describe('DeveloperProfilesController (intégration)', () => {
     });
 
     it('retourne 409 si la technologie est déjà ajoutée', async () => {
-      mockService.addTechnology.mockRejectedValue(new ConflictException('Technologie "TypeScript" déjà ajoutée'));
+      mockService.addTechnology.mockRejectedValue(
+        new ConflictException('Technologie "TypeScript" déjà ajoutée'),
+      );
 
       await request(app.getHttpServer())
         .post('/developer-profiles/user-1/technologies')
-        .send({ requesterId: 'user-1', name: 'TypeScript', level: 'INTERMEDIATE' })
+        .send({
+          requesterId: 'user-1',
+          name: 'TypeScript',
+          level: 'INTERMEDIATE',
+        })
         .expect(409);
     });
 
@@ -120,7 +135,9 @@ describe('DeveloperProfilesController (intégration)', () => {
     });
 
     it('retourne 404 si la technologie appartient à un autre profil', async () => {
-      mockService.deleteTechnology.mockRejectedValue(new NotFoundException('Technologie introuvable'));
+      mockService.deleteTechnology.mockRejectedValue(
+        new NotFoundException('Technologie introuvable'),
+      );
 
       await request(app.getHttpServer())
         .delete('/developer-profiles/user-1/technologies/tech-autre')
@@ -133,28 +150,45 @@ describe('DeveloperProfilesController (intégration)', () => {
 
   describe('POST /developer-profiles/:userId/skills', () => {
     it('retourne 201 sur ajout nominal', async () => {
-      const entry = { id: 'ds-1', profileId: 'dev-1', skillId: 'skill-1', level: 'INTERMEDIATE' };
+      const entry = {
+        id: 'ds-1',
+        profileId: 'dev-1',
+        skillId: 'skill-1',
+        level: 'INTERMEDIATE',
+      };
       mockService.addSkill.mockResolvedValue(entry);
 
       const res = await request(app.getHttpServer())
         .post('/developer-profiles/user-1/skills')
-        .send({ requesterId: 'user-1', skillId: 'skill-1', level: 'INTERMEDIATE' })
+        .send({
+          requesterId: 'user-1',
+          skillId: 'skill-1',
+          level: 'INTERMEDIATE',
+        })
         .expect(201);
 
       expect(res.body).toEqual(entry);
     });
 
-    it('retourne 404 si la compétence du catalogue n\'existe pas', async () => {
-      mockService.addSkill.mockRejectedValue(new NotFoundException('Compétence introuvable'));
+    it("retourne 404 si la compétence du catalogue n'existe pas", async () => {
+      mockService.addSkill.mockRejectedValue(
+        new NotFoundException('Compétence introuvable'),
+      );
 
       await request(app.getHttpServer())
         .post('/developer-profiles/user-1/skills')
-        .send({ requesterId: 'user-1', skillId: 'skill-inconnu', level: 'BEGINNER' })
+        .send({
+          requesterId: 'user-1',
+          skillId: 'skill-inconnu',
+          level: 'BEGINNER',
+        })
         .expect(404);
     });
 
     it('retourne 409 si la compétence est déjà ajoutée', async () => {
-      mockService.addSkill.mockRejectedValue(new ConflictException('Compétence déjà ajoutée'));
+      mockService.addSkill.mockRejectedValue(
+        new ConflictException('Compétence déjà ajoutée'),
+      );
 
       await request(app.getHttpServer())
         .post('/developer-profiles/user-1/skills')
@@ -167,12 +201,22 @@ describe('DeveloperProfilesController (intégration)', () => {
 
   describe('POST /developer-profiles/:userId/projects', () => {
     it('retourne 201 sur création nominale', async () => {
-      const project = { id: 'proj-1', profileId: 'dev-1', title: 'Mon app', description: 'Cool' };
+      const project = {
+        id: 'proj-1',
+        profileId: 'dev-1',
+        title: 'Mon app',
+        description: 'Cool',
+      };
       mockService.createProject.mockResolvedValue(project);
 
       const res = await request(app.getHttpServer())
         .post('/developer-profiles/user-1/projects')
-        .send({ requesterId: 'user-1', title: 'Mon app', description: 'Cool', technologies: [] })
+        .send({
+          requesterId: 'user-1',
+          title: 'Mon app',
+          description: 'Cool',
+          technologies: [],
+        })
         .expect(201);
 
       expect(res.body).toEqual(project);
@@ -183,7 +227,12 @@ describe('DeveloperProfilesController (intégration)', () => {
 
       await request(app.getHttpServer())
         .post('/developer-profiles/user-1/projects')
-        .send({ requesterId: 'hacker', title: 'x', description: 'y', technologies: [] })
+        .send({
+          requesterId: 'hacker',
+          title: 'x',
+          description: 'y',
+          technologies: [],
+        })
         .expect(403);
     });
   });
@@ -199,7 +248,9 @@ describe('DeveloperProfilesController (intégration)', () => {
     });
 
     it('retourne 404 si le projet appartient à un autre profil', async () => {
-      mockService.deleteProject.mockRejectedValue(new NotFoundException('Projet introuvable'));
+      mockService.deleteProject.mockRejectedValue(
+        new NotFoundException('Projet introuvable'),
+      );
 
       await request(app.getHttpServer())
         .delete('/developer-profiles/user-1/projects/proj-autre')
