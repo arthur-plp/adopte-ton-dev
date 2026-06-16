@@ -25,6 +25,12 @@ describe('CreateSubscriptionSchema', () => {
       CreateSubscriptionSchema.parse({ companyId: '', plan: PlanType.FREE }),
     ).toThrow();
   });
+
+  it('rejette un companyId au format invalide (non-cuid)', () => {
+    expect(() =>
+      CreateSubscriptionSchema.parse({ companyId: 'pas-un-cuid', plan: PlanType.FREE }),
+    ).toThrow();
+  });
 });
 
 describe('StripeWebhookSchema', () => {

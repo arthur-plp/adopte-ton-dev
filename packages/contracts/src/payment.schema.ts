@@ -1,8 +1,10 @@
 import { z } from "zod";
 import { PlanType } from "@repo/types";
 
+import { cuidLike } from "./id.schema";
+
 export const CreateSubscriptionSchema = z.object({
-  companyId: z.string().min(1),
+  companyId: cuidLike,
   plan: z.nativeEnum(PlanType),
 });
 

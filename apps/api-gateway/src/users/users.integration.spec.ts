@@ -141,10 +141,17 @@ describe('UsersController (intégration)', () => {
       expect(mockFetch).not.toHaveBeenCalled();
     });
 
-    it("retourne 400 si skillId n'est pas un cuid", async () => {
+    it("retourne 400 si skillId est vide", async () => {
       await request(app.getHttpServer())
         .post('/users/developer/me/skills')
         .send({ skillId: '', level: 'INTERMEDIATE' })
+        .expect(400);
+    });
+
+    it("retourne 400 si skillId est au format invalide (non-cuid)", async () => {
+      await request(app.getHttpServer())
+        .post('/users/developer/me/skills')
+        .send({ skillId: 'pas-un-cuid', level: 'INTERMEDIATE' })
         .expect(400);
     });
   });

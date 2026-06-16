@@ -15,12 +15,15 @@ export function ProfileAvatar() {
   }
 
   return (
-    <Image
-      src="https://github.com/arthur-plp.png"
-      alt="Arthur Philippe"
-      fill
-      className="object-cover"
-      onError={() => setFailed(true)}
-    />
+    <div className="relative size-full">
+      <Image
+        src="https://github.com/arthur-plp.png"
+        alt="Arthur Philippe"
+        fill
+        sizes="(max-width: 768px) 100vw, 50vw"
+        className="object-cover"
+        onError={() => setFailed(true)}
+      />
+    </div>
   );
 }

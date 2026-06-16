@@ -98,10 +98,12 @@ describe('UsersController (api-gateway)', () => {
       expect(result).toEqual(expected);
     });
 
-    it('extrait prénom + nom d\'un nom complet', async () => {
+    it("extrait prénom + nom d'un nom complet", async () => {
       const userFullName = { ...mockUser, name: 'Alice Dupont' };
       mockFetch.mockResolvedValue({ json: () => Promise.resolve({}) });
-      await controller.onboarding(mockReq(userFullName), { role: Role.DEVELOPER });
+      await controller.onboarding(mockReq(userFullName), {
+        role: Role.DEVELOPER,
+      });
       expect(mockFetch).toHaveBeenCalledWith(
         expect.any(String),
         expect.objectContaining({
@@ -200,7 +202,9 @@ describe('UsersController (api-gateway)', () => {
 
   describe('syncGitHub', () => {
     it('appelle le endpoint github-sync', async () => {
-      mockFetch.mockResolvedValue({ json: () => Promise.resolve({ synced: 5 }) });
+      mockFetch.mockResolvedValue({
+        json: () => Promise.resolve({ synced: 5 }),
+      });
       await controller.syncGitHub(mockReq());
       expect(mockFetch).toHaveBeenCalledWith(
         expect.stringContaining('github-sync'),
@@ -224,7 +228,9 @@ describe('UsersController (api-gateway)', () => {
 
   describe('deleteTechnology', () => {
     it('supprime une technologie via DELETE', async () => {
-      mockFetch.mockResolvedValue({ json: () => Promise.resolve({ deleted: true }) });
+      mockFetch.mockResolvedValue({
+        json: () => Promise.resolve({ deleted: true }),
+      });
       await controller.deleteTechnology(mockReq(), 'tech-1');
       expect(mockFetch).toHaveBeenCalledWith(
         expect.stringContaining('tech-1'),
@@ -258,7 +264,7 @@ describe('UsersController (api-gateway)', () => {
   });
 
   describe('updateSkill', () => {
-    it('met à jour le niveau d\'une compétence', async () => {
+    it("met à jour le niveau d'une compétence", async () => {
       mockFetch.mockResolvedValue({ json: () => Promise.resolve({}) });
       await controller.updateSkill(mockReq(), 'skill-1', { level: 'ADVANCED' });
       expect(mockFetch).toHaveBeenCalledWith(
@@ -270,7 +276,9 @@ describe('UsersController (api-gateway)', () => {
 
   describe('removeSkill', () => {
     it('retire une compétence via DELETE', async () => {
-      mockFetch.mockResolvedValue({ json: () => Promise.resolve({ deleted: true }) });
+      mockFetch.mockResolvedValue({
+        json: () => Promise.resolve({ deleted: true }),
+      });
       await controller.removeSkill(mockReq(), 'skill-1');
       expect(mockFetch).toHaveBeenCalledWith(
         expect.stringContaining('skill-1'),
@@ -294,9 +302,14 @@ describe('UsersController (api-gateway)', () => {
 
   describe('reorderMyProjects', () => {
     it('réordonne les projets via POST', async () => {
-      mockFetch.mockResolvedValue({ json: () => Promise.resolve({ updated: 2 }) });
+      mockFetch.mockResolvedValue({
+        json: () => Promise.resolve({ updated: 2 }),
+      });
       await controller.reorderMyProjects(mockReq(), {
-        order: [{ id: 'p1', displayOrder: 0 }, { id: 'p2', displayOrder: 1 }],
+        order: [
+          { id: 'p1', displayOrder: 0 },
+          { id: 'p2', displayOrder: 1 },
+        ],
       });
       expect(mockFetch).toHaveBeenCalledWith(
         expect.stringContaining('reorder'),
@@ -318,7 +331,9 @@ describe('UsersController (api-gateway)', () => {
 
   describe('deleteMyProject', () => {
     it('supprime un projet via DELETE', async () => {
-      mockFetch.mockResolvedValue({ json: () => Promise.resolve({ deleted: true }) });
+      mockFetch.mockResolvedValue({
+        json: () => Promise.resolve({ deleted: true }),
+      });
       await controller.deleteMyProject(mockReq(), 'proj-1');
       expect(mockFetch).toHaveBeenCalledWith(
         expect.stringContaining('proj-1'),
@@ -330,7 +345,7 @@ describe('UsersController (api-gateway)', () => {
   // ─── Avatar & misc ────────────────────────────────────────────────────────
 
   describe('getAvatarOptions', () => {
-    it('retourne les options d\'avatar', async () => {
+    it("retourne les options d'avatar", async () => {
       mockFetch.mockResolvedValue({ json: () => Promise.resolve([]) });
       await controller.getAvatarOptions(mockReq());
       expect(mockFetch).toHaveBeenCalledWith(

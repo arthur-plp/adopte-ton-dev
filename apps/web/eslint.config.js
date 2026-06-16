@@ -6,7 +6,6 @@ export default [
   {
     rules: {
       "react/no-unescaped-entities": "off",
-      "turbo/no-undeclared-env-vars": "off",
       "no-undef": "off",
     },
   },

@@ -5,6 +5,8 @@ import {
   SkillLevel,
 } from "@repo/types";
 
+import { cuidLike } from "./id.schema";
+
 export const CreateUserSchema = z.object({
   email: z.string().email(),
   role: z.nativeEnum(Role),
@@ -21,7 +23,7 @@ export const TechnologySchema = z.object({
 export type TechnologyDto = z.infer<typeof TechnologySchema>;
 
 export const SkillSchema = z.object({
-  skillId: z.string().min(1),
+  skillId: cuidLike,
   level: z.nativeEnum(SkillLevel).default(SkillLevel.INTERMEDIATE),
 });
 
@@ -93,7 +95,7 @@ export type CreateCompanyDto = z.infer<typeof CreateCompanySchema>;
 export const CreateRecruiterProfileSchema = z.object({
   firstName: z.string().min(1).max(100),
   lastName: z.string().min(1).max(100),
-  companyId: z.string().min(1),
+  companyId: cuidLike,
 });
 
 export type CreateRecruiterProfileDto = z.infer<typeof CreateRecruiterProfileSchema>;
