@@ -12,3 +12,5 @@ export const signOut = client.signOut;
 export const useSession = client.useSession;
 export const linkSocial = client.linkSocial;
 export const unlinkAccount = client.unlinkAccount;
+export const requestPasswordReset = client.requestPasswordReset;
+export const resetPassword = client.resetPassword;

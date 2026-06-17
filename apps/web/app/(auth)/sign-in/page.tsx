@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Code2, Eye, EyeOff, ArrowLeft } from "lucide-react";
 import { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { toast } from "sonner";
 
 type OAuthProvider = "github" | "google";
 type Mode = "signin" | "signup";
@@ -80,9 +81,15 @@ export default function SignInPage() {
 
         {/* Formulaire email / mot de passe */}
         {mode === "signin" ? (
-          <SignInForm onSuccess={() => router.push("/onboarding")} />
+          <SignInForm onSuccess={() => {
+            toast.success("Connexion réussie !", { description: "Bienvenue sur Adopte Ton Dev." });
+            router.push("/dashboard");
+          }} />
         ) : (
-          <SignUpForm onSuccess={() => router.push("/onboarding")} />
+          <SignUpForm onSuccess={() => {
+            toast.success("Compte créé !", { description: "Bienvenue sur Adopte Ton Dev." });
+            router.push("/dashboard");
+          }} />
         )}
       </div>
 
@@ -132,7 +139,8 @@ function OAuthButtons() {
 
   async function handleOAuth(provider: OAuthProvider) {
     setLoading(provider);
-    await signIn.social({ provider, callbackURL: "/onboarding" });
+    localStorage.setItem("showWelcome", "1");
+    await signIn.social({ provider, callbackURL: "/dashboard" });
     setLoading(null);
   }
 
@@ -213,6 +221,15 @@ function SignInForm({ onSuccess }: { onSuccess: () => void }) {
           <ToggleEye show={showPwd} onToggle={() => setShowPwd((v) => !v)} />
         </div>
       </Field>
+
+      <div className="flex justify-end">
+        <Link
+          href="/forgot-password"
+          className="text-xs text-muted-foreground hover:text-foreground"
+        >
+          Mot de passe oublié ?
+        </Link>
+      </div>
 
       {error && <ErrorBanner>{error}</ErrorBanner>}
 

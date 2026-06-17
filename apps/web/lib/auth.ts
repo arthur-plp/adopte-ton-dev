@@ -3,6 +3,8 @@ import { prismaAdapter } from "better-auth/adapters/prisma";
 import { PrismaClient } from "@prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { Pool } from "pg";
+import { sendResetPasswordEmail } from "./mailer";
+
 
 function makeAuth() {
   const pool = new Pool({ connectionString: process.env.DATABASE_URL });
@@ -18,6 +20,13 @@ function makeAuth() {
     emailAndPassword: {
       enabled: true,
       requireEmailVerification: false,
+      sendResetPassword: async ({ user, url }) => {
+        await sendResetPasswordEmail({
+          to: user.email,
+          userName: user.name ?? user.email,
+          resetUrl: url,
+        });
+      },
     },
 
     socialProviders: {
