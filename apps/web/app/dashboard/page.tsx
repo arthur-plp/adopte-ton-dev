@@ -3,6 +3,7 @@
 import { useSession } from "@/lib/auth-client";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
+import { toast } from "sonner";
 
 export default function DashboardRedirect() {
   const { data: session, isPending } = useSession();
@@ -12,6 +13,11 @@ export default function DashboardRedirect() {
     if (isPending) return;
     if (!session) { router.replace("/sign-in"); return; }
 
+    if (typeof window !== "undefined" && localStorage.getItem("showWelcome") === "1") {
+      localStorage.removeItem("showWelcome");
+      toast.success("Connexion réussie !", { description: "Bienvenue sur Adopte Ton Dev." });
+    }
+
     const role = (session.user as { role?: string }).role;
     if (!role || role === "DEVELOPER") {
       router.replace("/dashboard/developer");
@@ -20,7 +26,7 @@ export default function DashboardRedirect() {
     } else if (role === "ADMIN") {
       router.replace("/dashboard/admin");
     } else {
-      router.replace("/onboarding");
+      router.replace("/dashboard/developer");
     }
   }, [session, isPending, router]);
 
