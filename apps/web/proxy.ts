@@ -4,6 +4,8 @@ import type { NextRequest } from "next/server";
 const PUBLIC_PATHS = [
   "/",
   "/sign-in",
+  "/forgot-password",
+  "/reset-password",
   "/api/auth",
   "/api/contact",
   "/recruteurs",
@@ -14,7 +16,7 @@ const PUBLIC_PATHS = [
 
 const REDIRECT_WHEN_AUTHED = ["/sign-in"];
 
-export function middleware(request: NextRequest) {
+export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   const sessionToken =

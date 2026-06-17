@@ -1,6 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  serverExternalPackages: ["pg", "pg-native", "@prisma/adapter-pg"],
+  serverExternalPackages: ["pg", "@prisma/client", "@prisma/adapter-pg"],
 
   env: {
     DATABASE_URL:
