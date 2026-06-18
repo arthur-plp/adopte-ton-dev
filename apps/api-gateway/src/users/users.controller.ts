@@ -7,6 +7,7 @@ import {
   Patch,
   Post,
   HttpCode,
+  HttpException,
   UseGuards,
   Req,
   BadRequestException,
@@ -63,12 +64,18 @@ export class UsersController {
     return result.data;
   }
 
-  private fwd(url: string, method = 'GET', body?: object) {
-    return fetch(`${this.usersSvcUrl}${url}`, {
+  private async fwd(url: string, method = 'GET', body?: object) {
+    const res = await fetch(`${this.usersSvcUrl}${url}`, {
       method,
       headers: body ? { 'Content-Type': 'application/json' } : {},
       body: body ? JSON.stringify(body) : undefined,
-    }).then((r) => r.json());
+    });
+    const data = await res.json() as Record<string, unknown>;
+    if (!res.ok) {
+      const msg = typeof data['message'] === 'string' ? data['message'] : 'Erreur interne';
+      throw new HttpException(msg, res.status);
+    }
+    return data;
   }
 
   // ── Auth / onboarding ─────────────────────────────────────────────────────

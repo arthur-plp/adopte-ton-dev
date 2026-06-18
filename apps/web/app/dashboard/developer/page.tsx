@@ -17,6 +17,7 @@ import {
   CheckCircle2,
   AlertCircle,
 } from "lucide-react";
+import { SectionHeader } from "@/components/section-header";
 
 type Project = {
   id: string;
@@ -83,11 +84,11 @@ export default function DeveloperDashboard() {
   const doneCount = completionSteps.filter((s) => s.done).length;
   const totalCount = completionSteps.length;
   const pct = totalCount > 0 ? Math.round((doneCount / totalCount) * 100) : 0;
-  const isComplete = doneCount === totalCount;
+  const isComplete = !!profile && doneCount === totalCount;
   const missingSteps = completionSteps.filter((s) => !s.done);
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6">
+    <div className="page-container">
       {/* ── Welcome ──────────────────────────────────────────────── */}
       <div className="mb-10">
         <h1 className="text-2xl font-bold text-foreground">
@@ -101,6 +102,23 @@ export default function DeveloperDashboard() {
       {/* ── Profil completion banner ─────────────────────────────── */}
       {!profileLoading && !isComplete && (
         <div className="mb-8 rounded-2xl border border-primary/20 bg-primary/5 px-6 py-5">
+          {!profile ? (
+            /* Profil pas encore créé */
+            <div className="flex items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary/15 text-primary">
+                  <Code2 className="size-5" />
+                </div>
+                <div>
+                  <p className="font-medium text-foreground">Pense à compléter ton profil</p>
+                  <p className="text-xs text-muted-foreground">Un profil complet est 3× plus visible des recruteurs.</p>
+                </div>
+              </div>
+              <Button asChild size="sm">
+                <Link href="/profile/edit">Compléter <ArrowRight className="size-3.5" /></Link>
+              </Button>
+            </div>
+          ) : (
           <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
             <div className="flex items-start gap-4 flex-1 min-w-0">
               <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary/15 text-primary">
@@ -151,6 +169,7 @@ export default function DeveloperDashboard() {
               </Link>
             </Button>
           </div>
+          )}
         </div>
       )}
 
@@ -189,7 +208,7 @@ export default function DeveloperDashboard() {
             color: "text-amber-600 bg-amber-500/10",
           },
         ].map(({ label, value, icon, color }) => (
-          <div key={label} className="rounded-2xl border border-border bg-card p-5">
+          <div key={label} className="card p-5">
             <div className={`mb-3 inline-flex size-9 items-center justify-center rounded-lg ${color}`}>
               {icon}
             </div>
@@ -202,13 +221,11 @@ export default function DeveloperDashboard() {
       {/* ── Content grid ─────────────────────────────────────────── */}
       <div className="grid gap-6 md:grid-cols-2">
         {/* Offres recommandées */}
-        <div className="rounded-2xl border border-border bg-card p-6">
-          <div className="mb-5 flex items-center justify-between">
-            <h2 className="font-semibold text-foreground">Offres recommandées</h2>
-            <Link href="/jobs" className="text-xs text-primary hover:underline">
-              Voir tout
-            </Link>
-          </div>
+        <div className="card p-6">
+          <SectionHeader
+            title="Offres recommandées"
+            action={<Link href="/jobs" className="text-xs text-primary hover:underline">Voir tout</Link>}
+          />
           <EmptyState
             icon={<Briefcase className="size-8" />}
             title="Aucune offre pour l'instant"
@@ -222,22 +239,24 @@ export default function DeveloperDashboard() {
         </div>
 
         {/* Mes projets */}
-        <div className="rounded-2xl border border-border bg-card p-6">
-          <div className="mb-5 flex items-center justify-between">
-            <h2 className="font-semibold text-foreground">
-              Mes projets
-              {visibleProjects.length > 0 && (
-                <span className="ml-2 text-sm font-normal text-muted-foreground">
-                  ({visibleProjects.length} visibles)
-                </span>
-              )}
-            </h2>
-            <Button size="sm" variant="outline" asChild>
-              <Link href="/profile/edit">
-                <Plus className="size-3.5" /> Gérer
-              </Link>
-            </Button>
-          </div>
+        <div className="card p-6">
+          <SectionHeader
+            title={
+              <>
+                Mes projets
+                {visibleProjects.length > 0 && (
+                  <span className="ml-2 text-sm font-normal text-muted-foreground">
+                    ({visibleProjects.length} visibles)
+                  </span>
+                )}
+              </>
+            }
+            action={
+              <Button size="sm" variant="outline" asChild>
+                <Link href="/profile/edit"><Plus className="size-3.5" /> Gérer</Link>
+              </Button>
+            }
+          />
 
           {visibleProjects.length === 0 ? (
             <EmptyState
@@ -287,7 +306,7 @@ export default function DeveloperDashboard() {
                         {project.technologies.slice(0, 4).map((tech) => (
                           <span
                             key={tech}
-                            className="rounded-md bg-muted px-1.5 py-0.5 text-xs text-muted-foreground"
+                            className="badge"
                           >
                             {tech}
                           </span>
@@ -310,13 +329,11 @@ export default function DeveloperDashboard() {
         </div>
 
         {/* Mes candidatures */}
-        <div className="rounded-2xl border border-border bg-card p-6 md:col-span-2">
-          <div className="mb-5 flex items-center justify-between">
-            <h2 className="font-semibold text-foreground">Mes candidatures</h2>
-            <Link href="/applications" className="text-xs text-primary hover:underline">
-              Voir tout
-            </Link>
-          </div>
+        <div className="card p-6 md:col-span-2">
+          <SectionHeader
+            title="Mes candidatures"
+            action={<Link href="/applications" className="text-xs text-primary hover:underline">Voir tout</Link>}
+          />
           <EmptyState
             icon={<Star className="size-8" />}
             title="Pas encore de candidature"
@@ -347,7 +364,7 @@ function EmptyState({
   action?: React.ReactNode;
 }) {
   return (
-    <div className="flex flex-col items-center rounded-xl border border-dashed border-border bg-muted/30 px-6 py-10 text-center">
+    <div className="empty-state">
       <div className="mb-3 text-muted-foreground/50">{icon}</div>
       <p className="mb-1 text-sm font-medium text-foreground">{title}</p>
       <p className="mb-4 text-xs text-muted-foreground">{description}</p>
