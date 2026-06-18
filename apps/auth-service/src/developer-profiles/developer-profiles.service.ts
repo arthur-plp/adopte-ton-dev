@@ -3,6 +3,7 @@ import {
   NotFoundException,
   ForbiddenException,
   ConflictException,
+  BadRequestException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import type {
@@ -117,7 +118,7 @@ export class DeveloperProfilesService {
       }),
       this.emitProfileUpdated(userId, { addedTechnology: dto.name }),
     ]);
-    return tech;
+    return { id: tech.id, name: tech.name, level: tech.level };
   }
 
   async updateTechnology(
@@ -178,24 +179,35 @@ export class DeveloperProfilesService {
   async addSkill(
     userId: string,
     requesterId: string,
-    skillId: string,
-    level: SkillLevel,
+    payload: { skillId?: string; name?: string; category?: string; level: SkillLevel },
   ) {
     const profile = await this.requireOwner(userId, requesterId);
 
-    const skill = await this.prisma.skill.findUnique({
-      where: { id: skillId },
-    });
-    if (!skill) throw new NotFoundException('Compétence introuvable');
+    let skill: { id: string; name: string };
+
+    if (payload.skillId) {
+      const found = await this.prisma.skill.findUnique({ where: { id: payload.skillId } });
+      if (!found) throw new NotFoundException('Compétence introuvable');
+      skill = found;
+    } else if (payload.name) {
+      skill = await this.prisma.skill.upsert({
+        where: { name: payload.name },
+        create: { name: payload.name, category: payload.category ?? 'technique' },
+        update: {},
+      });
+    } else {
+      throw new BadRequestException('skillId ou name requis');
+    }
 
     const exists = await this.prisma.developerSkill.findFirst({
-      where: { profileId: profile.id, skillId },
+      where: { profileId: profile.id, skillId: skill.id },
     });
     if (exists) throw new ConflictException('Compétence déjà ajoutée');
 
     const [entry] = await this.prisma.$transaction([
       this.prisma.developerSkill.create({
-        data: { profileId: profile.id, skillId, level },
+        data: { profileId: profile.id, skillId: skill.id, level: payload.level },
+        include: { skill: true },
       }),
       this.emitProfileUpdated(userId, { addedSkill: skill.name }),
     ]);
@@ -220,6 +232,7 @@ export class DeveloperProfilesService {
       this.prisma.developerSkill.update({
         where: { id: entry.id },
         data: { level },
+        include: { skill: true },
       }),
       this.emitProfileUpdated(userId, { updatedSkill: skillId, level }),
     ]);

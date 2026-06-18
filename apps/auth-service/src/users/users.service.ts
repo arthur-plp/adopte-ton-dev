@@ -54,10 +54,14 @@ export class UsersService {
 
     for (const account of accounts) {
       if (account.providerId === 'github') {
-        options.push({
-          provider: 'github',
-          avatarUrl: `https://avatars.githubusercontent.com/u/${account.accountId}`,
-        });
+        // BetterAuth stocke l'avatar GitHub dans user.image à la connexion.
+        // On le préfère car c'est l'URL exacte retournée par l'API GitHub.
+        // Fallback : URL construite depuis l'accountId (numeric GitHub user id).
+        const avatarUrl =
+          user?.image?.startsWith('https://avatars.githubusercontent.com')
+            ? user.image
+            : `https://avatars.githubusercontent.com/u/${account.accountId}?v=4`;
+        options.push({ provider: 'github', avatarUrl });
       } else if (account.providerId === 'google' && user?.image) {
         options.push({
           provider: 'google',

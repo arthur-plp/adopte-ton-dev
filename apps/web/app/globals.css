@@ -130,11 +130,43 @@
 }
 
 @layer components {
+  /* ── Formulaires ─────────────────────────────────────────────────────────── */
   .input-base {
     @apply w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground
            placeholder:text-muted-foreground
            focus:outline-none focus:ring-2 focus:ring-ring/30 focus:border-ring
            disabled:cursor-not-allowed disabled:opacity-50
            transition-colors;
+  }
+
+  /* ── Carte ───────────────────────────────────────────────────────────────── */
+  /* Usage : <div className="card p-6"> ou <div className="card p-5"> */
+  .card {
+    @apply rounded-2xl border border-border bg-card;
+  }
+
+  /* ── Mise en page ────────────────────────────────────────────────────────── */
+  /* Usage : <div className="page-container"> … </div> */
+  .page-container {
+    @apply mx-auto max-w-6xl px-4 py-10 sm:px-6;
+  }
+
+  /* ── Badges / tags ───────────────────────────────────────────────────────── */
+  /* Usage : <span className="badge">TypeScript</span> */
+  .badge {
+    @apply inline-flex items-center gap-1 rounded-md bg-muted px-1.5 py-0.5
+           text-xs font-medium text-muted-foreground;
+  }
+
+  /* ── Boîte d'icône ───────────────────────────────────────────────────────── */
+  /* Usage : <div className="icon-box size-10 bg-primary/10 text-primary"> */
+  .icon-box {
+    @apply inline-flex shrink-0 items-center justify-center rounded-xl;
+  }
+
+  /* ── États vides (dashed placeholder) ───────────────────────────────────── */
+  .empty-state {
+    @apply flex flex-col items-center rounded-xl border border-dashed border-border
+           bg-muted/30 px-6 py-10 text-center;
   }
 }

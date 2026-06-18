@@ -135,14 +135,14 @@ export class DeveloperProfilesController {
   @ApiParam({ name: 'userId' })
   addSkill(
     @Param('userId') userId: string,
-    @Body() body: { requesterId: string; skillId: string; level: SkillLevel },
+    @Body() body: { requesterId: string; skillId?: string; name?: string; category?: string; level: SkillLevel },
   ) {
-    return this.service.addSkill(
-      userId,
-      body.requesterId,
-      body.skillId,
-      body.level,
-    );
+    return this.service.addSkill(userId, body.requesterId, {
+      skillId: body.skillId,
+      name: body.name,
+      category: body.category,
+      level: body.level,
+    });
   }
 
   @Patch(':userId/skills/:skillId')
