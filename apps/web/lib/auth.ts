@@ -37,6 +37,14 @@ function makeAuth() {
       google: {
         clientId: process.env.GOOGLE_CLIENT_ID ?? "",
         clientSecret: process.env.GOOGLE_CLIENT_SECRET ?? "",
+        prompt: "select_account",
+      },
+    },
+
+    account: {
+      accountLinking: {
+        enabled: true,
+        trustedProviders: ["github", "google"],
       },
     },
 

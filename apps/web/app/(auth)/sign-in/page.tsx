@@ -18,6 +18,11 @@ export default function SignInPage() {
     params.get("tab") === "signup" ? "signup" : "signin"
   );
 
+  const rawAuthError = params.get("authError");
+  const authErrorMsg = rawAuthError
+    ? (AUTH_ERRORS[rawAuthError] ?? "Une erreur est survenue lors de la connexion. Réessaie.")
+    : null;
+
   return (
     <div className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden px-4">
       <div
@@ -39,6 +44,12 @@ export default function SignInPage() {
         </div>
         <span className="text-lg font-semibold">Adopte Ton Dev</span>
       </Link>
+
+      {authErrorMsg && (
+        <div className="mb-4 w-full max-w-sm rounded-xl border border-destructive/20 bg-destructive/5 px-4 py-3 text-sm text-destructive">
+          {authErrorMsg}
+        </div>
+      )}
 
       <div className="w-full max-w-sm rounded-2xl border border-border bg-card p-8 shadow-sm">
         {/* Onglets Connexion / Inscription */}
@@ -124,6 +135,10 @@ const AUTH_ERRORS: Record<string, string> = {
   SOCIAL_ACCOUNT_ALREADY_LINKED: "Ce compte social est déjà associé à un autre utilisateur.",
   FAILED_TO_GET_USER_INFO: "Impossible de récupérer les informations du compte.",
   PROVIDER_NOT_FOUND: "Fournisseur d'authentification introuvable.",
+  // Erreurs OAuth renvoyées via ?authError=
+  "email_doesn't_match": "Un compte existe déjà avec cet email via un autre fournisseur (GitHub ou Google). Connecte-toi avec le bon fournisseur.",
+  "email_doesn_t_match": "Un compte existe déjà avec cet email via un autre fournisseur. Connecte-toi avec le bon fournisseur.",
+  oauth_account_not_linked: "Ce compte social n'est pas encore associé. Connecte-toi d'abord avec ton fournisseur habituel.",
 };
 
 function translateAuthError(error: { code?: string | null; message?: string | null } | null | undefined, fallback: string): string {
