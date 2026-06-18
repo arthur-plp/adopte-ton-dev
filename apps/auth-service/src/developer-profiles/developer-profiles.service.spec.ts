@@ -10,7 +10,6 @@ import type {
   CreateDeveloperProfileDto,
   UpdateDeveloperProfileDto,
 } from '@repo/contracts';
-import { Availability } from '@repo/types';
 
 const mockPrisma = {
   developerProfile: {
@@ -55,7 +54,7 @@ const baseCreateDto: CreateDeveloperProfileDto = {
   firstName: 'Alice',
   lastName: 'Dev',
   remoteOk: false,
-  availability: Availability.IMMEDIATE,
+  availability: "Disponible immédiatement",
 };
 
 describe('DeveloperProfilesService', () => {

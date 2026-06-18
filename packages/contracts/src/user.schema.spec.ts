@@ -9,7 +9,7 @@ import {
   ProjectSchema,
   SkillSchema,
 } from './user.schema';
-import { Role, Availability, SkillLevel } from '@repo/types';
+import { Role, SkillLevel } from '@repo/types';
 
 // ─── CreateUserSchema ────────────────────────────────────────────────────────
 
@@ -52,7 +52,7 @@ describe('CreateDeveloperProfileSchema', () => {
     firstName: 'Alice',
     lastName: 'Dev',
     remoteOk: false,
-    availability: Availability.IMMEDIATE,
+    availability: "Disponible immédiatement",
   };
 
   it('valide un profil minimal', () => {
@@ -78,9 +78,9 @@ describe('CreateDeveloperProfileSchema', () => {
     expect(CreateDeveloperProfileSchema.parse(withoutRemote).remoteOk).toBe(false);
   });
 
-  it('applique availability=IMMEDIATE par défaut', () => {
+  it('applique availability par défaut', () => {
     const { availability: _a, ...withoutAvail } = valid;
-    expect(CreateDeveloperProfileSchema.parse(withoutAvail).availability).toBe(Availability.IMMEDIATE);
+    expect(CreateDeveloperProfileSchema.parse(withoutAvail).availability).toBe("Disponible immédiatement");
   });
 
   it('rejette un firstName vide', () => {
@@ -131,9 +131,9 @@ describe('UpdateDeveloperProfileSchema', () => {
     ).toThrow();
   });
 
-  it('accepte availability valide', () => {
-    const result = UpdateDeveloperProfileSchema.parse({ availability: Availability.NOT_LOOKING });
-    expect(result.availability).toBe(Availability.NOT_LOOKING);
+  it('accepte availability en texte libre', () => {
+    const result = UpdateDeveloperProfileSchema.parse({ availability: "En poste, pas en recherche active" });
+    expect(result.availability).toBe("En poste, pas en recherche active");
   });
 });
 
@@ -259,7 +259,7 @@ describe('OnboardingSchema', () => {
           firstName: 'Alice',
           lastName: 'Dev',
           remoteOk: false,
-          availability: Availability.IMMEDIATE,
+          availability: "Disponible immédiatement",
         },
       }),
     ).not.toThrow();

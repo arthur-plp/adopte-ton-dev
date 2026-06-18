@@ -4,13 +4,6 @@ export enum Role {
   ADMIN = "ADMIN",
 }
 
-export enum Availability {
-  IMMEDIATE = "IMMEDIATE",
-  ONE_MONTH = "ONE_MONTH",
-  LATER = "LATER",
-  NOT_LOOKING = "NOT_LOOKING",
-}
-
 export enum SkillLevel {
   BEGINNER = "BEGINNER",
   INTERMEDIATE = "INTERMEDIATE",

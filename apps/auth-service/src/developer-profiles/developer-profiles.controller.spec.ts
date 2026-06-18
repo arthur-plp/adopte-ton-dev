@@ -3,7 +3,6 @@ import { NotFoundException, ForbiddenException } from '@nestjs/common';
 import { DeveloperProfilesController } from './developer-profiles.controller';
 import { DeveloperProfilesService } from './developer-profiles.service';
 import { GitHubSyncService } from './github-sync.service';
-import { Availability } from '@repo/types';
 import type {
   CreateDeveloperProfileDto,
   UpdateDeveloperProfileDto,
@@ -41,7 +40,7 @@ describe('DeveloperProfilesController', () => {
     firstName: 'Alice',
     lastName: 'Dev',
     remoteOk: false,
-    availability: Availability.IMMEDIATE,
+    availability: "Disponible immédiatement",
   };
 
   // ─── POST / ───────────────────────────────────────────────────────────────

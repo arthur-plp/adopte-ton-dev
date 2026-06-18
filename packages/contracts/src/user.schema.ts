@@ -1,6 +1,5 @@
 import { z } from "zod";
 import {
-  Availability,
   Role,
   SkillLevel,
 } from "@repo/types";
@@ -22,10 +21,17 @@ export const TechnologySchema = z.object({
 
 export type TechnologyDto = z.infer<typeof TechnologySchema>;
 
-export const SkillSchema = z.object({
-  skillId: cuidLike,
-  level: z.nativeEnum(SkillLevel).default(SkillLevel.INTERMEDIATE),
-});
+export const SkillSchema = z.union([
+  z.object({
+    skillId: cuidLike,
+    level: z.nativeEnum(SkillLevel).default(SkillLevel.INTERMEDIATE),
+  }),
+  z.object({
+    name: z.string().min(1).max(100),
+    category: z.enum(["technique", "soft"]).default("technique"),
+    level: z.nativeEnum(SkillLevel).default(SkillLevel.INTERMEDIATE),
+  }),
+]);
 
 export type SkillDto = z.infer<typeof SkillSchema>;
 
@@ -58,7 +64,7 @@ export const CreateDeveloperProfileSchema = z.object({
   bio: z.string().max(2000).optional(),
   location: z.string().max(200).optional(),
   remoteOk: z.boolean().default(false),
-  availability: z.nativeEnum(Availability).default(Availability.IMMEDIATE),
+  availability: z.string().max(200).default("Disponible immédiatement"),
   githubUrl: z.string().url().optional(),
   portfolioUrl: z.string().url().optional(),
   linkedinUrl: z.string().url().optional(),
@@ -75,7 +81,7 @@ export const UpdateDeveloperProfileSchema = z.object({
   bio: z.string().max(2000),
   location: z.string().max(200),
   remoteOk: z.boolean(),
-  availability: z.nativeEnum(Availability),
+  availability: z.string().max(200),
   githubUrl: z.string().url(),
   portfolioUrl: z.string().url(),
   linkedinUrl: z.string().url(),

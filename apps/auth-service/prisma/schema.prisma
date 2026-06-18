@@ -65,13 +65,6 @@ model Verification {
 
 // ─── Enums domaine ────────────────────────────────────────────────────────────
 
-enum Availability {
-  IMMEDIATE
-  ONE_MONTH
-  LATER
-  NOT_LOOKING
-}
-
 enum SkillLevel {
   BEGINNER
   INTERMEDIATE
@@ -90,7 +83,7 @@ model DeveloperProfile {
   bio          String?
   location     String?
   remoteOk     Boolean      @default(false)
-  availability Availability @default(IMMEDIATE)
+  availability String  @default("Disponible immédiatement")
   githubUrl    String?
   portfolioUrl String?
   linkedinUrl  String?
