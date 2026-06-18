@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Navbar } from "@/components/navbar";
+import { Footer } from "@/components/footer";
 import {
   Code2,
   Briefcase,
@@ -342,25 +343,7 @@ export default function HomePage() {
         </section>
       </main>
 
-      {/* ── Footer ─────────────────────────────────────────────── */}
-      <footer className="border-t border-border/60 bg-muted/20 py-8">
-        <div className="mx-auto flex max-w-6xl flex-col items-center gap-4 px-4 text-center sm:flex-row sm:justify-between sm:px-6">
-          <Link href="/" className="flex items-center gap-2 text-sm font-medium">
-            <div className="flex size-5 items-center justify-center rounded-md bg-primary">
-              <Code2 className="size-3 text-primary-foreground" />
-            </div>
-            Adopte Ton Dev
-          </Link>
-          <p className="text-xs text-muted-foreground">
-            © {new Date().getFullYear()} Adopte Ton Dev · Tous droits réservés
-          </p>
-          <div className="flex gap-4 text-xs text-muted-foreground">
-            <Link href="/a-propos" className="hover:text-foreground">À propos</Link>
-            <Link href="/cgu" className="hover:text-foreground">CGU</Link>
-            <Link href="/confidentialite" className="hover:text-foreground">Confidentialité</Link>
-          </div>
-        </div>
-      </footer>
+      <Footer />
     </div>
   );
 }

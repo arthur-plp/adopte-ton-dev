@@ -1,16 +1,15 @@
 "use client";
 
-import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Navbar } from "@/components/navbar";
+import { Footer } from "@/components/footer";
+import { toast } from "sonner";
 import {
-  Code2,
   Briefcase,
   CheckCircle2,
   Users,
   Zap,
   Star,
-  Send,
 } from "lucide-react";
 import { useState } from "react";
 
@@ -95,17 +94,7 @@ export default function RecruteursPage() {
         </section>
       </main>
 
-      <footer className="border-t border-border/60 bg-muted/20 py-6">
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-4 text-xs text-muted-foreground sm:px-6">
-          <Link href="/" className="flex items-center gap-1.5 font-medium">
-            <div className="flex size-4 items-center justify-center rounded bg-primary">
-              <Code2 className="size-2.5 text-primary-foreground" />
-            </div>
-            Adopte Ton Dev
-          </Link>
-          <p>© {new Date().getFullYear()} Adopte Ton Dev</p>
-        </div>
-      </footer>
+      <Footer />
     </div>
   );
 }
@@ -120,7 +109,7 @@ function ContactForm() {
     teamSize: "",
     message: "",
   });
-  const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
+  const [status, setStatus] = useState<"idle" | "loading">("idle");
 
   function set(field: keyof typeof form) {
     return (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) =>
@@ -139,25 +128,17 @@ function ContactForm() {
       });
 
       if (!res.ok) throw new Error();
-      setStatus("success");
+      toast.success("Demande envoyée !", {
+        description: `Nous reviendrons vers vous à ${form.email} sous 48 h.`,
+      });
+      setForm({ firstName: "", lastName: "", email: "", company: "", jobTitle: "", teamSize: "", message: "" });
     } catch {
-      setStatus("error");
+      toast.error("Une erreur s'est produite", {
+        description: "Réessaie dans quelques instants.",
+      });
+    } finally {
+      setStatus("idle");
     }
-  }
-
-  if (status === "success") {
-    return (
-      <div className="flex flex-col items-center justify-center rounded-2xl border border-border bg-card p-10 text-center shadow-sm">
-        <div className="mb-4 flex size-14 items-center justify-center rounded-2xl bg-green-500/10">
-          <Send className="size-7 text-green-600" />
-        </div>
-        <h3 className="mb-2 text-lg font-semibold">Demande envoyée !</h3>
-        <p className="text-sm text-muted-foreground">
-          Nous reviendrons vers vous à <strong>{form.email}</strong> sous 48 h
-          pour créer votre accès recruteur.
-        </p>
-      </div>
-    );
   }
 
   return (
@@ -251,12 +232,6 @@ function ContactForm() {
           />
         </Field>
       </div>
-
-      {status === "error" && (
-        <p className="mt-3 text-sm text-destructive">
-          Une erreur s&apos;est produite. Réessaie dans quelques instants.
-        </p>
-      )}
 
       <Button
         type="submit"
