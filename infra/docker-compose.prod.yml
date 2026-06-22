@@ -64,7 +64,7 @@ services:
         condition: service_healthy
     networks: [atd]
     healthcheck:
-      test: ["CMD-SHELL", "nc -z localhost 3001 || exit 1"]
+      test: ["CMD", "node", "-e", "require('net').createConnection(3001,'localhost').on('connect',()=>process.exit(0)).on('error',()=>process.exit(1))"]
       interval: 15s
       timeout: 5s
       retries: 5
@@ -83,7 +83,7 @@ services:
         condition: service_healthy
     networks: [atd]
     healthcheck:
-      test: ["CMD-SHELL", "nc -z localhost 3002 || exit 1"]
+      test: ["CMD", "node", "-e", "require('net').createConnection(3002,'localhost').on('connect',()=>process.exit(0)).on('error',()=>process.exit(1))"]
       interval: 15s
       timeout: 5s
       retries: 5
