@@ -1,0 +1,79 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum JobType {
+  INTERNSHIP
+  APPRENTICESHIP
+  FIRST_JOB
+}
+
+enum JobStatus {
+  DRAFT
+  PENDING_REVIEW
+  APPROVED   // validée par l'admin, en attente de publication par le recruteur
+  PUBLISHED
+  REJECTED
+  ARCHIVED
+}
+
+model JobOffer {
+  id                   String    @id @default(cuid())
+  companyId            String
+  companyName          String?
+  recruiterId          String
+  title                String
+  description          String
+  type                 JobType
+  status               JobStatus @default(DRAFT)
+  isPublic             Boolean   @default(true)
+  location             String?
+  country              String?
+  remoteOk             Boolean   @default(false)
+  requiredTechnologies String[]
+  requiredTechLevels   Json?
+  salaryMin            Int?
+  salaryMax            Int?
+  rejectionReason      String?
+  createdAt            DateTime  @default(now())
+  publishedAt          DateTime?
+  updatedAt            DateTime  @updatedAt
+
+  events JobOfferEvent[]
+
+  @@index([recruiterId])
+  @@index([companyId, status])
+  @@index([status, isPublic, createdAt(sort: Desc)])
+}
+
+// Historique des transitions de statut (audit + affichage recruteur/admin).
+// actorRole/actorId identifient qui a déclenché la transition (RECRUITER | ADMIN).
+model JobOfferEvent {
+  id         String    @id @default(cuid())
+  jobOfferId String
+  jobOffer   JobOffer  @relation(fields: [jobOfferId], references: [id], onDelete: Cascade)
+  status     JobStatus
+  note       String?
+  actorRole  String
+  actorId    String?
+  createdAt  DateTime  @default(now())
+
+  @@index([jobOfferId, createdAt])
+}
+
+model OutboxEvent {
+  id        String    @id @default(cuid())
+  type      String
+  payload   Json
+  status    String    @default("PENDING")
+  attempts  Int       @default(0)
+  createdAt DateTime  @default(now())
+  sentAt    DateTime?
+
+  @@index([status, attempts, createdAt])
+}

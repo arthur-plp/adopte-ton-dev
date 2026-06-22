@@ -2,6 +2,8 @@ import {
   CreateJobOfferSchema,
   UpdateJobOfferSchema,
   JobOfferFiltersSchema,
+  JobOfferResponseSchema,
+  PaginatedJobOffersSchema,
 } from './job.schema';
 import { JobType, JobStatus } from '@repo/types';
 
@@ -146,5 +148,76 @@ describe('JobOfferFiltersSchema', () => {
 
   it('rejette un type d\'offre inconnu dans les filtres', () => {
     expect(() => JobOfferFiltersSchema.parse({ type: 'FREELANCE' })).toThrow();
+  });
+});
+
+// ─── JobOfferResponseSchema ───────────────────────────────────────────────────
+
+describe('JobOfferResponseSchema', () => {
+  const validResponse = {
+    id: 'cuid123',
+    companyId: 'company1',
+    companyName: 'Acme SAS',
+    recruiterId: 'recruiter1',
+    title: 'Développeur Fullstack',
+    description: 'Description du poste',
+    type: JobType.INTERNSHIP,
+    status: JobStatus.PUBLISHED,
+    isPublic: true,
+    location: 'Paris',
+    country: 'France',
+    remoteOk: false,
+    requiredTechnologies: ['TypeScript', 'React'],
+    requiredTechLevels: null,
+    salaryMin: 1500,
+    salaryMax: 2000,
+    rejectionReason: null,
+    createdAt: new Date().toISOString(),
+    publishedAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  };
+
+  it('valide une réponse complète', () => {
+    expect(() => JobOfferResponseSchema.parse(validResponse)).not.toThrow();
+  });
+
+  it('accepte location, salaires et publishedAt null', () => {
+    const result = JobOfferResponseSchema.parse({
+      ...validResponse,
+      location: null,
+      salaryMin: null,
+      salaryMax: null,
+      publishedAt: null,
+    });
+    expect(result.location).toBeNull();
+    expect(result.salaryMin).toBeNull();
+    expect(result.publishedAt).toBeNull();
+  });
+
+  it('coerce les dates ISO string en Date', () => {
+    const result = JobOfferResponseSchema.parse(validResponse);
+    expect(result.createdAt).toBeInstanceOf(Date);
+    expect(result.updatedAt).toBeInstanceOf(Date);
+  });
+
+  it('rejette si id manquant', () => {
+    const { id: _, ...withoutId } = validResponse;
+    expect(() => JobOfferResponseSchema.parse(withoutId)).toThrow();
+  });
+});
+
+// ─── PaginatedJobOffersSchema ─────────────────────────────────────────────────
+
+describe('PaginatedJobOffersSchema', () => {
+  it('valide une réponse paginée vide', () => {
+    expect(() => PaginatedJobOffersSchema.parse({
+      data: [], total: 0, page: 1, pageSize: 20,
+    })).not.toThrow();
+  });
+
+  it('rejette total négatif', () => {
+    expect(() => PaginatedJobOffersSchema.parse({
+      data: [], total: -1, page: 1, pageSize: 20,
+    })).toThrow();
   });
 });

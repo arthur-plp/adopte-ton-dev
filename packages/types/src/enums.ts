@@ -18,7 +18,10 @@ export enum JobType {
 
 export enum JobStatus {
   DRAFT = "DRAFT",
+  PENDING_REVIEW = "PENDING_REVIEW",
+  APPROVED = "APPROVED",
   PUBLISHED = "PUBLISHED",
+  REJECTED = "REJECTED",
   ARCHIVED = "ARCHIVED",
 }
 

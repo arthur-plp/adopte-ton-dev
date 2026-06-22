@@ -19,9 +19,7 @@ export default function DashboardRedirect() {
     }
 
     const role = (session.user as { role?: string }).role;
-    if (!role || role === "DEVELOPER") {
-      router.replace("/dashboard/developer");
-    } else if (role === "RECRUITER") {
+    if (role === "RECRUITER") {
       router.replace("/dashboard/recruiter");
     } else if (role === "ADMIN") {
       router.replace("/dashboard/admin");
