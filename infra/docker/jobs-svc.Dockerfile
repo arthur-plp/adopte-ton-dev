@@ -38,4 +38,4 @@ WORKDIR /app/apps/jobs-svc
 
 EXPOSE 3002
 
-CMD ["sh", "-c", "node node_modules/prisma/build/index.js migrate deploy && node dist/main"]
+CMD ["sh", "-c", "node node_modules/prisma/build/index.js migrate deploy && node dist/src/main"]
