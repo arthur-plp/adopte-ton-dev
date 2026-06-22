@@ -17,6 +17,9 @@ model User {
   image         String?
   role          String    @default("DEVELOPER")
   onboarded     Boolean   @default(false)
+  banned        Boolean?
+  banReason     String?
+  banExpires    DateTime?
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
   sessions         Session[]
@@ -82,8 +85,10 @@ model DeveloperProfile {
   title        String?
   bio          String?
   location     String?
+  country      String?
   remoteOk     Boolean      @default(false)
   availability String  @default("Disponible immédiatement")
+  phone        String?
   githubUrl    String?
   portfolioUrl String?
   linkedinUrl  String?
@@ -102,6 +107,8 @@ model RecruiterProfile {
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   firstName String
   lastName  String
+  phone     String?
+  avatarUrl String?
   companyId String
   company   Company  @relation(fields: [companyId], references: [id])
   createdAt DateTime @default(now())
@@ -110,10 +117,14 @@ model RecruiterProfile {
 
 model Company {
   id          String             @id @default(cuid())
-  name        String
+  name        String             @unique
+  siret       String?            @unique
   website     String?
   logoUrl     String?
   description String?
+  location    String?
+  sector      String?
+  size        String?            // ex. "1-10", "10-50", "50-200", "200-500", "500+"
   createdAt   DateTime           @default(now())
   updatedAt   DateTime           @updatedAt
   recruiters  RecruiterProfile[]
