@@ -19,17 +19,21 @@ ENV DATABASE_URL="postgresql://build:build@localhost:5432/build"
 RUN pnpm --filter api-gateway... build
 
 # ── Runner ────────────────────────────────────────────────────────────────────
+# Conserver la même profondeur de dossiers que dans le builder (apps/api-gateway/…
+# + node_modules/.pnpm à la racine) : pnpm crée des symlinks relatifs entre les deux,
+# les aplatir casserait leur résolution (ex: node_modules/prisma -> ../../../node_modules/.pnpm/…).
 FROM node:22-alpine AS runner
-RUN corepack enable && corepack prepare pnpm@latest --activate
 WORKDIR /app
 ENV NODE_ENV=production
 
-COPY --from=builder /app/apps/api-gateway/dist ./dist
-COPY --from=builder /app/apps/api-gateway/generated ./generated
-COPY --from=builder /app/apps/api-gateway/prisma ./prisma
-COPY --from=builder /app/apps/api-gateway/node_modules ./node_modules
-COPY --from=builder /app/apps/api-gateway/package.json ./package.json
 COPY --from=builder /app/node_modules/.pnpm ./node_modules/.pnpm
+COPY --from=builder /app/apps/api-gateway/dist ./apps/api-gateway/dist
+COPY --from=builder /app/apps/api-gateway/generated ./apps/api-gateway/generated
+COPY --from=builder /app/apps/api-gateway/prisma ./apps/api-gateway/prisma
+COPY --from=builder /app/apps/api-gateway/node_modules ./apps/api-gateway/node_modules
+COPY --from=builder /app/apps/api-gateway/package.json ./apps/api-gateway/package.json
+
+WORKDIR /app/apps/api-gateway
 
 EXPOSE 4000
 
