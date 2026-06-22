@@ -54,7 +54,7 @@ const baseCreateDto: CreateDeveloperProfileDto = {
   firstName: 'Alice',
   lastName: 'Dev',
   remoteOk: false,
-  availability: "Disponible immédiatement",
+  availability: 'Disponible immédiatement',
 };
 
 describe('DeveloperProfilesService', () => {
@@ -167,7 +167,11 @@ describe('DeveloperProfilesService', () => {
         level: 'ADVANCED',
       });
 
-      expect(result).toEqual(tech);
+      expect(result).toEqual({
+        id: tech.id,
+        name: tech.name,
+        level: tech.level,
+      });
       expect(mockPrisma.$transaction).toHaveBeenCalled();
     });
 
@@ -242,12 +246,10 @@ describe('DeveloperProfilesService', () => {
       mockPrisma.developerSkill.findFirst.mockResolvedValue(null);
       mockPrisma.$transaction.mockResolvedValue([entry, {}]);
 
-      const result = await service.addSkill(
-        'user-1',
-        'user-1',
-        'skill-1',
-        'INTERMEDIATE',
-      );
+      const result = await service.addSkill('user-1', 'user-1', {
+        skillId: 'skill-1',
+        level: 'INTERMEDIATE',
+      });
       expect(result).toEqual(entry);
     });
 
@@ -262,7 +264,10 @@ describe('DeveloperProfilesService', () => {
       });
 
       await expect(
-        service.addSkill('user-1', 'user-1', 'skill-1', 'INTERMEDIATE'),
+        service.addSkill('user-1', 'user-1', {
+          skillId: 'skill-1',
+          level: 'INTERMEDIATE',
+        }),
       ).rejects.toThrow(ConflictException);
     });
 
@@ -271,7 +276,10 @@ describe('DeveloperProfilesService', () => {
       mockPrisma.skill.findUnique.mockResolvedValue(null);
 
       await expect(
-        service.addSkill('user-1', 'user-1', 'inconnu', 'BEGINNER'),
+        service.addSkill('user-1', 'user-1', {
+          skillId: 'inconnu',
+          level: 'BEGINNER',
+        }),
       ).rejects.toThrow(NotFoundException);
     });
   });

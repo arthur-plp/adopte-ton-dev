@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { Plus, Trash2, ChevronDown } from "lucide-react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import type { SkillLevel } from "./technologies-section";
 
@@ -135,7 +136,13 @@ export function SkillsSection({ skills, catalog, apiUrl, onUpdate }: Props) {
         credentials: "include",
         body: JSON.stringify({ level }),
       });
-      if (res.ok) onUpdate(skills.map((s) => (s.skillId === entry.skillId ? { ...s, level } : s)));
+      if (res.ok) {
+        onUpdate(skills.map((s) => (s.skillId === entry.skillId ? { ...s, level } : s)));
+      } else {
+        toast.error("Erreur lors de la mise à jour du niveau.");
+      }
+    } catch {
+      toast.error("Erreur réseau.");
     } finally {
       setUpdatingId(null);
     }
@@ -148,7 +155,13 @@ export function SkillsSection({ skills, catalog, apiUrl, onUpdate }: Props) {
         method: "DELETE",
         credentials: "include",
       });
-      if (res.ok) onUpdate(skills.filter((s) => s.skillId !== skillId));
+      if (res.ok) {
+        onUpdate(skills.filter((s) => s.skillId !== skillId));
+      } else {
+        toast.error("Erreur lors de la suppression.");
+      }
+    } catch {
+      toast.error("Erreur réseau.");
     } finally {
       setDeletingId(null);
     }

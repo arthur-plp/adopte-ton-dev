@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { Plus, Trash2, ChevronDown } from "lucide-react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 
 export type SkillLevel = "BEGINNER" | "INTERMEDIATE" | "ADVANCED";
@@ -132,7 +133,11 @@ export function TechnologiesSection({ technologies, apiUrl, onUpdate }: Props) {
       });
       if (res.ok) {
         onUpdate(technologies.map((t) => (t.id === tech.id ? { ...t, level } : t)));
+      } else {
+        toast.error("Erreur lors de la mise à jour du niveau.");
       }
+    } catch {
+      toast.error("Erreur réseau.");
     } finally {
       setUpdatingId(null);
     }
@@ -145,7 +150,13 @@ export function TechnologiesSection({ technologies, apiUrl, onUpdate }: Props) {
         method: "DELETE",
         credentials: "include",
       });
-      if (res.ok) onUpdate(technologies.filter((t) => t.id !== techId));
+      if (res.ok) {
+        onUpdate(technologies.filter((t) => t.id !== techId));
+      } else {
+        toast.error("Erreur lors de la suppression.");
+      }
+    } catch {
+      toast.error("Erreur réseau.");
     } finally {
       setDeletingId(null);
     }

@@ -179,20 +179,30 @@ export class DeveloperProfilesService {
   async addSkill(
     userId: string,
     requesterId: string,
-    payload: { skillId?: string; name?: string; category?: string; level: SkillLevel },
+    payload: {
+      skillId?: string;
+      name?: string;
+      category?: string;
+      level: SkillLevel;
+    },
   ) {
     const profile = await this.requireOwner(userId, requesterId);
 
     let skill: { id: string; name: string };
 
     if (payload.skillId) {
-      const found = await this.prisma.skill.findUnique({ where: { id: payload.skillId } });
+      const found = await this.prisma.skill.findUnique({
+        where: { id: payload.skillId },
+      });
       if (!found) throw new NotFoundException('Compétence introuvable');
       skill = found;
     } else if (payload.name) {
       skill = await this.prisma.skill.upsert({
         where: { name: payload.name },
-        create: { name: payload.name, category: payload.category ?? 'technique' },
+        create: {
+          name: payload.name,
+          category: payload.category ?? 'technique',
+        },
         update: {},
       });
     } else {
@@ -206,7 +216,11 @@ export class DeveloperProfilesService {
 
     const [entry] = await this.prisma.$transaction([
       this.prisma.developerSkill.create({
-        data: { profileId: profile.id, skillId: skill.id, level: payload.level },
+        data: {
+          profileId: profile.id,
+          skillId: skill.id,
+          level: payload.level,
+        },
         include: { skill: true },
       }),
       this.emitProfileUpdated(userId, { addedSkill: skill.name }),

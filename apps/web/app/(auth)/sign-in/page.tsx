@@ -258,7 +258,8 @@ function SignInForm({ onSuccess }: { onSuccess: () => void }) {
 // ── Formulaire inscription ─────────────────────────────────────────────────────
 
 function SignUpForm({ onSuccess }: { onSuccess: () => void }) {
-  const [name, setName] = useState("");
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
@@ -271,6 +272,10 @@ function SignUpForm({ onSuccess }: { onSuccess: () => void }) {
     e.preventDefault();
     setError(null);
 
+    if (!firstName.trim() || !lastName.trim()) {
+      setError("Prénom et nom sont requis.");
+      return;
+    }
     if (password.length < 8) {
       setError("Le mot de passe doit contenir au moins 8 caractères.");
       return;
@@ -281,6 +286,7 @@ function SignUpForm({ onSuccess }: { onSuccess: () => void }) {
     }
 
     setLoading(true);
+    const name = `${firstName.trim()} ${lastName.trim()}`;
     const result = await signUp.email({ name, email, password });
 
     if (result.error) {
@@ -294,17 +300,30 @@ function SignUpForm({ onSuccess }: { onSuccess: () => void }) {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      <Field label="Prénom et nom">
-        <input
-          type="text"
-          required
-          autoComplete="name"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          placeholder="Alex Dupont"
-          className="input-base"
-        />
-      </Field>
+      <div className="grid grid-cols-2 gap-3">
+        <Field label="Prénom">
+          <input
+            type="text"
+            required
+            autoComplete="given-name"
+            value={firstName}
+            onChange={(e) => setFirstName(e.target.value)}
+            placeholder="Alex"
+            className="input-base"
+          />
+        </Field>
+        <Field label="Nom">
+          <input
+            type="text"
+            required
+            autoComplete="family-name"
+            value={lastName}
+            onChange={(e) => setLastName(e.target.value)}
+            placeholder="Dupont"
+            className="input-base"
+          />
+        </Field>
+      </div>
 
       <Field label="Adresse email">
         <input
