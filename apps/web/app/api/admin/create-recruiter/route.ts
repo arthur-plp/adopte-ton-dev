@@ -52,6 +52,10 @@ export async function POST(request: Request) {
         email,
         password,
         name: `${firstName} ${lastName}`,
+        // Le mot de passe temporaire est livré par email (canal déjà vérifié,
+        // cf. sendRecruiterWelcomeEmail plus bas) : pas besoin de revérifier
+        // l'adresse comme pour une inscription email/mot de passe classique.
+        data: { emailVerified: true },
       },
     });
   } catch (err: unknown) {

@@ -17,3 +17,4 @@ export function updateUser(data: { name?: string; image?: string }) {
 }
 export const requestPasswordReset = client.requestPasswordReset;
 export const resetPassword = client.resetPassword;
+export const sendVerificationEmail = client.sendVerificationEmail;
