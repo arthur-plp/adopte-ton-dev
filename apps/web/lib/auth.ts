@@ -1,4 +1,5 @@
 import { betterAuth } from "better-auth";
+import { admin } from "better-auth/plugins";
 import { prismaAdapter } from "better-auth/adapters/prisma";
 import { PrismaClient } from "@prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
@@ -70,6 +71,8 @@ function makeAuth() {
       updateAge: 60 * 60 * 24,
       cookieCache: { enabled: true, maxAge: 60 * 5 },
     },
+
+    plugins: [admin({ defaultRole: "DEVELOPER", adminRole: "ADMIN" })],
   });
 }
 

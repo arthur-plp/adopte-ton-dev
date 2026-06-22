@@ -1,6 +1,6 @@
 import { Module } from '@nestjs/common';
 import { ClientsModule, Transport } from '@nestjs/microservices';
-import { UsersController } from './users.controller';
+import { AdminController } from './admin.controller';
 
 @Module({
   imports: [
@@ -13,8 +13,16 @@ import { UsersController } from './users.controller';
           port: parseInt(process.env['USERS_SVC_PORT'] ?? '3001', 10),
         },
       },
+      {
+        name: 'JOBS_SVC',
+        transport: Transport.TCP,
+        options: {
+          host: process.env['JOBS_SVC_HOST'] ?? 'localhost',
+          port: parseInt(process.env['JOBS_SVC_PORT'] ?? '3002', 10),
+        },
+      },
     ]),
   ],
-  controllers: [UsersController],
+  controllers: [AdminController],
 })
-export class UsersModule {}
+export class AdminModule {}

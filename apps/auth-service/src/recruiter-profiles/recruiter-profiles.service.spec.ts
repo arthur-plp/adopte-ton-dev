@@ -8,7 +8,13 @@ const mockPrisma = {
   recruiterProfile: {
     create: jest.fn(),
     findUnique: jest.fn(),
+    update: jest.fn(),
   },
+  company: {
+    upsert: jest.fn(),
+    update: jest.fn(),
+  },
+  $transaction: jest.fn(),
 };
 
 const baseCreateDto: CreateRecruiterProfileDto = {
@@ -144,6 +150,86 @@ describe('RecruiterProfilesService', () => {
       await expect(
         service.ensureOwnership('legitime', 'imposteur'),
       ).rejects.toThrow(ForbiddenException);
+    });
+  });
+
+  // ─── update ───────────────────────────────────────────────────────────────
+
+  describe('update', () => {
+    it('lance ForbiddenException si requesterId diffère du userId', async () => {
+      await expect(
+        service.update('user-1', 'attaquant-42', {}),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
+    it('propage companySiret vers Company quand le profil existe déjà', async () => {
+      mockPrisma.recruiterProfile.findUnique.mockResolvedValue({
+        id: 'rec-1',
+        userId: 'user-1',
+        companyId: 'co-1',
+      });
+      mockPrisma.recruiterProfile.update.mockReturnValue(
+        Promise.resolve({ id: 'rec-1', userId: 'user-1' }),
+      );
+      mockPrisma.company.update.mockReturnValue(
+        Promise.resolve({ id: 'co-1' }),
+      );
+      mockPrisma.$transaction.mockImplementation((ops: unknown) =>
+        Promise.all(ops as Promise<unknown>[]),
+      );
+
+      await service.update('user-1', 'user-1', {
+        companySiret: '12345678901234',
+      });
+
+      expect(mockPrisma.company.update).toHaveBeenCalledWith({
+        where: { id: 'co-1' },
+        data: { siret: '12345678901234' },
+      });
+    });
+
+    it("n'appelle pas company.update si aucun champ entreprise n'est fourni", async () => {
+      mockPrisma.recruiterProfile.findUnique.mockResolvedValue({
+        id: 'rec-1',
+        userId: 'user-1',
+        companyId: 'co-1',
+      });
+      mockPrisma.recruiterProfile.update.mockReturnValue(
+        Promise.resolve({ id: 'rec-1', userId: 'user-1' }),
+      );
+      mockPrisma.$transaction.mockImplementation((ops: unknown) =>
+        Promise.all(ops as Promise<unknown>[]),
+      );
+
+      await service.update('user-1', 'user-1', { firstName: 'Alice' });
+
+      expect(mockPrisma.company.update).not.toHaveBeenCalled();
+    });
+
+    it('crée la Company avec siret quand le profil recruteur est promu sans profil existant', async () => {
+      mockPrisma.recruiterProfile.findUnique.mockResolvedValue(null);
+      mockPrisma.$transaction.mockImplementation(
+        async (callback: (tx: typeof mockPrisma) => Promise<unknown>) =>
+          callback(mockPrisma),
+      );
+      mockPrisma.company.upsert.mockResolvedValue({ id: 'co-new' });
+      mockPrisma.recruiterProfile.create.mockResolvedValue({
+        id: 'rec-new',
+        userId: 'user-2',
+      });
+
+      await service.update('user-2', 'user-2', {
+        companyName: 'Acme',
+        companySiret: '12345678901234',
+        firstName: 'Bob',
+        lastName: 'Martin',
+      });
+
+      expect(mockPrisma.company.upsert).toHaveBeenCalledWith({
+        where: { name: 'Acme' },
+        update: { siret: '12345678901234' },
+        create: { name: 'Acme', siret: '12345678901234' },
+      });
     });
   });
 });

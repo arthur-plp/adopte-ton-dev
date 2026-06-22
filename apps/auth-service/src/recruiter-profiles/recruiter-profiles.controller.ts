@@ -1,46 +1,31 @@
-import { Body, Controller, Get, Param, Post } from '@nestjs/common';
-import {
-  ApiTags,
-  ApiOperation,
-  ApiParam,
-  ApiBody,
-  ApiResponse,
-} from '@nestjs/swagger';
+import { Controller } from '@nestjs/common';
+import { MessagePattern, Payload } from '@nestjs/microservices';
 import { RecruiterProfilesService } from './recruiter-profiles.service';
 import {
   CreateRecruiterProfileSchema,
-  type CreateRecruiterProfileDto,
+  UpdateRecruiterProfileSchema,
 } from '@repo/contracts';
 
-type CreateBody = { userId: string; data: CreateRecruiterProfileDto };
-
-@ApiTags('recruiter-profiles')
-@Controller('recruiter-profiles')
+@Controller()
 export class RecruiterProfilesController {
   constructor(private readonly service: RecruiterProfilesService) {}
 
-  @Post()
-  @ApiOperation({ summary: 'Créer un profil recruteur (lié à une entreprise)' })
-  @ApiBody({
-    schema: {
-      example: {
-        userId: 'cuid',
-        data: { firstName: 'Bob', lastName: 'Rec', companyId: 'cuid' },
-      },
-    },
-  })
-  @ApiResponse({ status: 201, description: 'RecruiterProfile créé' })
-  create(@Body() body: CreateBody) {
-    const dto = CreateRecruiterProfileSchema.parse(body.data);
-    return this.service.create(body.userId, dto);
+  @MessagePattern({ cmd: 'recruiter.create' })
+  create(@Payload() payload: { userId: string; data: unknown }) {
+    const dto = CreateRecruiterProfileSchema.parse(payload.data);
+    return this.service.create(payload.userId, dto);
   }
 
-  @Get(':userId')
-  @ApiOperation({ summary: 'Profil recruteur avec entreprise' })
-  @ApiParam({ name: 'userId', description: 'ID utilisateur' })
-  @ApiResponse({ status: 200, description: 'RecruiterProfile avec Company' })
-  @ApiResponse({ status: 404, description: 'Profil introuvable' })
-  findOne(@Param('userId') userId: string) {
-    return this.service.findByUserId(userId);
+  @MessagePattern({ cmd: 'recruiter.getProfile' })
+  findOne(@Payload() payload: { userId: string }) {
+    return this.service.findByUserId(payload.userId);
+  }
+
+  @MessagePattern({ cmd: 'recruiter.updateProfile' })
+  update(
+    @Payload() payload: { userId: string; requesterId: string; data: unknown },
+  ) {
+    const dto = UpdateRecruiterProfileSchema.parse(payload.data);
+    return this.service.update(payload.userId, payload.requesterId, dto);
   }
 }
