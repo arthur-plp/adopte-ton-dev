@@ -8,7 +8,10 @@
     "build": "prisma generate && next build",
     "start": "next start",
     "lint": "eslint --max-warnings 0",
-    "check-types": "next typegen && tsc --noEmit"
+    "check-types": "next typegen && tsc --noEmit",
+    "test": "jest",
+    "test:cov": "jest --coverage",
+    "clean": "rm -rf .next"
   },
   "dependencies": {
     "@prisma/adapter-pg": "^7.8.0",
@@ -40,11 +43,14 @@
   "devDependencies": {
     "@repo/eslint-config": "workspace:*",
     "@repo/typescript-config": "workspace:*",
+    "@types/jest": "^30.0.0",
     "@types/node": "^22.15.3",
     "@types/react": "19.2.2",
     "@types/react-dom": "19.2.2",
     "eslint": "^9.39.1",
+    "jest": "^30.0.0",
     "prisma": "^7.8.0",
+    "tsx": "^4.22.4",
     "typescript": "5.9.2"
   }
 }
