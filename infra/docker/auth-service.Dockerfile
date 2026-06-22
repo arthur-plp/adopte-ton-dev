@@ -19,17 +19,21 @@ ENV DATABASE_URL="postgresql://build:build@localhost:5432/build"
 RUN pnpm --filter auth-service... build
 
 # ── Runner ────────────────────────────────────────────────────────────────────
+# Conserver la même profondeur de dossiers que dans le builder (apps/auth-service/…
+# + node_modules/.pnpm à la racine) : pnpm crée des symlinks relatifs entre les deux,
+# les aplatir casserait leur résolution (ex: node_modules/prisma -> ../../../node_modules/.pnpm/…).
 FROM node:22-alpine AS runner
-RUN corepack enable && corepack prepare pnpm@latest --activate
 WORKDIR /app
 ENV NODE_ENV=production
 
-COPY --from=builder /app/apps/auth-service/dist ./dist
-COPY --from=builder /app/apps/auth-service/generated ./generated
-COPY --from=builder /app/apps/auth-service/prisma ./prisma
-COPY --from=builder /app/apps/auth-service/node_modules ./node_modules
-COPY --from=builder /app/apps/auth-service/package.json ./package.json
 COPY --from=builder /app/node_modules/.pnpm ./node_modules/.pnpm
+COPY --from=builder /app/apps/auth-service/dist ./apps/auth-service/dist
+COPY --from=builder /app/apps/auth-service/generated ./apps/auth-service/generated
+COPY --from=builder /app/apps/auth-service/prisma ./apps/auth-service/prisma
+COPY --from=builder /app/apps/auth-service/node_modules ./apps/auth-service/node_modules
+COPY --from=builder /app/apps/auth-service/package.json ./apps/auth-service/package.json
+
+WORKDIR /app/apps/auth-service
 
 EXPOSE 3001
 

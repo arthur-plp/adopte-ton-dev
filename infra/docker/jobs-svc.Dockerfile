@@ -19,17 +19,21 @@ ENV DATABASE_URL="postgresql://build:build@localhost:5432/build"
 RUN pnpm --filter jobs-svc... build
 
 # ── Runner ────────────────────────────────────────────────────────────────────
+# Conserver la même profondeur de dossiers que dans le builder (apps/jobs-svc/…
+# + node_modules/.pnpm à la racine) : pnpm crée des symlinks relatifs entre les deux,
+# les aplatir casserait leur résolution (ex: node_modules/prisma -> ../../../node_modules/.pnpm/…).
 FROM node:22-alpine AS runner
-RUN corepack enable && corepack prepare pnpm@latest --activate
 WORKDIR /app
 ENV NODE_ENV=production
 
-COPY --from=builder /app/apps/jobs-svc/dist ./dist
-COPY --from=builder /app/apps/jobs-svc/generated ./generated
-COPY --from=builder /app/apps/jobs-svc/prisma ./prisma
-COPY --from=builder /app/apps/jobs-svc/node_modules ./node_modules
-COPY --from=builder /app/apps/jobs-svc/package.json ./package.json
 COPY --from=builder /app/node_modules/.pnpm ./node_modules/.pnpm
+COPY --from=builder /app/apps/jobs-svc/dist ./apps/jobs-svc/dist
+COPY --from=builder /app/apps/jobs-svc/generated ./apps/jobs-svc/generated
+COPY --from=builder /app/apps/jobs-svc/prisma ./apps/jobs-svc/prisma
+COPY --from=builder /app/apps/jobs-svc/node_modules ./apps/jobs-svc/node_modules
+COPY --from=builder /app/apps/jobs-svc/package.json ./apps/jobs-svc/package.json
+
+WORKDIR /app/apps/jobs-svc
 
 EXPOSE 3002
 
