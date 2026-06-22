@@ -4,7 +4,11 @@ import React from "react";
 import { ResetPasswordEmail } from "@/emails/reset-password";
 import { RecruiterWelcomeEmail } from "@/emails/recruiter-welcome";
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+let _resend: Resend | undefined;
+function getResend(): Resend {
+  if (!_resend) _resend = new Resend(process.env.RESEND_API_KEY);
+  return _resend;
+}
 
 const FROM =
   process.env.RESEND_FROM_EMAIL ?? "Adopte Ton Dev <onboarding@resend.dev>";
@@ -22,7 +26,7 @@ async function sendEmail(payload: { from: string; to: string; subject: string; h
     );
     return;
   }
-  await resend.emails.send(payload);
+  await getResend().emails.send(payload);
 }
 
 export async function sendResetPasswordEmail({
