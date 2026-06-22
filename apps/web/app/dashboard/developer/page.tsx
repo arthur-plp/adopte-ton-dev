@@ -18,6 +18,7 @@ import {
   AlertCircle,
 } from "lucide-react";
 import { SectionHeader } from "@/components/section-header";
+import { EmailVerificationBanner } from "@/components/email-verification-banner";
 
 type Project = {
   id: string;
@@ -89,6 +90,8 @@ export default function DeveloperDashboard() {
 
   return (
     <div className="page-container">
+      <EmailVerificationBanner />
+
       {/* ── Welcome ──────────────────────────────────────────────── */}
       <div className="mb-10">
         <h1 className="text-2xl font-bold text-foreground">

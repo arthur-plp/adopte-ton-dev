@@ -3,6 +3,7 @@ import { render } from "@react-email/render";
 import React from "react";
 import { ResetPasswordEmail } from "@/emails/reset-password";
 import { RecruiterWelcomeEmail } from "@/emails/recruiter-welcome";
+import { VerifyEmail } from "@/emails/verify-email";
 
 let _resend: Resend | undefined;
 function getResend(): Resend {
@@ -44,6 +45,24 @@ export async function sendResetPasswordEmail({
     from: FROM,
     to,
     subject: "Réinitialise ton mot de passe — Adopte Ton Dev",
+    html,
+  });
+}
+
+export async function sendVerificationEmail({
+  to,
+  userName,
+  verifyUrl,
+}: {
+  to: string;
+  userName: string;
+  verifyUrl: string;
+}) {
+  const html = await render(React.createElement(VerifyEmail, { userName, verifyUrl }));
+  await sendEmail({
+    from: FROM,
+    to,
+    subject: "Confirme ton adresse email — Adopte Ton Dev",
     html,
   });
 }

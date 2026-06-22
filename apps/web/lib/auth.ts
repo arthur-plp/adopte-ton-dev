@@ -4,7 +4,7 @@ import { prismaAdapter } from "better-auth/adapters/prisma";
 import { PrismaClient } from "@prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { Pool } from "pg";
-import { sendResetPasswordEmail } from "./mailer";
+import { sendResetPasswordEmail, sendVerificationEmail } from "./mailer";
 
 
 function makeAuth() {
@@ -26,6 +26,24 @@ function makeAuth() {
           to: user.email,
           userName: user.name ?? user.email,
           resetUrl: url,
+        });
+      },
+    },
+
+    // Ne bloque pas la connexion (requireEmailVerification reste false) : seul
+    // l'usage du compte (ex. postuler) sera restreint tant que l'email n'est
+    // pas vérifié. Ne s'applique qu'à l'inscription email/mot de passe — les
+    // comptes OAuth (github/google) ont déjà un email vérifié par le provider,
+    // et les comptes recruteur créés par l'admin (auth.api.createUser) ne
+    // passent pas par signUp.email donc ne déclenchent pas cet envoi.
+    emailVerification: {
+      sendOnSignUp: true,
+      autoSignInAfterVerification: true,
+      sendVerificationEmail: async ({ user, url }) => {
+        await sendVerificationEmail({
+          to: user.email,
+          userName: user.name ?? user.email,
+          verifyUrl: url,
         });
       },
     },
@@ -93,4 +111,5 @@ export type SessionUser = {
   image?: string | null;
   role: string;
   onboarded: boolean;
+  emailVerified: boolean;
 };
