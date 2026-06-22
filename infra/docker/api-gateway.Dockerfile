@@ -32,6 +32,7 @@ COPY --from=builder /app/apps/api-gateway/generated ./apps/api-gateway/generated
 COPY --from=builder /app/apps/api-gateway/prisma ./apps/api-gateway/prisma
 COPY --from=builder /app/apps/api-gateway/node_modules ./apps/api-gateway/node_modules
 COPY --from=builder /app/apps/api-gateway/package.json ./apps/api-gateway/package.json
+COPY --from=builder /app/apps/api-gateway/prisma.config.ts ./apps/api-gateway/prisma.config.ts
 
 WORKDIR /app/apps/api-gateway
 

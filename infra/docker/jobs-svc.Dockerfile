@@ -32,6 +32,7 @@ COPY --from=builder /app/apps/jobs-svc/generated ./apps/jobs-svc/generated
 COPY --from=builder /app/apps/jobs-svc/prisma ./apps/jobs-svc/prisma
 COPY --from=builder /app/apps/jobs-svc/node_modules ./apps/jobs-svc/node_modules
 COPY --from=builder /app/apps/jobs-svc/package.json ./apps/jobs-svc/package.json
+COPY --from=builder /app/apps/jobs-svc/prisma.config.ts ./apps/jobs-svc/prisma.config.ts
 
 WORKDIR /app/apps/jobs-svc
 

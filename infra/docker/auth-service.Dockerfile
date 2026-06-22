@@ -32,6 +32,7 @@ COPY --from=builder /app/apps/auth-service/generated ./apps/auth-service/generat
 COPY --from=builder /app/apps/auth-service/prisma ./apps/auth-service/prisma
 COPY --from=builder /app/apps/auth-service/node_modules ./apps/auth-service/node_modules
 COPY --from=builder /app/apps/auth-service/package.json ./apps/auth-service/package.json
+COPY --from=builder /app/apps/auth-service/prisma.config.ts ./apps/auth-service/prisma.config.ts
 
 WORKDIR /app/apps/auth-service
 
