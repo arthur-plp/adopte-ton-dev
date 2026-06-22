@@ -27,6 +27,8 @@ WORKDIR /app
 ENV NODE_ENV=production
 
 COPY --from=builder /app/node_modules/.pnpm ./node_modules/.pnpm
+COPY --from=builder /app/packages/contracts ./packages/contracts
+COPY --from=builder /app/packages/types ./packages/types
 COPY --from=builder /app/apps/jobs-svc/dist ./apps/jobs-svc/dist
 COPY --from=builder /app/apps/jobs-svc/generated ./apps/jobs-svc/generated
 COPY --from=builder /app/apps/jobs-svc/prisma ./apps/jobs-svc/prisma
