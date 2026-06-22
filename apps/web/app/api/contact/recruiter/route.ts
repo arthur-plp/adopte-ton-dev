@@ -1,12 +1,14 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { Resend } from "resend";
+import { verifySiret } from "@/lib/siret";
 
 const schema = z.object({
   firstName: z.string().min(1),
   lastName: z.string().min(1),
   email: z.string().email(),
   company: z.string().min(1),
+  siret: z.string().regex(/^\d{14}$/, "SIRET invalide"),
   jobTitle: z.string().min(1),
   teamSize: z.string().min(1),
   message: z.string().optional(),
@@ -23,6 +25,12 @@ export async function POST(request: Request) {
   }
 
   const data = parsed.data;
+
+  const siretCheck = await verifySiret(data.siret);
+  if (!siretCheck.ok) {
+    return NextResponse.json({ error: siretCheck.error }, { status: 422 });
+  }
+
   const receivedAt = new Date().toLocaleString("fr-FR", { timeZone: "Europe/Paris" });
 
   const resend = new Resend(process.env.RESEND_API_KEY);
@@ -59,6 +67,10 @@ export async function POST(request: Request) {
             <tr>
               <td style="padding:10px 0;border-bottom:1px solid #f4f4f5;width:40%;font-size:13px;color:#71717a;font-weight:500">Entreprise</td>
               <td style="padding:10px 0;border-bottom:1px solid #f4f4f5;font-size:14px;color:#18181b;font-weight:500">${data.company}</td>
+            </tr>
+            <tr>
+              <td style="padding:10px 0;border-bottom:1px solid #f4f4f5;font-size:13px;color:#71717a;font-weight:500">SIRET</td>
+              <td style="padding:10px 0;border-bottom:1px solid #f4f4f5;font-size:14px;color:#18181b;font-family:monospace;letter-spacing:0.05em">${data.siret}</td>
             </tr>
             <tr>
               <td style="padding:10px 0;border-bottom:1px solid #f4f4f5;font-size:13px;color:#71717a;font-weight:500">Taille équipe tech</td>

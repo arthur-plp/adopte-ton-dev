@@ -105,6 +105,7 @@ function ContactForm() {
     lastName: "",
     email: "",
     company: "",
+    siret: "",
     jobTitle: "",
     teamSize: "",
     message: "",
@@ -114,6 +115,11 @@ function ContactForm() {
   function set(field: keyof typeof form) {
     return (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) =>
       setForm((f) => ({ ...f, [field]: e.target.value }));
+  }
+
+  function handleSiretChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const digits = e.target.value.replace(/\D/g, "").slice(0, 14);
+    setForm((f) => ({ ...f, siret: digits }));
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -127,11 +133,17 @@ function ContactForm() {
         body: JSON.stringify(form),
       });
 
-      if (!res.ok) throw new Error();
+      if (!res.ok) {
+        const body = (await res.json().catch(() => ({}))) as { error?: string };
+        toast.error(body.error ?? "Une erreur s'est produite", {
+          description: res.status === 422 ? undefined : "Réessaie dans quelques instants.",
+        });
+        return;
+      }
       toast.success("Demande envoyée !", {
         description: `Nous reviendrons vers vous à ${form.email} sous 48 h.`,
       });
-      setForm({ firstName: "", lastName: "", email: "", company: "", jobTitle: "", teamSize: "", message: "" });
+      setForm({ firstName: "", lastName: "", email: "", company: "", siret: "", jobTitle: "", teamSize: "", message: "" });
     } catch {
       toast.error("Une erreur s'est produite", {
         description: "Réessaie dans quelques instants.",
@@ -146,13 +158,14 @@ function ContactForm() {
       onSubmit={handleSubmit}
       className="rounded-2xl border border-border bg-card p-6 shadow-sm"
     >
-      <h2 className="mb-5 text-lg font-semibold text-foreground">
-        Demander un accès recruteur
-      </h2>
+      <div className="mb-5 flex items-center justify-between">
+        <h2 className="text-lg font-semibold text-foreground">Demander un accès recruteur</h2>
+        <p className="text-xs text-muted-foreground"><span className="text-destructive">*</span> Champs obligatoires</p>
+      </div>
 
       <div className="space-y-4">
         <div className="grid grid-cols-2 gap-3">
-          <Field label="Prénom">
+          <Field label="Prénom" required>
             <input
               type="text"
               required
@@ -162,7 +175,7 @@ function ContactForm() {
               className="input-base"
             />
           </Field>
-          <Field label="Nom">
+          <Field label="Nom" required>
             <input
               type="text"
               required
@@ -174,7 +187,7 @@ function ContactForm() {
           </Field>
         </div>
 
-        <Field label="Email professionnel">
+        <Field label="Email professionnel" required>
           <input
             type="email"
             required
@@ -185,18 +198,33 @@ function ContactForm() {
           />
         </Field>
 
-        <Field label="Entreprise">
-          <input
-            type="text"
-            required
-            value={form.company}
-            onChange={set("company")}
-            placeholder="Acme SAS"
-            className="input-base"
-          />
-        </Field>
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="Entreprise" required>
+            <input
+              type="text"
+              required
+              value={form.company}
+              onChange={set("company")}
+              placeholder="Acme SAS"
+              className="input-base"
+            />
+          </Field>
+          <Field label="SIRET" required>
+            <input
+              required
+              value={form.siret}
+              onChange={handleSiretChange}
+              placeholder="14 chiffres"
+              inputMode="numeric"
+              maxLength={14}
+              pattern="\d{14}"
+              title="14 chiffres requis"
+              className="input-base font-mono tracking-wider"
+            />
+          </Field>
+        </div>
 
-        <Field label="Poste">
+        <Field label="Poste" required>
           <input
             type="text"
             required
@@ -207,7 +235,7 @@ function ContactForm() {
           />
         </Field>
 
-        <Field label="Taille de l'équipe tech">
+        <Field label="Taille de l'équipe tech" required>
           <select
             required
             value={form.teamSize}
@@ -248,10 +276,13 @@ function ContactForm() {
   );
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
+function Field({ label, required, children }: { label: string; required?: boolean; children: React.ReactNode }) {
   return (
     <div className="space-y-1.5">
-      <label className="block text-sm font-medium text-foreground">{label}</label>
+      <label className="block text-sm font-medium text-foreground">
+        {label}
+        {required && <span className="ml-0.5 text-destructive" aria-hidden="true">*</span>}
+      </label>
       {children}
     </div>
   );
