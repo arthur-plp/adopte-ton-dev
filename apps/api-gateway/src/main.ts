@@ -19,6 +19,7 @@ async function bootstrap() {
     .setVersion('1.0')
     .addCookieAuth('better-auth.session_token')
     .addTag('users', 'Profils développeurs & recruteurs, onboarding')
+    .addTag('job-offers', 'Offres de stage, alternance et premier emploi')
     .build();
 
   const document = SwaggerModule.createDocument(app, config);

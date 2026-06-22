@@ -12,7 +12,17 @@
     "NEXT_PUBLIC_BETTER_AUTH_URL",
     "RESEND_API_KEY",
     "RESEND_FROM_EMAIL",
-    "NODE_ENV"
+    "CLOUDAMQP_URL",
+    "REDIS_URL",
+    "JOBS_SVC_HOST",
+    "JOBS_SVC_PORT",
+    "STRIPE_SECRET_KEY",
+    "STRIPE_WEBHOOK_SECRET",
+    "NODE_ENV",
+    "RESEND_FORCE_SEND",
+    "SEED_ADMIN_EMAIL",
+    "SEED_ADMIN_PASSWORD",
+    "SEED_ADMIN_NAME"
   ],
   "tasks": {
     "build": {
@@ -37,6 +47,9 @@
     "test:cov": {
       "dependsOn": ["^build"],
       "outputs": ["coverage/**"]
+    },
+    "clean": {
+      "cache": false
     }
   }
 }

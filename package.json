@@ -10,7 +10,9 @@
     "test": "turbo run test",
     "test:cov": "turbo run test:cov",
     "db:up": "docker compose -f infra/docker-compose.yml up -d",
-    "db:down": "docker compose -f infra/docker-compose.yml down"
+    "db:down": "docker compose -f infra/docker-compose.yml down",
+    "clean": "turbo clean && turbo run clean --continue",
+    "clean:cache": "turbo clean"
   },
   "devDependencies": {
     "prettier": "^3.7.4",

@@ -4,6 +4,8 @@ import {
   Injectable,
   UnauthorizedException,
 } from '@nestjs/common';
+import { Reflector } from '@nestjs/core';
+import { OPTIONAL_AUTH_KEY } from './optional-auth.decorator';
 import { betterAuth } from 'better-auth';
 import { prismaAdapter } from 'better-auth/adapters/prisma';
 import { PrismaClient } from '../../generated/prisma';
@@ -18,6 +20,7 @@ export type AuthenticatedUser = {
   image: string | null | undefined;
   role: string;
   onboarded: boolean;
+  companyId?: string;
 };
 
 type RawSessionUser = {
@@ -27,12 +30,18 @@ type RawSessionUser = {
   image?: string | null;
   role?: string;
   onboarded?: boolean;
+  companyId?: string;
 };
 
-// makeAuth retourne un type inféré précis — ReturnType<typeof makeAuth> évite
-// les problèmes de variance avec Auth<BetterAuthOptions>
 function makeAuth() {
-  const pool = new Pool({ connectionString: process.env['DATABASE_URL'] });
+  const pool = new Pool({
+    connectionString: process.env['DATABASE_URL'],
+    keepAlive: true,
+    keepAliveInitialDelayMillis: 10000,
+    idleTimeoutMillis: 10000,
+    connectionTimeoutMillis: 10000,
+    max: 5,
+  });
   const pgAdapter = new PrismaPg(pool);
   const prisma = new PrismaClient({ adapter: pgAdapter });
 
@@ -40,12 +49,27 @@ function makeAuth() {
     database: prismaAdapter(prisma, { provider: 'postgresql' }),
     baseURL: process.env['BETTER_AUTH_URL'] ?? 'http://localhost:3000',
     secret: process.env['BETTER_AUTH_SECRET'],
+    user: {
+      additionalFields: {
+        role: {
+          type: 'string',
+          required: false,
+          defaultValue: 'DEVELOPER',
+          input: false,
+        },
+        onboarded: {
+          type: 'boolean',
+          required: false,
+          defaultValue: false,
+          input: false,
+        },
+      },
+    },
   });
 }
 
 type AuthInstance = ReturnType<typeof makeAuth>;
 
-// Initialisation lazy : process.env est chargé par ConfigModule avant la première requête
 let _auth: AuthInstance | undefined;
 
 function getAuth(): AuthInstance {
@@ -55,7 +79,13 @@ function getAuth(): AuthInstance {
 
 @Injectable()
 export class AuthGuard implements CanActivate {
+  constructor(private readonly reflector: Reflector) {}
+
   async canActivate(context: ExecutionContext): Promise<boolean> {
+    const isOptional = this.reflector.get<boolean>(
+      OPTIONAL_AUTH_KEY,
+      context.getHandler(),
+    );
     const request = context.switchToHttp().getRequest<Request>();
 
     const session = await getAuth().api.getSession({
@@ -63,6 +93,7 @@ export class AuthGuard implements CanActivate {
     });
 
     if (!session?.user) {
+      if (isOptional) return true;
       throw new UnauthorizedException('Session invalide ou expirée');
     }
 
@@ -74,6 +105,7 @@ export class AuthGuard implements CanActivate {
       image: raw.image,
       role: raw.role ?? 'DEVELOPER',
       onboarded: raw.onboarded ?? false,
+      companyId: raw.companyId,
     };
 
     (request as Request & { user: AuthenticatedUser }).user = user;
