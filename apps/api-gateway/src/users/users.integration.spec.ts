@@ -1,7 +1,7 @@
 /**
- * Tests d'intégration — UsersController (api-gateway)
- * Vérifie : validation Zod → 400, codes HTTP, guards.
- * fetch est mocké ; seul le pipeline NestJS est réel.
+ * Tests d'intégration — UsersController (api-gateway, TCP)
+ * Vérifie : validation Zod → 400, codes HTTP, pipeline NestJS.
+ * Le ClientProxy USERS_SVC est mocké via of().
  */
 jest.mock('../auth/auth.guard', () => ({
   AuthGuard: class {
@@ -13,17 +13,16 @@ jest.mock('../auth/auth.guard', () => ({
 
 import { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
+import { of } from 'rxjs';
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const request = require('supertest') as (
   app: unknown,
 ) => import('supertest').SuperTest<import('supertest').Test>;
-import { ConfigService } from '@nestjs/config';
 import { UsersController } from './users.controller';
 import { AuthGuard } from '../auth/auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 
-global.fetch = jest.fn();
-const mockFetch = global.fetch as jest.Mock;
+const mockUsersSvc = { send: jest.fn() };
 
 const mockUser = {
   id: 'user-1',
@@ -34,18 +33,13 @@ const mockUser = {
   onboarded: true,
 };
 
-describe('UsersController (intégration)', () => {
+describe('UsersController (intégration TCP)', () => {
   let app: INestApplication;
 
   beforeAll(async () => {
     const module = await Test.createTestingModule({
       controllers: [UsersController],
-      providers: [
-        {
-          provide: ConfigService,
-          useValue: { get: (_k: string, d: string) => d },
-        },
-      ],
+      providers: [{ provide: 'USERS_SVC', useValue: mockUsersSvc }],
     })
       .overrideGuard(AuthGuard)
       .useValue({
@@ -68,7 +62,7 @@ describe('UsersController (intégration)', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    mockFetch.mockResolvedValue({ json: () => Promise.resolve({ ok: true }) });
+    mockUsersSvc.send.mockReturnValue(of({ ok: true }));
   });
 
   // ─── POST /users/developer/me/technologies ────────────────────────────────
@@ -80,7 +74,10 @@ describe('UsersController (intégration)', () => {
         .send({ name: 'TypeScript', level: 'ADVANCED' })
         .expect(201);
 
-      expect(mockFetch).toHaveBeenCalled();
+      expect(mockUsersSvc.send).toHaveBeenCalledWith(
+        { cmd: 'developer.addTechnology' },
+        expect.objectContaining({ name: 'TypeScript', level: 'ADVANCED' }),
+      );
     });
 
     it('retourne 400 si name est absent', async () => {
@@ -89,7 +86,7 @@ describe('UsersController (intégration)', () => {
         .send({ level: 'ADVANCED' })
         .expect(400);
 
-      expect(mockFetch).not.toHaveBeenCalled();
+      expect(mockUsersSvc.send).not.toHaveBeenCalled();
     });
 
     it('retourne 400 si level est invalide', async () => {
@@ -98,7 +95,7 @@ describe('UsersController (intégration)', () => {
         .send({ name: 'TypeScript', level: 'EXPERT' })
         .expect(400);
 
-      expect(mockFetch).not.toHaveBeenCalled();
+      expect(mockUsersSvc.send).not.toHaveBeenCalled();
     });
   });
 
@@ -118,7 +115,7 @@ describe('UsersController (intégration)', () => {
         .send({})
         .expect(400);
 
-      expect(mockFetch).not.toHaveBeenCalled();
+      expect(mockUsersSvc.send).not.toHaveBeenCalled();
     });
   });
 
@@ -138,17 +135,17 @@ describe('UsersController (intégration)', () => {
         .send({ level: 'INTERMEDIATE' })
         .expect(400);
 
-      expect(mockFetch).not.toHaveBeenCalled();
+      expect(mockUsersSvc.send).not.toHaveBeenCalled();
     });
 
-    it("retourne 400 si skillId est vide", async () => {
+    it('retourne 400 si skillId est vide', async () => {
       await request(app.getHttpServer())
         .post('/users/developer/me/skills')
         .send({ skillId: '', level: 'INTERMEDIATE' })
         .expect(400);
     });
 
-    it("retourne 400 si skillId est au format invalide (non-cuid)", async () => {
+    it('retourne 400 si skillId est au format invalide (non-cuid)', async () => {
       await request(app.getHttpServer())
         .post('/users/developer/me/skills')
         .send({ skillId: 'pas-un-cuid', level: 'INTERMEDIATE' })
@@ -176,7 +173,7 @@ describe('UsersController (intégration)', () => {
         .send({ description: 'Sans titre', technologies: [] })
         .expect(400);
 
-      expect(mockFetch).not.toHaveBeenCalled();
+      expect(mockUsersSvc.send).not.toHaveBeenCalled();
     });
 
     it('retourne 400 si description est absente', async () => {

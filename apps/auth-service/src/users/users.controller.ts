@@ -1,37 +1,16 @@
-import { Body, Controller, Get, Param, Post, HttpCode } from '@nestjs/common';
-import {
-  ApiTags,
-  ApiOperation,
-  ApiParam,
-  ApiBody,
-  ApiResponse,
-} from '@nestjs/swagger';
+import { Controller } from '@nestjs/common';
+import { MessagePattern, Payload } from '@nestjs/microservices';
 import { UsersService } from './users.service';
 import { Role } from '@repo/types';
 
-@ApiTags('users')
-@Controller('users')
+@Controller()
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
-  @Post('onboarding')
-  @HttpCode(200)
-  @ApiOperation({ summary: 'Crée le profil initial (appelé par la Gateway)' })
-  @ApiBody({
-    schema: {
-      example: {
-        userId: 'cuid',
-        role: 'DEVELOPER',
-        firstName: 'Alice',
-        lastName: 'Dev',
-      },
-    },
-  })
-  @ApiResponse({ status: 200, description: '{ userId, role }' })
-  @ApiResponse({ status: 409, description: 'Onboarding déjà effectué' })
-  async onboarding(
-    @Body()
-    body: {
+  @MessagePattern({ cmd: 'users.onboarding' })
+  onboarding(
+    @Payload()
+    payload: {
       userId: string;
       role: Role;
       firstName?: string;
@@ -39,27 +18,73 @@ export class UsersController {
     },
   ) {
     return this.usersService.setRole(
-      body.userId,
-      body.role,
-      body.firstName,
-      body.lastName,
+      payload.userId,
+      payload.role,
+      payload.firstName,
+      payload.lastName,
     );
   }
 
-  @Get(':userId/profile')
-  @ApiOperation({ summary: "Récupère le profil complet d'un utilisateur" })
-  @ApiParam({ name: 'userId', description: 'ID utilisateur BetterAuth' })
-  @ApiResponse({ status: 200, description: '{ role, profile }' })
-  @ApiResponse({ status: 404, description: 'Profil introuvable' })
-  async getProfile(@Param('userId') userId: string) {
-    return this.usersService.getProfile(userId);
+  @MessagePattern({ cmd: 'users.getProfile' })
+  getProfile(@Payload() payload: { userId: string }) {
+    return this.usersService.getProfile(payload.userId);
   }
 
-  @Get(':userId/avatar-options')
-  @ApiOperation({ summary: "Options d'avatar selon les providers OAuth liés" })
-  @ApiParam({ name: 'userId', description: 'ID utilisateur BetterAuth' })
-  @ApiResponse({ status: 200, description: '[{ provider, avatarUrl }]' })
-  async getAvatarOptions(@Param('userId') userId: string) {
-    return this.usersService.getAvatarOptions(userId);
+  @MessagePattern({ cmd: 'users.getAvatarOptions' })
+  getAvatarOptions(@Payload() payload: { userId: string }) {
+    return this.usersService.getAvatarOptions(payload.userId);
+  }
+
+  // ── Admin ────────────────────────────────────────────────────────────────
+
+  @MessagePattern({ cmd: 'admin.listUsers' })
+  listUsers(
+    @Payload()
+    payload: {
+      page: number;
+      pageSize: number;
+      search?: string;
+      role?: string;
+    },
+  ) {
+    return this.usersService.listUsers(
+      payload.page,
+      payload.pageSize,
+      payload.search,
+      payload.role,
+    );
+  }
+
+  @MessagePattern({ cmd: 'admin.getStats' })
+  getStats() {
+    return this.usersService.getStats();
+  }
+
+  @MessagePattern({ cmd: 'admin.promoteToRecruiter' })
+  promoteToRecruiter(
+    @Payload()
+    payload: {
+      userId: string;
+      companyName: string;
+      firstName: string;
+      lastName: string;
+    },
+  ) {
+    return this.usersService.promoteToRecruiter(payload);
+  }
+
+  @MessagePattern({ cmd: 'admin.updateUser' })
+  updateUser(
+    @Payload() payload: { userId: string; name?: string; role?: string },
+  ) {
+    return this.usersService.adminUpdateUser(payload.userId, {
+      name: payload.name,
+      role: payload.role,
+    });
+  }
+
+  @MessagePattern({ cmd: 'admin.deleteUser' })
+  deleteUser(@Payload() payload: { userId: string }) {
+    return this.usersService.adminDeleteUser(payload.userId);
   }
 }

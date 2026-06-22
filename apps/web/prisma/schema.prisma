@@ -17,6 +17,10 @@ model User {
   // Champs métier étendus (BetterAuth additionalFields)
   role          String    @default("DEVELOPER")
   onboarded     Boolean   @default(false)
+  // Champs BetterAuth admin plugin
+  banned        Boolean?
+  banReason     String?
+  banExpires    DateTime?
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
   sessions      Session[]

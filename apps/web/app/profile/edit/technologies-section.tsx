@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { Plus, Trash2, ChevronDown } from "lucide-react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 
 export type SkillLevel = "BEGINNER" | "INTERMEDIATE" | "ADVANCED";
@@ -78,7 +79,9 @@ export function TechnologiesSection({ technologies, apiUrl, onUpdate }: Props) {
     return () => document.removeEventListener("click", close);
   }, [openLevelId]);
 
-  const existingNames = new Set(technologies.map((t) => t.name.toLowerCase()));
+  const existingNames = new Set(
+    technologies.map((t) => t.name?.toLowerCase()).filter((n): n is string => n !== undefined)
+  );
 
   const filteredCatalog = CATALOG.map((group) => ({
     ...group,
@@ -130,7 +133,11 @@ export function TechnologiesSection({ technologies, apiUrl, onUpdate }: Props) {
       });
       if (res.ok) {
         onUpdate(technologies.map((t) => (t.id === tech.id ? { ...t, level } : t)));
+      } else {
+        toast.error("Erreur lors de la mise à jour du niveau.");
       }
+    } catch {
+      toast.error("Erreur réseau.");
     } finally {
       setUpdatingId(null);
     }
@@ -143,7 +150,13 @@ export function TechnologiesSection({ technologies, apiUrl, onUpdate }: Props) {
         method: "DELETE",
         credentials: "include",
       });
-      if (res.ok) onUpdate(technologies.filter((t) => t.id !== techId));
+      if (res.ok) {
+        onUpdate(technologies.filter((t) => t.id !== techId));
+      } else {
+        toast.error("Erreur lors de la suppression.");
+      }
+    } catch {
+      toast.error("Erreur réseau.");
     } finally {
       setDeletingId(null);
     }
@@ -154,8 +167,8 @@ export function TechnologiesSection({ technologies, apiUrl, onUpdate }: Props) {
       {/* Tags des technos existantes */}
       {technologies.length > 0 && (
         <div className="flex flex-wrap gap-2">
-          {technologies.map((tech) => (
-            <div key={tech.id} className="group relative flex items-center gap-1.5 rounded-xl border border-border bg-background px-3 py-1.5">
+          {technologies.map((tech, idx) => (
+            <div key={tech.id ?? tech.name ?? idx} className="group relative flex items-center gap-1.5 rounded-xl border border-border bg-background px-3 py-1.5">
               <span className="text-sm font-medium text-foreground">{tech.name}</span>
               <button
                 type="button"

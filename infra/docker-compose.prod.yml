@@ -1,0 +1,127 @@
+services:
+  # ─── Infrastructure ───────────────────────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    container_name: atd-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_MULTIPLE_DATABASES: atd_users,atd_jobs,atd_applications,atd_messaging,atd_notifications,atd_payment
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init-multiple-dbs.sh:/docker-entrypoint-initdb.d/init-multiple-dbs.sh:ro
+    ports:
+      - "127.0.0.1:5432:5432"   # accessible uniquement depuis le VPS (seed, debug)
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks: [atd]
+
+  rabbitmq:
+    image: rabbitmq:3.13-management-alpine
+    container_name: atd-rabbitmq
+    restart: unless-stopped
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD}
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+    networks: [atd]
+
+  redis:
+    image: redis:7-alpine
+    container_name: atd-redis
+    restart: unless-stopped
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks: [atd]
+
+  # ─── Services applicatifs ─────────────────────────────────────────────────────
+  auth-service:
+    build:
+      context: ..
+      dockerfile: infra/docker/auth-service.Dockerfile
+    container_name: atd-auth-service
+    restart: unless-stopped
+    env_file: .env.auth-service
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks: [atd]
+    healthcheck:
+      test: ["CMD-SHELL", "nc -z localhost 3001 || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
+  jobs-svc:
+    build:
+      context: ..
+      dockerfile: infra/docker/jobs-svc.Dockerfile
+    container_name: atd-jobs-svc
+    restart: unless-stopped
+    env_file: .env.jobs-svc
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks: [atd]
+    healthcheck:
+      test: ["CMD-SHELL", "nc -z localhost 3002 || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
+  api-gateway:
+    build:
+      context: ..
+      dockerfile: infra/docker/api-gateway.Dockerfile
+    container_name: atd-api-gateway
+    restart: unless-stopped
+    env_file: .env.api-gateway
+    ports:
+      - "4000:4000"
+    depends_on:
+      auth-service:
+        condition: service_healthy
+      jobs-svc:
+        condition: service_healthy
+    networks: [atd]
+
+  web:
+    build:
+      context: ..
+      dockerfile: infra/docker/web.Dockerfile
+    container_name: atd-web
+    restart: unless-stopped
+    env_file: .env.web
+    ports:
+      - "3000:3000"
+    depends_on:
+      - api-gateway
+    networks: [atd]
+
+volumes:
+  postgres_data:
+  rabbitmq_data:
+  redis_data:
+
+networks:
+  atd:
+    driver: bridge

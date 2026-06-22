@@ -1,16 +1,15 @@
 "use client";
 
-import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Navbar } from "@/components/navbar";
+import { Footer } from "@/components/footer";
+import { toast } from "sonner";
 import {
-  Code2,
   Briefcase,
   CheckCircle2,
   Users,
   Zap,
   Star,
-  Send,
 } from "lucide-react";
 import { useState } from "react";
 
@@ -95,17 +94,7 @@ export default function RecruteursPage() {
         </section>
       </main>
 
-      <footer className="border-t border-border/60 bg-muted/20 py-6">
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-4 text-xs text-muted-foreground sm:px-6">
-          <Link href="/" className="flex items-center gap-1.5 font-medium">
-            <div className="flex size-4 items-center justify-center rounded bg-primary">
-              <Code2 className="size-2.5 text-primary-foreground" />
-            </div>
-            Adopte Ton Dev
-          </Link>
-          <p>© {new Date().getFullYear()} Adopte Ton Dev</p>
-        </div>
-      </footer>
+      <Footer />
     </div>
   );
 }
@@ -116,15 +105,21 @@ function ContactForm() {
     lastName: "",
     email: "",
     company: "",
+    siret: "",
     jobTitle: "",
     teamSize: "",
     message: "",
   });
-  const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
+  const [status, setStatus] = useState<"idle" | "loading">("idle");
 
   function set(field: keyof typeof form) {
     return (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) =>
       setForm((f) => ({ ...f, [field]: e.target.value }));
+  }
+
+  function handleSiretChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const digits = e.target.value.replace(/\D/g, "").slice(0, 14);
+    setForm((f) => ({ ...f, siret: digits }));
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -138,26 +133,24 @@ function ContactForm() {
         body: JSON.stringify(form),
       });
 
-      if (!res.ok) throw new Error();
-      setStatus("success");
+      if (!res.ok) {
+        const body = (await res.json().catch(() => ({}))) as { error?: string };
+        toast.error(body.error ?? "Une erreur s'est produite", {
+          description: res.status === 422 ? undefined : "Réessaie dans quelques instants.",
+        });
+        return;
+      }
+      toast.success("Demande envoyée !", {
+        description: `Nous reviendrons vers vous à ${form.email} sous 48 h.`,
+      });
+      setForm({ firstName: "", lastName: "", email: "", company: "", siret: "", jobTitle: "", teamSize: "", message: "" });
     } catch {
-      setStatus("error");
+      toast.error("Une erreur s'est produite", {
+        description: "Réessaie dans quelques instants.",
+      });
+    } finally {
+      setStatus("idle");
     }
-  }
-
-  if (status === "success") {
-    return (
-      <div className="flex flex-col items-center justify-center rounded-2xl border border-border bg-card p-10 text-center shadow-sm">
-        <div className="mb-4 flex size-14 items-center justify-center rounded-2xl bg-green-500/10">
-          <Send className="size-7 text-green-600" />
-        </div>
-        <h3 className="mb-2 text-lg font-semibold">Demande envoyée !</h3>
-        <p className="text-sm text-muted-foreground">
-          Nous reviendrons vers vous à <strong>{form.email}</strong> sous 48 h
-          pour créer votre accès recruteur.
-        </p>
-      </div>
-    );
   }
 
   return (
@@ -165,13 +158,14 @@ function ContactForm() {
       onSubmit={handleSubmit}
       className="rounded-2xl border border-border bg-card p-6 shadow-sm"
     >
-      <h2 className="mb-5 text-lg font-semibold text-foreground">
-        Demander un accès recruteur
-      </h2>
+      <div className="mb-5 flex items-center justify-between">
+        <h2 className="text-lg font-semibold text-foreground">Demander un accès recruteur</h2>
+        <p className="text-xs text-muted-foreground"><span className="text-destructive">*</span> Champs obligatoires</p>
+      </div>
 
       <div className="space-y-4">
         <div className="grid grid-cols-2 gap-3">
-          <Field label="Prénom">
+          <Field label="Prénom" required>
             <input
               type="text"
               required
@@ -181,7 +175,7 @@ function ContactForm() {
               className="input-base"
             />
           </Field>
-          <Field label="Nom">
+          <Field label="Nom" required>
             <input
               type="text"
               required
@@ -193,7 +187,7 @@ function ContactForm() {
           </Field>
         </div>
 
-        <Field label="Email professionnel">
+        <Field label="Email professionnel" required>
           <input
             type="email"
             required
@@ -204,18 +198,33 @@ function ContactForm() {
           />
         </Field>
 
-        <Field label="Entreprise">
-          <input
-            type="text"
-            required
-            value={form.company}
-            onChange={set("company")}
-            placeholder="Acme SAS"
-            className="input-base"
-          />
-        </Field>
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="Entreprise" required>
+            <input
+              type="text"
+              required
+              value={form.company}
+              onChange={set("company")}
+              placeholder="Acme SAS"
+              className="input-base"
+            />
+          </Field>
+          <Field label="SIRET" required>
+            <input
+              required
+              value={form.siret}
+              onChange={handleSiretChange}
+              placeholder="14 chiffres"
+              inputMode="numeric"
+              maxLength={14}
+              pattern="\d{14}"
+              title="14 chiffres requis"
+              className="input-base font-mono tracking-wider"
+            />
+          </Field>
+        </div>
 
-        <Field label="Poste">
+        <Field label="Poste" required>
           <input
             type="text"
             required
@@ -226,7 +235,7 @@ function ContactForm() {
           />
         </Field>
 
-        <Field label="Taille de l'équipe tech">
+        <Field label="Taille de l'équipe tech" required>
           <select
             required
             value={form.teamSize}
@@ -252,12 +261,6 @@ function ContactForm() {
         </Field>
       </div>
 
-      {status === "error" && (
-        <p className="mt-3 text-sm text-destructive">
-          Une erreur s&apos;est produite. Réessaie dans quelques instants.
-        </p>
-      )}
-
       <Button
         type="submit"
         className="mt-5 h-10 w-full"
@@ -273,10 +276,13 @@ function ContactForm() {
   );
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
+function Field({ label, required, children }: { label: string; required?: boolean; children: React.ReactNode }) {
   return (
     <div className="space-y-1.5">
-      <label className="block text-sm font-medium text-foreground">{label}</label>
+      <label className="block text-sm font-medium text-foreground">
+        {label}
+        {required && <span className="ml-0.5 text-destructive" aria-hidden="true">*</span>}
+      </label>
       {children}
     </div>
   );

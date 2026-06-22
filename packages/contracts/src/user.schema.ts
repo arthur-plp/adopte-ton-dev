@@ -1,6 +1,5 @@
 import { z } from "zod";
 import {
-  Availability,
   Role,
   SkillLevel,
 } from "@repo/types";
@@ -22,10 +21,17 @@ export const TechnologySchema = z.object({
 
 export type TechnologyDto = z.infer<typeof TechnologySchema>;
 
-export const SkillSchema = z.object({
-  skillId: cuidLike,
-  level: z.nativeEnum(SkillLevel).default(SkillLevel.INTERMEDIATE),
-});
+export const SkillSchema = z.union([
+  z.object({
+    skillId: cuidLike,
+    level: z.nativeEnum(SkillLevel).default(SkillLevel.INTERMEDIATE),
+  }),
+  z.object({
+    name: z.string().min(1).max(100),
+    category: z.enum(["technique", "soft"]).default("technique"),
+    level: z.nativeEnum(SkillLevel).default(SkillLevel.INTERMEDIATE),
+  }),
+]);
 
 export type SkillDto = z.infer<typeof SkillSchema>;
 
@@ -58,7 +64,8 @@ export const CreateDeveloperProfileSchema = z.object({
   bio: z.string().max(2000).optional(),
   location: z.string().max(200).optional(),
   remoteOk: z.boolean().default(false),
-  availability: z.nativeEnum(Availability).default(Availability.IMMEDIATE),
+  availability: z.string().max(200).default("Disponible immédiatement"),
+  phone: z.string().max(30).optional(),
   githubUrl: z.string().url().optional(),
   portfolioUrl: z.string().url().optional(),
   linkedinUrl: z.string().url().optional(),
@@ -74,8 +81,10 @@ export const UpdateDeveloperProfileSchema = z.object({
   title: z.string().max(200),
   bio: z.string().max(2000),
   location: z.string().max(200),
+  country: z.string().max(100),
   remoteOk: z.boolean(),
-  availability: z.nativeEnum(Availability),
+  availability: z.string().max(200),
+  phone: z.string().max(30),
   githubUrl: z.string().url(),
   portfolioUrl: z.string().url(),
   linkedinUrl: z.string().url(),
@@ -86,6 +95,7 @@ export type UpdateDeveloperProfileDto = z.infer<typeof UpdateDeveloperProfileSch
 
 export const CreateCompanySchema = z.object({
   name: z.string().min(1).max(200),
+  siret: z.string().regex(/^\d{14}$/, "SIRET invalide (14 chiffres requis)").optional(),
   website: z.string().url().optional(),
   description: z.string().max(2000).optional(),
 });
@@ -99,6 +109,23 @@ export const CreateRecruiterProfileSchema = z.object({
 });
 
 export type CreateRecruiterProfileDto = z.infer<typeof CreateRecruiterProfileSchema>;
+
+export const UpdateRecruiterProfileSchema = z.object({
+  firstName: z.string().min(1).max(100).optional(),
+  lastName: z.string().min(1).max(100).optional(),
+  phone: z.string().max(30).optional(),
+  avatarUrl: z.string().max(500000).optional(),
+  // Company fields
+  companyName: z.string().min(1).max(200).optional(),
+  companySiret: z.string().regex(/^\d{14}$/, "SIRET invalide (14 chiffres requis)").optional(),
+  companyWebsite: z.string().url().max(300).optional().or(z.literal("")),
+  companyDescription: z.string().max(2000).optional(),
+  companyLocation: z.string().max(200).optional(),
+  companySector: z.string().max(100).optional(),
+  companySize: z.string().max(20).optional(),
+});
+
+export type UpdateRecruiterProfileDto = z.infer<typeof UpdateRecruiterProfileSchema>;
 
 export const OnboardingSchema = z.discriminatedUnion("role", [
   z.object({

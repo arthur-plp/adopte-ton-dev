@@ -89,19 +89,27 @@ export class GitHubSyncService {
   }
 
   private async fetchGitHubRepos(accessToken: string): Promise<GitHubRepo[]> {
-    const response = await fetch(
-      'https://api.github.com/user/repos?per_page=100&sort=pushed',
-      {
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-          Accept: 'application/vnd.github+json',
-          'X-GitHub-Api-Version': '2022-11-28',
-        },
-      },
-    );
+    const githubHeaders = {
+      Authorization: `Bearer ${accessToken}`,
+      Accept: 'application/vnd.github+json',
+      'X-GitHub-Api-Version': '2022-11-28',
+    };
 
-    if (!response.ok) return [];
-    return response.json() as Promise<GitHubRepo[]>;
+    // GET /user/repos nécessite le scope public_repo, absent du token BetterAuth
+    // par défaut. On passe par GET /user pour récupérer le login, puis on utilise
+    // GET /users/{login}/repos qui fonctionne avec read:user uniquement.
+    const userRes = await fetch('https://api.github.com/user', {
+      headers: githubHeaders,
+    });
+    if (!userRes.ok) return [];
+    const { login } = (await userRes.json()) as { login: string };
+
+    const reposRes = await fetch(
+      `https://api.github.com/users/${login}/repos?per_page=100&sort=pushed&type=owner`,
+      { headers: githubHeaders },
+    );
+    if (!reposRes.ok) return [];
+    return reposRes.json() as Promise<GitHubRepo[]>;
   }
 
   private async fetchRepoLanguages(

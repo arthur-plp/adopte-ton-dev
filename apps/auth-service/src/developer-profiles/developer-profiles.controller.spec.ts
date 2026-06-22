@@ -3,7 +3,6 @@ import { NotFoundException, ForbiddenException } from '@nestjs/common';
 import { DeveloperProfilesController } from './developer-profiles.controller';
 import { DeveloperProfilesService } from './developer-profiles.service';
 import { GitHubSyncService } from './github-sync.service';
-import { Availability } from '@repo/types';
 import type {
   CreateDeveloperProfileDto,
   UpdateDeveloperProfileDto,
@@ -41,7 +40,7 @@ describe('DeveloperProfilesController', () => {
     firstName: 'Alice',
     lastName: 'Dev',
     remoteOk: false,
-    availability: Availability.IMMEDIATE,
+    availability: 'Disponible immédiatement',
   };
 
   // ─── POST / ───────────────────────────────────────────────────────────────
@@ -97,7 +96,7 @@ describe('DeveloperProfilesController', () => {
       };
       mockService.findByUserId.mockResolvedValue(profile);
 
-      const result = await controller.findOne('user-1');
+      const result = await controller.findOne({ userId: 'user-1' });
 
       expect(result).toEqual(profile);
       expect(mockService.findByUserId).toHaveBeenCalledWith('user-1');
@@ -108,9 +107,9 @@ describe('DeveloperProfilesController', () => {
         new NotFoundException('Profil développeur introuvable'),
       );
 
-      await expect(controller.findOne('user-inconnu')).rejects.toThrow(
-        NotFoundException,
-      );
+      await expect(
+        controller.findOne({ userId: 'user-inconnu' }),
+      ).rejects.toThrow(NotFoundException);
     });
   });
 
@@ -129,7 +128,8 @@ describe('DeveloperProfilesController', () => {
       };
       mockService.update.mockResolvedValue(updated);
 
-      const result = await controller.update('user-1', {
+      const result = await controller.update({
+        userId: 'user-1',
         requesterId: 'user-1',
         data: updateDto,
       });
@@ -149,7 +149,8 @@ describe('DeveloperProfilesController', () => {
         ...baseDto,
       });
 
-      const result = await controller.update('user-1', {
+      const result = await controller.update({
+        userId: 'user-1',
         requesterId: 'user-1',
         data: {},
       });
@@ -162,7 +163,8 @@ describe('DeveloperProfilesController', () => {
       mockService.update.mockRejectedValue(new ForbiddenException());
 
       await expect(
-        controller.update('user-1', {
+        controller.update({
+          userId: 'user-1',
           requesterId: 'attaquant',
           data: { firstName: 'Hacked' },
         }),
@@ -171,7 +173,8 @@ describe('DeveloperProfilesController', () => {
 
     it("lance une erreur Zod si portfolioUrl est invalide dans l'update", () => {
       expect(() =>
-        controller.update('user-1', {
+        controller.update({
+          userId: 'user-1',
           requesterId: 'user-1',
           data: { portfolioUrl: 'pas-une-url' },
         }),
@@ -187,7 +190,7 @@ describe('DeveloperProfilesController', () => {
       const expected = { synced: 5, skipped: 2 };
       mockGitHubSync.syncForUser.mockResolvedValue(expected);
 
-      const result = await controller.syncGitHub('user-1');
+      const result = await controller.syncGitHub({ userId: 'user-1' });
 
       expect(result).toEqual(expected);
       expect(mockGitHubSync.syncForUser).toHaveBeenCalledWith('user-1');

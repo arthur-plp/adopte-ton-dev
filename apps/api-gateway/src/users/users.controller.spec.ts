@@ -8,7 +8,8 @@ jest.mock('../auth/auth.guard', () => ({
 }));
 
 import { Test, TestingModule } from '@nestjs/testing';
-import { ConfigService } from '@nestjs/config';
+import { of, throwError } from 'rxjs';
+import { HttpException } from '@nestjs/common';
 import { UsersController } from './users.controller';
 import { AuthGuard } from '../auth/auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
@@ -22,44 +23,33 @@ type AuthenticatedUser = {
   image: string | null | undefined;
   role: string;
   onboarded: boolean;
+  companyId?: string;
 };
 
 type AuthRequest = Request & { user: AuthenticatedUser };
 
-const mockUser: AuthenticatedUser = {
+const mockDev: AuthenticatedUser = {
   id: 'user-1',
   email: 'alice@test.com',
-  name: 'Alice',
+  name: 'Alice Dev',
   image: null,
   role: Role.DEVELOPER,
   onboarded: true,
 };
 
-function mockReq(user = mockUser): AuthRequest {
+function mockReq(user: AuthenticatedUser = mockDev): AuthRequest {
   return { user } as AuthRequest;
 }
 
-global.fetch = jest.fn();
-const mockFetch = global.fetch as jest.Mock;
+const mockUsersSvc = { send: jest.fn() };
 
-describe('UsersController (api-gateway)', () => {
+describe('UsersController (api-gateway, TCP)', () => {
   let controller: UsersController;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [UsersController],
-      providers: [
-        {
-          provide: ConfigService,
-          useValue: {
-            get: jest
-              .fn()
-              .mockImplementation(
-                (_key: string, defaultVal: string) => defaultVal,
-              ),
-          },
-        },
-      ],
+      providers: [{ provide: 'USERS_SVC', useValue: mockUsersSvc }],
     })
       .overrideGuard(AuthGuard)
       .useValue({ canActivate: () => true })
@@ -76,65 +66,42 @@ describe('UsersController (api-gateway)', () => {
   describe('onboarding', () => {
     it('appelle users-svc et retourne la réponse', async () => {
       const expected = { userId: 'user-1', role: Role.DEVELOPER };
-      mockFetch.mockResolvedValue({ json: () => Promise.resolve(expected) });
+      mockUsersSvc.send.mockReturnValueOnce(of(expected));
 
       const result = await controller.onboarding(mockReq(), {
         role: Role.DEVELOPER,
       });
 
-      expect(mockFetch).toHaveBeenCalledWith(
-        'http://localhost:3001/api/v1/users/onboarding',
-        expect.objectContaining({
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            userId: 'user-1',
-            role: Role.DEVELOPER,
-            firstName: 'Alice',
-            lastName: 'Alice',
-          }),
-        }),
+      expect(mockUsersSvc.send).toHaveBeenCalledWith(
+        { cmd: 'users.onboarding' },
+        expect.objectContaining({ userId: 'user-1', role: Role.DEVELOPER }),
       );
       expect(result).toEqual(expected);
     });
 
     it("extrait prénom + nom d'un nom complet", async () => {
-      const userFullName = { ...mockUser, name: 'Alice Dupont' };
-      mockFetch.mockResolvedValue({ json: () => Promise.resolve({}) });
+      const userFullName = { ...mockDev, name: 'Alice Dupont' };
+      mockUsersSvc.send.mockReturnValueOnce(of({}));
       await controller.onboarding(mockReq(userFullName), {
         role: Role.DEVELOPER,
       });
-      expect(mockFetch).toHaveBeenCalledWith(
-        expect.any(String),
-        expect.objectContaining({
-          body: JSON.stringify({
-            userId: 'user-1',
-            role: Role.DEVELOPER,
-            firstName: 'Alice',
-            lastName: 'Dupont',
-          }),
-        }),
+      expect(mockUsersSvc.send).toHaveBeenCalledWith(
+        { cmd: 'users.onboarding' },
+        expect.objectContaining({ firstName: 'Alice', lastName: 'Dupont' }),
       );
     });
 
     it('propage le rôle RECRUITER correctement', async () => {
-      const recUser = { ...mockUser, role: Role.RECRUITER };
-      mockFetch.mockResolvedValue({
-        json: () => Promise.resolve({ userId: 'user-1', role: Role.RECRUITER }),
-      });
-
-      await controller.onboarding(mockReq(recUser), { role: Role.RECRUITER });
-
-      expect(mockFetch).toHaveBeenCalledWith(
-        expect.any(String),
-        expect.objectContaining({
-          body: JSON.stringify({
-            userId: 'user-1',
-            role: Role.RECRUITER,
-            firstName: 'Alice',
-            lastName: 'Alice',
-          }),
-        }),
+      mockUsersSvc.send.mockReturnValueOnce(
+        of({ userId: 'user-1', role: Role.RECRUITER }),
+      );
+      await controller.onboarding(
+        mockReq({ ...mockDev, role: Role.RECRUITER }),
+        { role: Role.RECRUITER },
+      );
+      expect(mockUsersSvc.send).toHaveBeenCalledWith(
+        { cmd: 'users.onboarding' },
+        expect.objectContaining({ role: Role.RECRUITER }),
       );
     });
   });
@@ -144,13 +111,13 @@ describe('UsersController (api-gateway)', () => {
   describe('getMyProfile', () => {
     it("appelle users-svc avec l'userId extrait du token", async () => {
       const profile = { role: Role.DEVELOPER, profile: { firstName: 'Alice' } };
-      mockFetch.mockResolvedValue({ json: () => Promise.resolve(profile) });
+      mockUsersSvc.send.mockReturnValueOnce(of(profile));
 
       const result = await controller.getMyProfile(mockReq());
 
-      expect(mockFetch).toHaveBeenCalledWith(
-        'http://localhost:3001/api/v1/users/user-1/profile',
-        expect.objectContaining({ method: 'GET' }),
+      expect(mockUsersSvc.send).toHaveBeenCalledWith(
+        { cmd: 'users.getProfile' },
+        { userId: 'user-1' },
       );
       expect(result).toEqual(profile);
     });
@@ -161,13 +128,13 @@ describe('UsersController (api-gateway)', () => {
   describe('getDeveloperProfile', () => {
     it('appelle users-svc avec le userId en paramètre', async () => {
       const profile = { id: 'dev-1', firstName: 'Alice' };
-      mockFetch.mockResolvedValue({ json: () => Promise.resolve(profile) });
+      mockUsersSvc.send.mockReturnValueOnce(of(profile));
 
       const result = await controller.getDeveloperProfile('user-1');
 
-      expect(mockFetch).toHaveBeenCalledWith(
-        'http://localhost:3001/api/v1/developer-profiles/user-1',
-        expect.objectContaining({ method: 'GET' }),
+      expect(mockUsersSvc.send).toHaveBeenCalledWith(
+        { cmd: 'developer.getProfile' },
+        { userId: 'user-1' },
       );
       expect(result).toEqual(profile);
     });
@@ -176,23 +143,17 @@ describe('UsersController (api-gateway)', () => {
   // ─── PATCH /developer/me ──────────────────────────────────────────────────
 
   describe('updateDeveloperProfile', () => {
-    it('appelle users-svc avec requesterId et données', async () => {
+    it('appelle users-svc avec userId et données', async () => {
       const updated = { id: 'dev-1', firstName: 'Alice Updated' };
-      mockFetch.mockResolvedValue({ json: () => Promise.resolve(updated) });
+      mockUsersSvc.send.mockReturnValueOnce(of(updated));
 
       const result = await controller.updateDeveloperProfile(mockReq(), {
         firstName: 'Alice Updated',
       });
 
-      expect(mockFetch).toHaveBeenCalledWith(
-        'http://localhost:3001/api/v1/developer-profiles/user-1',
-        expect.objectContaining({
-          method: 'PATCH',
-          body: JSON.stringify({
-            requesterId: 'user-1',
-            data: { firstName: 'Alice Updated' },
-          }),
-        }),
+      expect(mockUsersSvc.send).toHaveBeenCalledWith(
+        { cmd: 'developer.updateProfile' },
+        expect.objectContaining({ userId: 'user-1', requesterId: 'user-1' }),
       );
       expect(result).toEqual(updated);
     });
@@ -201,14 +162,12 @@ describe('UsersController (api-gateway)', () => {
   // ─── POST /developer/me/github-sync ──────────────────────────────────────
 
   describe('syncGitHub', () => {
-    it('appelle le endpoint github-sync', async () => {
-      mockFetch.mockResolvedValue({
-        json: () => Promise.resolve({ synced: 5 }),
-      });
+    it('appelle le cmd developer.githubSync', async () => {
+      mockUsersSvc.send.mockReturnValueOnce(of({ synced: 5 }));
       await controller.syncGitHub(mockReq());
-      expect(mockFetch).toHaveBeenCalledWith(
-        expect.stringContaining('github-sync'),
-        expect.objectContaining({ method: 'POST' }),
+      expect(mockUsersSvc.send).toHaveBeenCalledWith(
+        { cmd: 'developer.githubSync' },
+        { userId: 'user-1' },
       );
     });
   });
@@ -216,25 +175,23 @@ describe('UsersController (api-gateway)', () => {
   // ─── Technologies ─────────────────────────────────────────────────────────
 
   describe('getMyTechnologies', () => {
-    it('liste les technologies via GET', async () => {
-      mockFetch.mockResolvedValue({ json: () => Promise.resolve([]) });
+    it('liste les technologies via cmd developer.getTechnologies', async () => {
+      mockUsersSvc.send.mockReturnValueOnce(of([]));
       await controller.getMyTechnologies(mockReq());
-      expect(mockFetch).toHaveBeenCalledWith(
-        expect.stringContaining('/technologies'),
-        expect.objectContaining({ method: 'GET' }),
+      expect(mockUsersSvc.send).toHaveBeenCalledWith(
+        { cmd: 'developer.getTechnologies' },
+        { userId: 'user-1' },
       );
     });
   });
 
   describe('deleteTechnology', () => {
-    it('supprime une technologie via DELETE', async () => {
-      mockFetch.mockResolvedValue({
-        json: () => Promise.resolve({ deleted: true }),
-      });
+    it('supprime une technologie via cmd developer.deleteTechnology', async () => {
+      mockUsersSvc.send.mockReturnValueOnce(of({ deleted: true }));
       await controller.deleteTechnology(mockReq(), 'tech-1');
-      expect(mockFetch).toHaveBeenCalledWith(
-        expect.stringContaining('tech-1'),
-        expect.objectContaining({ method: 'DELETE' }),
+      expect(mockUsersSvc.send).toHaveBeenCalledWith(
+        { cmd: 'developer.deleteTechnology' },
+        expect.objectContaining({ techId: 'tech-1' }),
       );
     });
   });
@@ -243,46 +200,44 @@ describe('UsersController (api-gateway)', () => {
 
   describe('listSkillsCatalog', () => {
     it('retourne le catalogue de compétences', async () => {
-      mockFetch.mockResolvedValue({ json: () => Promise.resolve([]) });
+      mockUsersSvc.send.mockReturnValueOnce(of([]));
       await controller.listSkillsCatalog();
-      expect(mockFetch).toHaveBeenCalledWith(
-        expect.stringContaining('skills/catalog'),
-        expect.objectContaining({ method: 'GET' }),
+      expect(mockUsersSvc.send).toHaveBeenCalledWith(
+        { cmd: 'developer.getSkillsCatalog' },
+        {},
       );
     });
   });
 
   describe('getMySkills', () => {
-    it('liste les compétences via GET', async () => {
-      mockFetch.mockResolvedValue({ json: () => Promise.resolve([]) });
+    it('liste les compétences via cmd developer.getSkills', async () => {
+      mockUsersSvc.send.mockReturnValueOnce(of([]));
       await controller.getMySkills(mockReq());
-      expect(mockFetch).toHaveBeenCalledWith(
-        expect.stringContaining('/skills'),
-        expect.objectContaining({ method: 'GET' }),
+      expect(mockUsersSvc.send).toHaveBeenCalledWith(
+        { cmd: 'developer.getSkills' },
+        { userId: 'user-1' },
       );
     });
   });
 
   describe('updateSkill', () => {
     it("met à jour le niveau d'une compétence", async () => {
-      mockFetch.mockResolvedValue({ json: () => Promise.resolve({}) });
+      mockUsersSvc.send.mockReturnValueOnce(of({}));
       await controller.updateSkill(mockReq(), 'skill-1', { level: 'ADVANCED' });
-      expect(mockFetch).toHaveBeenCalledWith(
-        expect.stringContaining('skill-1'),
-        expect.objectContaining({ method: 'PATCH' }),
+      expect(mockUsersSvc.send).toHaveBeenCalledWith(
+        { cmd: 'developer.updateSkill' },
+        expect.objectContaining({ skillId: 'skill-1', level: 'ADVANCED' }),
       );
     });
   });
 
   describe('removeSkill', () => {
-    it('retire une compétence via DELETE', async () => {
-      mockFetch.mockResolvedValue({
-        json: () => Promise.resolve({ deleted: true }),
-      });
+    it('retire une compétence via cmd developer.removeSkill', async () => {
+      mockUsersSvc.send.mockReturnValueOnce(of({ deleted: true }));
       await controller.removeSkill(mockReq(), 'skill-1');
-      expect(mockFetch).toHaveBeenCalledWith(
-        expect.stringContaining('skill-1'),
-        expect.objectContaining({ method: 'DELETE' }),
+      expect(mockUsersSvc.send).toHaveBeenCalledWith(
+        { cmd: 'developer.removeSkill' },
+        expect.objectContaining({ skillId: 'skill-1' }),
       );
     });
   });
@@ -290,54 +245,50 @@ describe('UsersController (api-gateway)', () => {
   // ─── Projets ──────────────────────────────────────────────────────────────
 
   describe('getMyProjects', () => {
-    it('liste les projets via GET', async () => {
-      mockFetch.mockResolvedValue({ json: () => Promise.resolve([]) });
+    it('liste les projets via cmd developer.getProjects', async () => {
+      mockUsersSvc.send.mockReturnValueOnce(of([]));
       await controller.getMyProjects(mockReq());
-      expect(mockFetch).toHaveBeenCalledWith(
-        expect.stringContaining('/projects'),
-        expect.objectContaining({ method: 'GET' }),
+      expect(mockUsersSvc.send).toHaveBeenCalledWith(
+        { cmd: 'developer.getProjects' },
+        { userId: 'user-1' },
       );
     });
   });
 
   describe('reorderMyProjects', () => {
-    it('réordonne les projets via POST', async () => {
-      mockFetch.mockResolvedValue({
-        json: () => Promise.resolve({ updated: 2 }),
-      });
+    it('réordonne les projets via cmd developer.reorderProjects', async () => {
+      mockUsersSvc.send.mockReturnValueOnce(of({ updated: 2 }));
       await controller.reorderMyProjects(mockReq(), {
         order: [
           { id: 'p1', displayOrder: 0 },
           { id: 'p2', displayOrder: 1 },
         ],
       });
-      expect(mockFetch).toHaveBeenCalledWith(
-        expect.stringContaining('reorder'),
-        expect.objectContaining({ method: 'POST' }),
+      expect(mockUsersSvc.send).toHaveBeenCalledWith(
+        { cmd: 'developer.reorderProjects' },
+        expect.objectContaining({ order: expect.any(Array) }),
       );
     });
   });
 
   describe('updateMyProject', () => {
-    it('met à jour un projet via PATCH', async () => {
-      mockFetch.mockResolvedValue({ json: () => Promise.resolve({}) });
+    it('met à jour un projet via cmd developer.updateProject', async () => {
+      mockUsersSvc.send.mockReturnValueOnce(of({}));
       await controller.updateMyProject(mockReq(), 'proj-1', { visible: false });
-      expect(mockFetch).toHaveBeenCalledWith(
-        expect.stringContaining('proj-1'),
-        expect.objectContaining({ method: 'PATCH' }),
+      expect(mockUsersSvc.send).toHaveBeenCalledWith(
+        { cmd: 'developer.updateProject' },
+        expect.objectContaining({ projectId: 'proj-1' }),
       );
     });
   });
 
   describe('deleteMyProject', () => {
-    it('supprime un projet via DELETE', async () => {
-      mockFetch.mockResolvedValue({
-        json: () => Promise.resolve({ deleted: true }),
-      });
+    it('supprime un projet via cmd developer.deleteProject', async () => {
+      mockUsersSvc.send.mockReturnValueOnce(of({ deleted: true }));
       await controller.deleteMyProject(mockReq(), 'proj-1');
-      expect(mockFetch).toHaveBeenCalledWith(
-        expect.stringContaining('proj-1'),
-        expect.objectContaining({ method: 'DELETE' }),
+      expect(mockUsersSvc.send).toHaveBeenCalledWith(
+        { cmd: 'developer.deleteProject' },
+        expect.objectContaining({ projectId: 'proj-1' }),
       );
     });
   });
@@ -346,11 +297,24 @@ describe('UsersController (api-gateway)', () => {
 
   describe('getAvatarOptions', () => {
     it("retourne les options d'avatar", async () => {
-      mockFetch.mockResolvedValue({ json: () => Promise.resolve([]) });
+      mockUsersSvc.send.mockReturnValueOnce(of([]));
       await controller.getAvatarOptions(mockReq());
-      expect(mockFetch).toHaveBeenCalledWith(
-        expect.stringContaining('avatar-options'),
-        expect.objectContaining({ method: 'GET' }),
+      expect(mockUsersSvc.send).toHaveBeenCalledWith(
+        { cmd: 'users.getAvatarOptions' },
+        { userId: 'user-1' },
+      );
+    });
+  });
+
+  // ─── Gestion d'erreurs RPC ────────────────────────────────────────────────
+
+  describe('propagation des erreurs RPC', () => {
+    it('convertit une RpcError en HttpException', async () => {
+      mockUsersSvc.send.mockReturnValueOnce(
+        throwError(() => ({ statusCode: 404, message: 'Profil introuvable' })),
+      );
+      await expect(controller.getMyProfile(mockReq())).rejects.toThrow(
+        HttpException,
       );
     });
   });

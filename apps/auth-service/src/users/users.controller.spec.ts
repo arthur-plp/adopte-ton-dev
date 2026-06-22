@@ -91,7 +91,7 @@ describe('UsersController', () => {
       const profile = { role: Role.DEVELOPER, profile: { firstName: 'Alice' } };
       mockUsersService.getProfile.mockResolvedValue(profile);
 
-      const result = await controller.getProfile('user-1');
+      const result = await controller.getProfile({ userId: 'user-1' });
 
       expect(result).toEqual(profile);
       expect(mockUsersService.getProfile).toHaveBeenCalledWith('user-1');
@@ -104,7 +104,7 @@ describe('UsersController', () => {
       };
       mockUsersService.getProfile.mockResolvedValue(profile);
 
-      const result = await controller.getProfile('user-2');
+      const result = await controller.getProfile({ userId: 'user-2' });
 
       expect(result.role).toBe(Role.RECRUITER);
     });
@@ -114,9 +114,9 @@ describe('UsersController', () => {
         new NotFoundException('Profil introuvable'),
       );
 
-      await expect(controller.getProfile('user-inconnu')).rejects.toThrow(
-        NotFoundException,
-      );
+      await expect(
+        controller.getProfile({ userId: 'user-inconnu' }),
+      ).rejects.toThrow(NotFoundException);
     });
   });
 });

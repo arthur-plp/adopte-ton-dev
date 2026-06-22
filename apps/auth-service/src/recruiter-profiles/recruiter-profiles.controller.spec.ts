@@ -94,7 +94,7 @@ describe('RecruiterProfilesController', () => {
       };
       mockService.findByUserId.mockResolvedValue(profile);
 
-      const result = await controller.findOne('user-1');
+      const result = await controller.findOne({ userId: 'user-1' });
 
       expect(result).toEqual(profile);
       expect(mockService.findByUserId).toHaveBeenCalledWith('user-1');
@@ -105,9 +105,9 @@ describe('RecruiterProfilesController', () => {
         new NotFoundException('Profil recruteur introuvable'),
       );
 
-      await expect(controller.findOne('user-inconnu')).rejects.toThrow(
-        NotFoundException,
-      );
+      await expect(
+        controller.findOne({ userId: 'user-inconnu' }),
+      ).rejects.toThrow(NotFoundException);
     });
   });
 });

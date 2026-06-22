@@ -4,13 +4,6 @@ export enum Role {
   ADMIN = "ADMIN",
 }
 
-export enum Availability {
-  IMMEDIATE = "IMMEDIATE",
-  ONE_MONTH = "ONE_MONTH",
-  LATER = "LATER",
-  NOT_LOOKING = "NOT_LOOKING",
-}
-
 export enum SkillLevel {
   BEGINNER = "BEGINNER",
   INTERMEDIATE = "INTERMEDIATE",
@@ -25,7 +18,10 @@ export enum JobType {
 
 export enum JobStatus {
   DRAFT = "DRAFT",
+  PENDING_REVIEW = "PENDING_REVIEW",
+  APPROVED = "APPROVED",
   PUBLISHED = "PUBLISHED",
+  REJECTED = "REJECTED",
   ARCHIVED = "ARCHIVED",
 }
 

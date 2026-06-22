@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Code2, Eye, EyeOff, ArrowLeft } from "lucide-react";
 import { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { toast } from "sonner";
 
 type OAuthProvider = "github" | "google";
 type Mode = "signin" | "signup";
@@ -16,6 +17,11 @@ export default function SignInPage() {
   const [mode, setMode] = useState<Mode>(
     params.get("tab") === "signup" ? "signup" : "signin"
   );
+
+  const rawAuthError = params.get("authError");
+  const authErrorMsg = rawAuthError
+    ? (AUTH_ERRORS[rawAuthError] ?? "Une erreur est survenue lors de la connexion. Réessaie.")
+    : null;
 
   return (
     <div className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden px-4">
@@ -38,6 +44,12 @@ export default function SignInPage() {
         </div>
         <span className="text-lg font-semibold">Adopte Ton Dev</span>
       </Link>
+
+      {authErrorMsg && (
+        <div className="mb-4 w-full max-w-sm rounded-xl border border-destructive/20 bg-destructive/5 px-4 py-3 text-sm text-destructive">
+          {authErrorMsg}
+        </div>
+      )}
 
       <div className="w-full max-w-sm rounded-2xl border border-border bg-card p-8 shadow-sm">
         {/* Onglets Connexion / Inscription */}
@@ -80,9 +92,15 @@ export default function SignInPage() {
 
         {/* Formulaire email / mot de passe */}
         {mode === "signin" ? (
-          <SignInForm onSuccess={() => router.push("/onboarding")} />
+          <SignInForm onSuccess={() => {
+            toast.success("Connexion réussie !", { description: "Bienvenue sur Adopte Ton Dev." });
+            router.push("/dashboard");
+          }} />
         ) : (
-          <SignUpForm onSuccess={() => router.push("/onboarding")} />
+          <SignUpForm onSuccess={() => {
+            toast.success("Compte créé !", { description: "Bienvenue sur Adopte Ton Dev." });
+            router.push("/dashboard");
+          }} />
         )}
       </div>
 
@@ -117,6 +135,10 @@ const AUTH_ERRORS: Record<string, string> = {
   SOCIAL_ACCOUNT_ALREADY_LINKED: "Ce compte social est déjà associé à un autre utilisateur.",
   FAILED_TO_GET_USER_INFO: "Impossible de récupérer les informations du compte.",
   PROVIDER_NOT_FOUND: "Fournisseur d'authentification introuvable.",
+  // Erreurs OAuth renvoyées via ?authError=
+  "email_doesn't_match": "Un compte existe déjà avec cet email via un autre fournisseur (GitHub ou Google). Connecte-toi avec le bon fournisseur.",
+  "email_doesn_t_match": "Un compte existe déjà avec cet email via un autre fournisseur. Connecte-toi avec le bon fournisseur.",
+  oauth_account_not_linked: "Ce compte social n'est pas encore associé. Connecte-toi d'abord avec ton fournisseur habituel.",
 };
 
 function translateAuthError(error: { code?: string | null; message?: string | null } | null | undefined, fallback: string): string {
@@ -132,7 +154,8 @@ function OAuthButtons() {
 
   async function handleOAuth(provider: OAuthProvider) {
     setLoading(provider);
-    await signIn.social({ provider, callbackURL: "/onboarding" });
+    localStorage.setItem("showWelcome", "1");
+    await signIn.social({ provider, callbackURL: "/dashboard" });
     setLoading(null);
   }
 
@@ -214,6 +237,15 @@ function SignInForm({ onSuccess }: { onSuccess: () => void }) {
         </div>
       </Field>
 
+      <div className="flex justify-end">
+        <Link
+          href="/forgot-password"
+          className="text-xs text-muted-foreground hover:text-foreground"
+        >
+          Mot de passe oublié ?
+        </Link>
+      </div>
+
       {error && <ErrorBanner>{error}</ErrorBanner>}
 
       <Button type="submit" className="h-10 w-full" disabled={loading}>
@@ -226,7 +258,8 @@ function SignInForm({ onSuccess }: { onSuccess: () => void }) {
 // ── Formulaire inscription ─────────────────────────────────────────────────────
 
 function SignUpForm({ onSuccess }: { onSuccess: () => void }) {
-  const [name, setName] = useState("");
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
@@ -239,6 +272,10 @@ function SignUpForm({ onSuccess }: { onSuccess: () => void }) {
     e.preventDefault();
     setError(null);
 
+    if (!firstName.trim() || !lastName.trim()) {
+      setError("Prénom et nom sont requis.");
+      return;
+    }
     if (password.length < 8) {
       setError("Le mot de passe doit contenir au moins 8 caractères.");
       return;
@@ -249,6 +286,7 @@ function SignUpForm({ onSuccess }: { onSuccess: () => void }) {
     }
 
     setLoading(true);
+    const name = `${firstName.trim()} ${lastName.trim()}`;
     const result = await signUp.email({ name, email, password });
 
     if (result.error) {
@@ -262,17 +300,30 @@ function SignUpForm({ onSuccess }: { onSuccess: () => void }) {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      <Field label="Prénom et nom">
-        <input
-          type="text"
-          required
-          autoComplete="name"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          placeholder="Alex Dupont"
-          className="input-base"
-        />
-      </Field>
+      <div className="grid grid-cols-2 gap-3">
+        <Field label="Prénom">
+          <input
+            type="text"
+            required
+            autoComplete="given-name"
+            value={firstName}
+            onChange={(e) => setFirstName(e.target.value)}
+            placeholder="Alex"
+            className="input-base"
+          />
+        </Field>
+        <Field label="Nom">
+          <input
+            type="text"
+            required
+            autoComplete="family-name"
+            value={lastName}
+            onChange={(e) => setLastName(e.target.value)}
+            placeholder="Dupont"
+            className="input-base"
+          />
+        </Field>
+      </div>
 
       <Field label="Adresse email">
         <input
