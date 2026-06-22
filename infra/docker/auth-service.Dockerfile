@@ -39,4 +39,4 @@ WORKDIR /app/apps/auth-service
 EXPOSE 3001
 
 # Lance les migrations puis démarre le service
-CMD ["sh", "-c", "node node_modules/.bin/prisma migrate deploy && node dist/main"]
+CMD ["sh", "-c", "node node_modules/prisma/build/index.js migrate deploy && node dist/main"]
