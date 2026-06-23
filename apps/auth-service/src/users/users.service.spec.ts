@@ -50,7 +50,16 @@ describe('UsersService', () => {
   // ─── setRole ──────────────────────────────────────────────────────────────
 
   describe('setRole', () => {
-    it('crée un DeveloperProfile et retourne { userId, role } pour DEVELOPER', async () => {
+    beforeEach(() => {
+      // Exécute réellement le callback de transaction (au lieu de le no-op)
+      // pour pouvoir vérifier les appels faits sur tx.developerProfile.create / tx.user.update
+      mockPrisma.$transaction.mockImplementation(
+        (callback: (tx: typeof mockPrisma) => Promise<unknown>) =>
+          callback(mockPrisma),
+      );
+    });
+
+    it('crée un DeveloperProfile, marque onboarded et retourne { userId, role } pour DEVELOPER', async () => {
       mockPrisma.developerProfile.count.mockResolvedValue(0);
       mockPrisma.recruiterProfile.count.mockResolvedValue(0);
 
@@ -65,6 +74,10 @@ describe('UsersService', () => {
       expect(mockPrisma.developerProfile.create).toHaveBeenCalledWith({
         data: { userId: 'user-1', firstName: 'Alice', lastName: 'Dev' },
       });
+      expect(mockPrisma.user.update).toHaveBeenCalledWith({
+        where: { id: 'user-1' },
+        data: { role: Role.DEVELOPER, onboarded: true },
+      });
     });
 
     it('utilise des chaînes vides si firstName/lastName absents', async () => {
@@ -78,7 +91,7 @@ describe('UsersService', () => {
       });
     });
 
-    it('retourne { userId, role } pour RECRUITER sans créer de profil dev', async () => {
+    it('retourne { userId, role } pour RECRUITER sans créer de profil dev, mais marque onboarded', async () => {
       mockPrisma.developerProfile.count.mockResolvedValue(0);
       mockPrisma.recruiterProfile.count.mockResolvedValue(0);
 
@@ -86,6 +99,10 @@ describe('UsersService', () => {
 
       expect(result).toEqual({ userId: 'user-2', role: Role.RECRUITER });
       expect(mockPrisma.developerProfile.create).not.toHaveBeenCalled();
+      expect(mockPrisma.user.update).toHaveBeenCalledWith({
+        where: { id: 'user-2' },
+        data: { role: Role.RECRUITER, onboarded: true },
+      });
     });
 
     it('lance ConflictException si un profil développeur existe déjà', async () => {

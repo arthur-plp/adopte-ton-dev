@@ -42,15 +42,21 @@ export class UsersService {
       );
     }
 
-    if (role === Role.DEVELOPER) {
-      await this.prisma.developerProfile.create({
-        data: {
-          userId,
-          firstName: firstName ?? '',
-          lastName: lastName ?? '',
-        },
+    await this.prisma.$transaction(async (tx) => {
+      if (role === Role.DEVELOPER) {
+        await tx.developerProfile.create({
+          data: {
+            userId,
+            firstName: firstName ?? '',
+            lastName: lastName ?? '',
+          },
+        });
+      }
+      await tx.user.update({
+        where: { id: userId },
+        data: { role, onboarded: true },
       });
-    }
+    });
 
     return { userId, role };
   }

@@ -4,7 +4,7 @@ import Link from "next/link";
 import { signIn, signUp } from "@/lib/auth-client";
 import { Button } from "@/components/ui/button";
 import { Code2, Eye, EyeOff, ArrowLeft } from "lucide-react";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 
@@ -191,9 +191,12 @@ function SignInForm({ onSuccess }: { onSuccess: () => void }) {
   const [showPwd, setShowPwd] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const submitting = useRef(false);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (submitting.current) return;
+    submitting.current = true;
     setLoading(true);
     setError(null);
 
@@ -202,6 +205,7 @@ function SignInForm({ onSuccess }: { onSuccess: () => void }) {
     if (result.error) {
       setError(translateAuthError(result.error, "Email ou mot de passe incorrect."));
       setLoading(false);
+      submitting.current = false;
       return;
     }
 
@@ -267,9 +271,11 @@ function SignUpForm({ onSuccess }: { onSuccess: () => void }) {
   const [showConfirm, setShowConfirm] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const submitting = useRef(false);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (submitting.current) return;
     setError(null);
 
     if (!firstName.trim() || !lastName.trim()) {
@@ -285,6 +291,7 @@ function SignUpForm({ onSuccess }: { onSuccess: () => void }) {
       return;
     }
 
+    submitting.current = true;
     setLoading(true);
     const name = `${firstName.trim()} ${lastName.trim()}`;
     const result = await signUp.email({ name, email, password });
@@ -292,6 +299,7 @@ function SignUpForm({ onSuccess }: { onSuccess: () => void }) {
     if (result.error) {
       setError(translateAuthError(result.error, "Erreur lors de la création du compte."));
       setLoading(false);
+      submitting.current = false;
       return;
     }
 
