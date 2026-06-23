@@ -18,6 +18,13 @@ FROM deps AS builder
 COPY . .
 # DATABASE_URL factice uniquement pour prisma generate (pas de connexion réelle)
 ENV DATABASE_URL="postgresql://build:build@localhost:5432/build"
+# Next.js inline les variables NEXT_PUBLIC_* dans le bundle client au moment du
+# build (pas au runtime) : il faut donc les recevoir en ARG ici, pas seulement
+# via env_file dans docker-compose (qui ne s'applique qu'au conteneur final).
+ARG NEXT_PUBLIC_API_URL
+ARG NEXT_PUBLIC_BETTER_AUTH_URL
+ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
+ENV NEXT_PUBLIC_BETTER_AUTH_URL=$NEXT_PUBLIC_BETTER_AUTH_URL
 RUN pnpm --filter web... build
 
 # ── Runner ────────────────────────────────────────────────────────────────────

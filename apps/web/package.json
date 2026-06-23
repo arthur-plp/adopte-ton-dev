@@ -11,7 +11,7 @@
     "check-types": "next typegen && tsc --noEmit",
     "test": "jest",
     "test:cov": "jest --coverage",
-    "seed:prod": "tsx scripts/seed-prod.ts",
+    "seed:prod": "prisma generate && tsx scripts/seed-prod.ts",
     "clean": "rm -rf .next"
   },
   "dependencies": {
