@@ -3,12 +3,6 @@ const nextConfig = {
   output: "standalone",
   serverExternalPackages: ["pg", "@prisma/client", "@prisma/adapter-pg"],
 
-  env: {
-    DATABASE_URL:
-      process.env.DATABASE_URL ??
-      "postgresql://build:build@localhost:5432/build",
-  },
-
   images: {
     remotePatterns: [
       { protocol: "https", hostname: "avatars.githubusercontent.com" },
