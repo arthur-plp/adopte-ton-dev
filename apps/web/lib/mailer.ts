@@ -4,6 +4,7 @@ import React from "react";
 import { ResetPasswordEmail } from "@/emails/reset-password";
 import { RecruiterWelcomeEmail } from "@/emails/recruiter-welcome";
 import { VerifyEmail } from "@/emails/verify-email";
+import { ContactMessageEmail } from "@/emails/contact-message";
 
 let _resend: Resend | undefined;
 function getResend(): Resend {
@@ -89,6 +90,30 @@ export async function sendRecruiterWelcomeEmail({
     from: FROM,
     to,
     subject: `Votre accès recruteur Adopte Ton Dev — ${companyName}`,
+    html,
+  });
+}
+
+const ADMIN_EMAIL = "arthur.philippe21@gmail.com";
+
+export async function sendContactMessageEmail({
+  name,
+  email,
+  subject,
+  message,
+}: {
+  name: string;
+  email: string;
+  subject: string;
+  message: string;
+}) {
+  const html = await render(
+    React.createElement(ContactMessageEmail, { name, email, subject, message }),
+  );
+  await sendEmail({
+    from: FROM,
+    to: ADMIN_EMAIL,
+    subject: `[ATD] Contact — ${subject}`,
     html,
   });
 }

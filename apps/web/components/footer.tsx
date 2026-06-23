@@ -14,7 +14,7 @@ const LINKS = [
     heading: "Entreprise",
     items: [
       { label: "À propos", href: "/a-propos" },
-      { label: "Nous contacter", href: "/recruteurs" },
+      { label: "Nous contacter", href: "/contact" },
     ],
   },
   {
