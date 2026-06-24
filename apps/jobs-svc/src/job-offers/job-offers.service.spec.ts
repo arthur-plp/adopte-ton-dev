@@ -1,6 +1,6 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { RpcException } from "@nestjs/microservices";
-import { of } from "rxjs";
+import { of, throwError } from "rxjs";
 import { JobOffersService } from "./job-offers.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { JobStatus, JobType } from "@repo/types";
@@ -8,6 +8,10 @@ import { JobStatus, JobType } from "@repo/types";
 const FREE_PLAN_LIMIT = 2;
 
 const mockApplicationsClient = {
+  send: jest.fn(),
+};
+
+const mockPaymentClient = {
   send: jest.fn(),
 };
 
@@ -56,11 +60,13 @@ describe("JobOffersService", () => {
         JobOffersService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: "APPLICATIONS_SVC", useValue: mockApplicationsClient },
+        { provide: "PAYMENT_SVC", useValue: mockPaymentClient },
       ],
     }).compile();
     service = module.get<JobOffersService>(JobOffersService);
     jest.clearAllMocks();
     mockApplicationsClient.send.mockReturnValue(of({ hasActive: false }));
+    mockPaymentClient.send.mockReturnValue(of({ plan: "FREE" }));
   });
 
   // ── create ─────────────────────────────────────────────────────────────────
@@ -310,6 +316,36 @@ describe("JobOffersService", () => {
       const approved = { ...baseOffer, status: JobStatus.APPROVED };
       mockPrisma.jobOffer.findUnique.mockResolvedValueOnce(approved);
       mockPrisma.jobOffer.count.mockResolvedValueOnce(FREE_PLAN_LIMIT);
+      await expect(service.goLive("job-1", "recruiter-1")).rejects.toThrow(
+        RpcException,
+      );
+    });
+
+    it("publie sans vérifier le quota si l'entreprise est en plan Pro", async () => {
+      const approved = { ...baseOffer, status: JobStatus.APPROVED };
+      mockPrisma.jobOffer.findUnique.mockResolvedValueOnce(approved);
+      mockPaymentClient.send.mockReturnValueOnce(of({ plan: "PRO" }));
+      const published = {
+        ...approved,
+        status: JobStatus.PUBLISHED,
+        publishedAt: new Date(),
+      };
+      mockPrisma.$transaction.mockResolvedValueOnce([published]);
+
+      const result = await service.goLive("job-1", "recruiter-1");
+
+      expect(result.status).toBe(JobStatus.PUBLISHED);
+      expect(mockPrisma.jobOffer.count).not.toHaveBeenCalled();
+    });
+
+    it("applique le quota Free par défaut si payment-svc est injoignable", async () => {
+      const approved = { ...baseOffer, status: JobStatus.APPROVED };
+      mockPrisma.jobOffer.findUnique.mockResolvedValueOnce(approved);
+      mockPaymentClient.send.mockReturnValueOnce(
+        throwError(() => new Error("ECONNREFUSED")),
+      );
+      mockPrisma.jobOffer.count.mockResolvedValueOnce(FREE_PLAN_LIMIT);
+
       await expect(service.goLive("job-1", "recruiter-1")).rejects.toThrow(
         RpcException,
       );

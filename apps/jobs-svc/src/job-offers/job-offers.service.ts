@@ -1,9 +1,9 @@
-import { Inject, Injectable } from "@nestjs/common";
+import { Inject, Injectable, Logger } from "@nestjs/common";
 import { ClientProxy, RpcException } from "@nestjs/microservices";
 import { lastValueFrom } from "rxjs";
 import { PrismaService } from "../prisma/prisma.service";
 import { Events } from "@repo/contracts";
-import { JobStatus } from "@repo/types";
+import { JobStatus, PlanType } from "@repo/types";
 import type {
   CreateJobOfferDto,
   UpdateJobOfferDto,
@@ -29,10 +29,14 @@ async function retry<T>(fn: () => Promise<T>, attempts = 3): Promise<T> {
 
 @Injectable()
 export class JobOffersService {
+  private readonly logger = new Logger(JobOffersService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     @Inject("APPLICATIONS_SVC")
     private readonly applicationsClient: ClientProxy,
+    @Inject("PAYMENT_SVC")
+    private readonly paymentClient: ClientProxy,
   ) {}
 
   private async hasActiveApplications(jobOfferId: string): Promise<boolean> {
@@ -43,6 +47,25 @@ export class JobOffersService {
       ),
     );
     return result.hasActive;
+  }
+
+  // Si payment-svc est injoignable, on applique le quota Free par défaut
+  // (échec fermé) plutôt que d'accorder un accès Pro non vérifié.
+  private async getCompanyPlan(companyId: string): Promise<PlanType> {
+    try {
+      const result = await lastValueFrom(
+        this.paymentClient.send<{ plan: string }>(
+          { cmd: "payment.getSubscription" },
+          { companyId },
+        ),
+      );
+      return result.plan === PlanType.PRO ? PlanType.PRO : PlanType.FREE;
+    } catch (err) {
+      this.logger.warn(
+        `payment-svc injoignable, application du plan Free par défaut : ${String(err)}`,
+      );
+      return PlanType.FREE;
+    }
   }
 
   // ── Helpers ───────────────────────────────────────────────────────────────
@@ -246,16 +269,19 @@ export class JobOffersService {
         message: "Seules les offres approuvées peuvent être publiées.",
       });
 
-    const activeCount = await retry(() =>
-      this.prisma.jobOffer.count({
-        where: { companyId: offer.companyId, status: JobStatus.PUBLISHED },
-      }),
-    );
-    if (activeCount >= FREE_PLAN_LIMIT)
-      throw new RpcException({
-        statusCode: 402,
-        message: `Quota atteint : ${FREE_PLAN_LIMIT} offres actives maximum (plan Free). Passez au plan Pro pour publier davantage.`,
-      });
+    const plan = await this.getCompanyPlan(offer.companyId);
+    if (plan !== PlanType.PRO) {
+      const activeCount = await retry(() =>
+        this.prisma.jobOffer.count({
+          where: { companyId: offer.companyId, status: JobStatus.PUBLISHED },
+        }),
+      );
+      if (activeCount >= FREE_PLAN_LIMIT)
+        throw new RpcException({
+          statusCode: 402,
+          message: `Quota atteint : ${FREE_PLAN_LIMIT} offres actives maximum (plan Free). Passez au plan Pro pour publier davantage.`,
+        });
+    }
 
     const [published] = await this.prisma.$transaction([
       this.prisma.jobOffer.update({

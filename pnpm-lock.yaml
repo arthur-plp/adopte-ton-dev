@@ -501,6 +501,118 @@ importers:
         specifier: ^8.20.0
         version: 8.50.0(eslint@9.39.1(jiti@2.7.0))(typescript@5.9.2)
 
+  apps/payment-svc:
+    dependencies:
+      '@nestjs/common':
+        specifier: ^11.0.1
+        version: 11.1.24(reflect-metadata@0.2.2)(rxjs@7.8.2)
+      '@nestjs/config':
+        specifier: ^4.0.4
+        version: 4.0.4(@nestjs/common@11.1.24(reflect-metadata@0.2.2)(rxjs@7.8.2))(rxjs@7.8.2)
+      '@nestjs/core':
+        specifier: ^11.0.1
+        version: 11.1.24(@nestjs/common@11.1.24(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/microservices@11.1.24)(@nestjs/platform-express@11.1.24)(reflect-metadata@0.2.2)(rxjs@7.8.2)
+      '@nestjs/microservices':
+        specifier: ^11.1.24
+        version: 11.1.24(@nestjs/common@11.1.24(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@11.1.24)(amqplib@2.0.1)(reflect-metadata@0.2.2)(rxjs@7.8.2)
+      '@prisma/adapter-pg':
+        specifier: ^7.8.0
+        version: 7.8.0
+      '@prisma/client':
+        specifier: ^7.8.0
+        version: 7.8.0(prisma@7.8.0(@types/react-dom@19.2.2(@types/react@19.2.2))(@types/react@19.2.2)(react-dom@19.2.0(react@19.2.0))(react@19.2.0)(typescript@5.9.2))(typescript@5.9.2)
+      '@prisma/client-runtime-utils':
+        specifier: ^7.8.0
+        version: 7.8.0
+      '@repo/contracts':
+        specifier: workspace:*
+        version: link:../../packages/contracts
+      '@repo/types':
+        specifier: workspace:*
+        version: link:../../packages/types
+      '@types/amqplib':
+        specifier: ^0.10.8
+        version: 0.10.8
+      '@types/pg':
+        specifier: ^8.20.0
+        version: 8.20.0
+      amqplib:
+        specifier: ^2.0.1
+        version: 2.0.1
+      pg:
+        specifier: ^8.21.0
+        version: 8.21.0
+      reflect-metadata:
+        specifier: ^0.2.2
+        version: 0.2.2
+      rxjs:
+        specifier: ^7.8.1
+        version: 7.8.2
+      stripe:
+        specifier: ^17.5.0
+        version: 17.7.0
+    devDependencies:
+      '@eslint/eslintrc':
+        specifier: ^3.2.0
+        version: 3.3.1
+      '@eslint/js':
+        specifier: ^9.18.0
+        version: 9.39.1
+      '@nestjs/cli':
+        specifier: ^11.0.0
+        version: 11.0.21(@types/node@24.12.4)(prettier@3.7.4)
+      '@nestjs/schematics':
+        specifier: ^11.0.0
+        version: 11.1.0(chokidar@4.0.3)(prettier@3.7.4)(typescript@5.9.2)
+      '@nestjs/testing':
+        specifier: ^11.0.1
+        version: 11.1.24(@nestjs/common@11.1.24(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@11.1.24(@nestjs/common@11.1.24(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/microservices@11.1.24)(@nestjs/platform-express@11.1.24)(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/microservices@11.1.24(@nestjs/common@11.1.24(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@11.1.24)(amqplib@2.0.1)(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/platform-express@11.1.24(@nestjs/common@11.1.24(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@11.1.24))
+      '@types/jest':
+        specifier: ^30.0.0
+        version: 30.0.0
+      '@types/node':
+        specifier: ^24.0.0
+        version: 24.12.4
+      eslint:
+        specifier: ^9.18.0
+        version: 9.39.1(jiti@2.7.0)
+      eslint-config-prettier:
+        specifier: ^10.0.1
+        version: 10.1.1(eslint@9.39.1(jiti@2.7.0))
+      eslint-plugin-prettier:
+        specifier: ^5.2.2
+        version: 5.5.6(@types/eslint@9.6.1)(eslint-config-prettier@10.1.1(eslint@9.39.1(jiti@2.7.0)))(eslint@9.39.1(jiti@2.7.0))(prettier@3.7.4)
+      globals:
+        specifier: ^17.0.0
+        version: 17.6.0
+      jest:
+        specifier: ^30.0.0
+        version: 30.4.2(@types/node@24.12.4)(ts-node@10.9.2(@types/node@24.12.4)(typescript@5.9.2))
+      prettier:
+        specifier: ^3.4.2
+        version: 3.7.4
+      prisma:
+        specifier: ^7.8.0
+        version: 7.8.0(@types/react-dom@19.2.2(@types/react@19.2.2))(@types/react@19.2.2)(react-dom@19.2.0(react@19.2.0))(react@19.2.0)(typescript@5.9.2)
+      source-map-support:
+        specifier: ^0.5.21
+        version: 0.5.21
+      ts-jest:
+        specifier: ^29.2.5
+        version: 29.4.11(@babel/core@7.29.7)(@jest/transform@30.4.1)(@jest/types@30.4.1)(babel-jest@30.4.1(@babel/core@7.29.7))(esbuild@0.27.7)(jest-util@30.4.1)(jest@30.4.2(@types/node@24.12.4)(ts-node@10.9.2(@types/node@24.12.4)(typescript@5.9.2)))(typescript@5.9.2)
+      ts-node:
+        specifier: ^10.9.2
+        version: 10.9.2(@types/node@24.12.4)(typescript@5.9.2)
+      tsconfig-paths:
+        specifier: ^4.2.0
+        version: 4.2.0
+      typescript:
+        specifier: ^5.7.3
+        version: 5.9.2
+      typescript-eslint:
+        specifier: ^8.20.0
+        version: 8.50.0(eslint@9.39.1(jiti@2.7.0))(typescript@5.9.2)
+
   apps/web:
     dependencies:
       '@prisma/adapter-pg':
@@ -6931,6 +7043,10 @@ packages:
   strip-json-comments@3.1.1:
     resolution: {integrity: sha512-6fPc+R4ihwqP6N/aIv2f1gMH8lOVtWQHoqC4yK6oSDVVocumAsfCqjkXnqiYMhmMwS/mEHLp7Vehlt3ql6lEig==}
     engines: {node: '>=8'}
+
+  stripe@17.7.0:
+    resolution: {integrity: sha512-aT2BU9KkizY9SATf14WhhYVv2uOapBWX0OFWF4xvcj1mPaNotlSc2CsxpS4DS46ZueSppmCF5BX1sNYBtwBvfw==}
+    engines: {node: '>=12.*'}
 
   strtok3@10.3.5:
     resolution: {integrity: sha512-ki4hZQfh5rX0QDLLkOCj+h+CVNkqmp/CMf8v8kZpkNVK6jGQooMytqzLZYUVYIZcFZ6yDB70EfD8POcFXiF5oA==}
@@ -14347,6 +14463,11 @@ snapshots:
   strip-final-newline@4.0.0: {}
 
   strip-json-comments@3.1.1: {}
+
+  stripe@17.7.0:
+    dependencies:
+      '@types/node': 24.12.4
+      qs: 6.15.2
 
   strtok3@10.3.5:
     dependencies:

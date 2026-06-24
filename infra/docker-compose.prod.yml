@@ -109,6 +109,25 @@ services:
       timeout: 5s
       retries: 5
 
+  payment-svc:
+    build:
+      context: ..
+      dockerfile: infra/docker/payment-svc.Dockerfile
+    container_name: atd-payment-svc
+    restart: unless-stopped
+    env_file: .env.payment-svc
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks: [atd]
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('net').createConnection(3004,'localhost').on('connect',()=>process.exit(0)).on('error',()=>process.exit(1))"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
   api-gateway:
     build:
       context: ..
@@ -124,6 +143,8 @@ services:
       jobs-svc:
         condition: service_healthy
       applications-svc:
+        condition: service_healthy
+      payment-svc:
         condition: service_healthy
     networks: [atd]
 

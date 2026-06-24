@@ -1,62 +1,46 @@
-import { CreateSubscriptionSchema, StripeWebhookSchema } from './payment.schema';
-import { PlanType } from '@repo/types';
+import {
+  CreateCheckoutSessionSchema,
+  CreateBillingPortalSessionSchema,
+} from './payment.schema';
 
-const validCuid = 'clxxxxxxxxxxxxxxxxxxxxxxxx';
-
-describe('CreateSubscriptionSchema', () => {
-  it('valide un abonnement FREE', () => {
-    const result = CreateSubscriptionSchema.parse({ companyId: validCuid, plan: PlanType.FREE });
-    expect(result.plan).toBe(PlanType.FREE);
+describe('CreateCheckoutSessionSchema', () => {
+  it('valide des URLs de succès/annulation valides', () => {
+    const result = CreateCheckoutSessionSchema.parse({
+      successUrl: 'https://app.test/plans?success=true',
+      cancelUrl: 'https://app.test/plans?canceled=true',
+    });
+    expect(result.successUrl).toBe('https://app.test/plans?success=true');
   });
 
-  it('valide un abonnement PRO', () => {
-    const result = CreateSubscriptionSchema.parse({ companyId: validCuid, plan: PlanType.PRO });
-    expect(result.plan).toBe(PlanType.PRO);
-  });
-
-  it('rejette un plan inconnu', () => {
+  it('rejette une successUrl invalide', () => {
     expect(() =>
-      CreateSubscriptionSchema.parse({ companyId: validCuid, plan: 'ENTERPRISE' }),
+      CreateCheckoutSessionSchema.parse({
+        successUrl: 'pas-une-url',
+        cancelUrl: 'https://app.test/plans?canceled=true',
+      }),
     ).toThrow();
   });
 
-  it('rejette un companyId vide', () => {
+  it('rejette une cancelUrl absente', () => {
     expect(() =>
-      CreateSubscriptionSchema.parse({ companyId: '', plan: PlanType.FREE }),
-    ).toThrow();
-  });
-
-  it('rejette un companyId au format invalide (non-cuid)', () => {
-    expect(() =>
-      CreateSubscriptionSchema.parse({ companyId: 'pas-un-cuid', plan: PlanType.FREE }),
+      CreateCheckoutSessionSchema.parse({
+        successUrl: 'https://app.test/plans?success=true',
+      }),
     ).toThrow();
   });
 });
 
-describe('StripeWebhookSchema', () => {
-  it('valide un webhook Stripe minimal', () => {
-    const result = StripeWebhookSchema.parse({
-      type: 'customer.subscription.updated',
-      data: { object: { id: 'sub_123', status: 'active' } },
+describe('CreateBillingPortalSessionSchema', () => {
+  it('valide une returnUrl valide', () => {
+    const result = CreateBillingPortalSessionSchema.parse({
+      returnUrl: 'https://app.test/dashboard/recruiter',
     });
-    expect(result.type).toBe('customer.subscription.updated');
+    expect(result.returnUrl).toBe('https://app.test/dashboard/recruiter');
   });
 
-  it('valide un webhook avec data.object vide', () => {
+  it('rejette une returnUrl invalide', () => {
     expect(() =>
-      StripeWebhookSchema.parse({ type: 'payment_intent.created', data: { object: {} } }),
-    ).not.toThrow();
-  });
-
-  it('rejette si le champ type est absent', () => {
-    expect(() =>
-      StripeWebhookSchema.parse({ data: { object: {} } }),
-    ).toThrow();
-  });
-
-  it('rejette si data.object est absent', () => {
-    expect(() =>
-      StripeWebhookSchema.parse({ type: 'test', data: {} }),
+      CreateBillingPortalSessionSchema.parse({ returnUrl: 'pas-une-url' }),
     ).toThrow();
   });
 });

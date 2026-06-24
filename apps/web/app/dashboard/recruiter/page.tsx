@@ -117,6 +117,7 @@ export default function RecruiterDashboard() {
   const [recentApplications, setRecentApplications] = useState<RecentApplication[]>([]);
   const [applicants, setApplicants] = useState<Record<string, DeveloperSummary>>({});
   const [loadingApplications, setLoadingApplications] = useState(true);
+  const [plan, setPlan] = useState<"FREE" | "PRO" | null>(null);
 
   useEffect(() => {
     if (!session) return;
@@ -125,6 +126,14 @@ export default function RecruiterDashboard() {
       .then((data) => setOffers(Array.isArray(data) ? data : []))
       .catch(() => setOffers([]))
       .finally(() => setLoading(false));
+  }, [session, apiUrl]);
+
+  useEffect(() => {
+    if (!session) return;
+    fetch(`${apiUrl}/payment/subscription`, { credentials: "include" })
+      .then((res) => (res.ok ? (res.json() as Promise<{ plan: "FREE" | "PRO" }>) : null))
+      .then((data) => setPlan(data?.plan ?? "FREE"))
+      .catch(() => setPlan("FREE"));
   }, [session, apiUrl]);
 
   useEffect(() => {
@@ -322,7 +331,8 @@ export default function RecruiterDashboard() {
   const activeCount = offers.filter((o) => o.status === "PUBLISHED").length;
   const draftCount = offers.filter((o) => o.status === "DRAFT").length;
   const approvedOffers = offers.filter((o) => o.status === "APPROVED");
-  const isAtLimit = !loading && activeCount >= FREE_PLAN_LIMIT;
+  const isPro = plan === "PRO";
+  const isAtLimit = !loading && !isPro && activeCount >= FREE_PLAN_LIMIT;
 
   function handleNewOffer() {
     if (isAtLimit) {
@@ -402,7 +412,7 @@ export default function RecruiterDashboard() {
         {[
           {
             label: "Offres actives",
-            value: loading ? "…" : `${activeCount}/${FREE_PLAN_LIMIT}`,
+            value: loading ? "…" : isPro ? `${activeCount}` : `${activeCount}/${FREE_PLAN_LIMIT}`,
             icon: <Briefcase className="size-5" />,
             color: isAtLimit ? "text-amber-600 bg-amber-500/10" : "text-primary bg-primary/10",
           },

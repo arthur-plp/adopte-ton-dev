@@ -1,0 +1,35 @@
+-- Seed du catalogue de compétences (équivalent SQL de apps/auth-service/prisma/seed.ts)
+-- Idempotent : ré-exécutable sans risque (ON CONFLICT sur le nom unique).
+
+INSERT INTO "Skill" (id, name, category) VALUES
+  ('skill_' || md5('API REST'), 'API REST', 'technique'),
+  ('skill_' || md5('Authentification OAuth'), 'Authentification OAuth', 'technique'),
+  ('skill_' || md5('Architecture MVC'), 'Architecture MVC', 'technique'),
+  ('skill_' || md5('Micro-services'), 'Micro-services', 'technique'),
+  ('skill_' || md5('Design patterns'), 'Design patterns', 'technique'),
+  ('skill_' || md5('Clean Architecture'), 'Clean Architecture', 'technique'),
+  ('skill_' || md5('Tests unitaires'), 'Tests unitaires', 'technique'),
+  ('skill_' || md5('Tests d''intégration'), 'Tests d''intégration', 'technique'),
+  ('skill_' || md5('TDD'), 'TDD', 'technique'),
+  ('skill_' || md5('CI/CD'), 'CI/CD', 'technique'),
+  ('skill_' || md5('Agile / Scrum'), 'Agile / Scrum', 'technique'),
+  ('skill_' || md5('Modélisation de BDD'), 'Modélisation de BDD', 'technique'),
+  ('skill_' || md5('ORM'), 'ORM', 'technique'),
+  ('skill_' || md5('NoSQL'), 'NoSQL', 'technique'),
+  ('skill_' || md5('Code review'), 'Code review', 'technique'),
+  ('skill_' || md5('Documentation technique'), 'Documentation technique', 'technique'),
+  ('skill_' || md5('Débogage'), 'Débogage', 'technique'),
+  ('skill_' || md5('Performance web'), 'Performance web', 'technique'),
+  ('skill_' || md5('Communication'), 'Communication', 'soft'),
+  ('skill_' || md5('Travail en équipe'), 'Travail en équipe', 'soft'),
+  ('skill_' || md5('Autonomie'), 'Autonomie', 'soft'),
+  ('skill_' || md5('Adaptabilité'), 'Adaptabilité', 'soft'),
+  ('skill_' || md5('Résolution de problèmes'), 'Résolution de problèmes', 'soft'),
+  ('skill_' || md5('Gestion du temps'), 'Gestion du temps', 'soft'),
+  ('skill_' || md5('Curiosité'), 'Curiosité', 'soft'),
+  ('skill_' || md5('Esprit d''analyse'), 'Esprit d''analyse', 'soft'),
+  ('skill_' || md5('Créativité'), 'Créativité', 'soft'),
+  ('skill_' || md5('Prise d''initiative'), 'Prise d''initiative', 'soft'),
+  ('skill_' || md5('Rigueur'), 'Rigueur', 'soft'),
+  ('skill_' || md5('Gestion du stress'), 'Gestion du stress', 'soft')
+ON CONFLICT (name) DO UPDATE SET category = EXCLUDED.category;

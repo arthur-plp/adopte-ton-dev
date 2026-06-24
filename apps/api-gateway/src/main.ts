@@ -3,7 +3,10 @@ import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { AppModule } from './app.module';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  // rawBody: true expose req.rawBody (Buffer) sur toutes les requêtes, nécessaire
+  // pour vérifier la signature des webhooks Stripe (payment-svc) sur l'octet exact
+  // reçu — un body re-sérialisé en JSON casserait la vérification HMAC.
+  const app = await NestFactory.create(AppModule, { rawBody: true });
 
   app.setGlobalPrefix('api/v1');
   app.enableCors({
