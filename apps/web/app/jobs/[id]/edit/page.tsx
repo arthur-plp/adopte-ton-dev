@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useSession } from "@/lib/auth-client";
 import { Navbar } from "@/components/navbar";
-import { ArrowLeft, CheckCircle2, Send, Archive, Trash2, ChevronDown, UserCircle2 } from "lucide-react";
+import { ArrowLeft, CheckCircle2, Send, Archive, Trash2, ChevronDown, UserCircle2, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { JobOfferForm, type JobOfferFormData } from "../../job-offer-form";
 import { ConfirmDeleteModal } from "@/components/confirm-delete-modal";
@@ -240,6 +240,14 @@ export default function EditJobOfferPage({ params }: { params: Promise<{ id: str
             {STATUS_LABELS[offer.status]}
           </span>
         </div>
+
+        <Link
+          href={`/developpeurs?jobOfferId=${id}`}
+          className="mb-6 inline-flex items-center gap-1.5 text-sm text-primary hover:underline"
+        >
+          <Search className="size-3.5" />
+          Rechercher des profils pour cette offre
+        </Link>
 
         {/* Onglets */}
         <div className="mb-6 flex gap-1 rounded-lg bg-muted p-1">
