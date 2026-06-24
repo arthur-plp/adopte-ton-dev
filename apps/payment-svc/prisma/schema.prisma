@@ -1,0 +1,47 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum PlanType {
+  FREE
+  PRO
+}
+
+// Abonnement recruteur — une entreprise a au plus une Subscription.
+// Source de vérité du plan = webhooks Stripe (jamais le client, cf. CLAUDE.md §16).
+model Subscription {
+  id                   String     @id @default(cuid())
+  companyId            String     @unique
+  stripeCustomerId     String?
+  stripeSubscriptionId String?
+  plan                 PlanType   @default(FREE)
+  status               String     @default("active")
+  currentPeriodEnd     DateTime?
+  createdAt            DateTime   @default(now())
+  updatedAt            DateTime   @updatedAt
+}
+
+// Idempotence des webhooks Stripe (livraison "au moins une fois") : un eventId
+// déjà traité est ignoré sans rejouer la mise à jour (cf. CLAUDE.md §28.2).
+model ProcessedEvent {
+  id          String   @id @default(cuid())
+  eventId     String   @unique
+  processedAt DateTime @default(now())
+}
+
+model OutboxEvent {
+  id        String    @id @default(cuid())
+  type      String
+  payload   Json
+  status    String    @default("PENDING")
+  attempts  Int       @default(0)
+  createdAt DateTime  @default(now())
+  sentAt    DateTime?
+
+  @@index([status, attempts, createdAt])
+}

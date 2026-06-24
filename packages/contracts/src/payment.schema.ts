@@ -1,20 +1,19 @@
 import { z } from "zod";
-import { PlanType } from "@repo/types";
 
-import { cuidLike } from "./id.schema";
+// Le plan n'est jamais fourni par le client : seule source de vérité = webhooks
+// Stripe (cf. CLAUDE.md §16). Ces schémas ne valident que les URLs de redirection.
 
-export const CreateSubscriptionSchema = z.object({
-  companyId: cuidLike,
-  plan: z.nativeEnum(PlanType),
+export const CreateCheckoutSessionSchema = z.object({
+  successUrl: z.string().url(),
+  cancelUrl: z.string().url(),
 });
 
-export type CreateSubscriptionDto = z.infer<typeof CreateSubscriptionSchema>;
+export type CreateCheckoutSessionDto = z.infer<typeof CreateCheckoutSessionSchema>;
 
-export const StripeWebhookSchema = z.object({
-  type: z.string(),
-  data: z.object({
-    object: z.record(z.string(), z.unknown()),
-  }),
+export const CreateBillingPortalSessionSchema = z.object({
+  returnUrl: z.string().url(),
 });
 
-export type StripeWebhookDto = z.infer<typeof StripeWebhookSchema>;
+export type CreateBillingPortalSessionDto = z.infer<
+  typeof CreateBillingPortalSessionSchema
+>;
