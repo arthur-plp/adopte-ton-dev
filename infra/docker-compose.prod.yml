@@ -128,6 +128,29 @@ services:
       timeout: 5s
       retries: 5
 
+  matching-svc:
+    build:
+      context: ..
+      dockerfile: infra/docker/matching-svc.Dockerfile
+    container_name: atd-matching-svc
+    restart: unless-stopped
+    env_file: .env.matching-svc
+    depends_on:
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      auth-service:
+        condition: service_healthy
+      jobs-svc:
+        condition: service_healthy
+    networks: [atd]
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('net').createConnection(3005,'localhost').on('connect',()=>process.exit(0)).on('error',()=>process.exit(1))"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
   api-gateway:
     build:
       context: ..
@@ -145,6 +168,8 @@ services:
       applications-svc:
         condition: service_healthy
       payment-svc:
+        condition: service_healthy
+      matching-svc:
         condition: service_healthy
     networks: [atd]
 
