@@ -33,9 +33,12 @@ import {
   ChevronDown,
   ChevronUp,
   MessageSquare,
+  MapPin,
+  Wifi,
 } from "lucide-react";
 
 const FREE_PLAN_LIMIT = 2;
+const RECOMMENDED_PROFILES_OFFER_COUNT = 2;
 
 type OfferStatus = "DRAFT" | "PENDING_REVIEW" | "APPROVED" | "PUBLISHED" | "REJECTED" | "ARCHIVED";
 
@@ -48,6 +51,18 @@ type JobOffer = {
   remoteOk: boolean;
   createdAt: string;
   rejectionReason?: string | null;
+  requiredTechnologies?: string[];
+};
+
+type RecommendedDeveloper = {
+  id: string;
+  firstName: string;
+  lastName: string;
+  title: string | null;
+  location: string | null;
+  remoteOk: boolean;
+  technologies: { name: string }[];
+  score: number | null;
 };
 
 type RecentApplication = {
@@ -118,6 +133,8 @@ export default function RecruiterDashboard() {
   const [applicants, setApplicants] = useState<Record<string, DeveloperSummary>>({});
   const [loadingApplications, setLoadingApplications] = useState(true);
   const [plan, setPlan] = useState<"FREE" | "PRO" | null>(null);
+  const [recommendedDevs, setRecommendedDevs] = useState<RecommendedDeveloper[]>([]);
+  const [recommendedDevsLoading, setRecommendedDevsLoading] = useState(true);
 
   useEffect(() => {
     if (!session) return;
@@ -127,6 +144,33 @@ export default function RecruiterDashboard() {
       .catch(() => setOffers([]))
       .finally(() => setLoading(false));
   }, [session, apiUrl]);
+
+  // Profils recommandés : basés sur les technologies requises des offres
+  // actives les plus récentes — jusqu'à RECOMMENDED_PROFILES_OFFER_COUNT (2),
+  // pour couvrir les 2 offres actives possibles en plan Free.
+  useEffect(() => {
+    if (loading) return;
+    const recentActiveOffers = offers
+      .filter((o) => o.status === "PUBLISHED")
+      .slice(0, RECOMMENDED_PROFILES_OFFER_COUNT);
+    const techs = Array.from(
+      new Set(recentActiveOffers.flatMap((o) => o.requiredTechnologies ?? [])),
+    );
+    if (techs.length === 0) {
+      setRecommendedDevsLoading(false);
+      return;
+    }
+
+    setRecommendedDevsLoading(true);
+    const params = new URLSearchParams({ page: "1", pageSize: "5" });
+    techs.forEach((t) => params.append("technologies", t));
+
+    fetch(`${apiUrl}/matching/developers?${params.toString()}`, { credentials: "include" })
+      .then((r) => (r.ok ? (r.json() as Promise<{ data: RecommendedDeveloper[] }>) : { data: [] }))
+      .then(({ data }) => setRecommendedDevs(data))
+      .catch(() => setRecommendedDevs([]))
+      .finally(() => setRecommendedDevsLoading(false));
+  }, [loading, offers, apiUrl]);
 
   useEffect(() => {
     if (!session) return;
@@ -333,6 +377,10 @@ export default function RecruiterDashboard() {
   const approvedOffers = offers.filter((o) => o.status === "APPROVED");
   const isPro = plan === "PRO";
   const isAtLimit = !loading && !isPro && activeCount >= FREE_PLAN_LIMIT;
+  const hasRecommendationCriteria = offers
+    .filter((o) => o.status === "PUBLISHED")
+    .slice(0, RECOMMENDED_PROFILES_OFFER_COUNT)
+    .some((o) => (o.requiredTechnologies ?? []).length > 0);
 
   function handleNewOffer() {
     if (isAtLimit) {
@@ -676,20 +724,71 @@ export default function RecruiterDashboard() {
               Explorer
             </Link>
           </div>
-          <EmptyState
-            icon={<TrendingUp className="size-8" />}
-            title="Publiez une offre pour voir les profils"
-            description="Notre algorithme de matching vous suggère les meilleurs profils selon votre stack."
-            action={
-              activeCount === 0 ? (
+          {activeCount === 0 ? (
+            <EmptyState
+              icon={<TrendingUp className="size-8" />}
+              title="Publiez une offre pour voir les profils"
+              description="Notre algorithme de matching vous suggère les meilleurs profils selon votre stack."
+              action={
                 <Button asChild size="sm">
                   <Link href="/jobs/new">
                     Créer une offre <ArrowRight className="size-3.5" />
                   </Link>
                 </Button>
-              ) : undefined
-            }
-          />
+              }
+            />
+          ) : !hasRecommendationCriteria ? (
+            <EmptyState
+              icon={<TrendingUp className="size-8" />}
+              title="Ajoutez des technologies à vos offres"
+              description="Renseignez les technologies requises sur vos offres actives pour recevoir des suggestions de profils."
+            />
+          ) : recommendedDevsLoading ? (
+            <div className="flex justify-center py-6">
+              <div className="size-6 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+            </div>
+          ) : recommendedDevs.length === 0 ? (
+            <EmptyState
+              icon={<TrendingUp className="size-8" />}
+              title="Aucun profil ne correspond encore"
+              description="Aucun développeur ne correspond pour l'instant aux technologies de vos offres actives."
+            />
+          ) : (
+            <ul className="space-y-3">
+              {recommendedDevs.map((dev) => (
+                <li key={dev.id}>
+                  <Link
+                    href={`/developpeurs/${dev.id}`}
+                    className="-mx-2 flex items-center justify-between gap-3 rounded-lg px-2 py-2 transition-colors hover:bg-muted/50"
+                  >
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-medium text-foreground">
+                        {dev.firstName} {dev.lastName}
+                      </p>
+                      <div className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
+                        {dev.title && <span className="truncate">{dev.title}</span>}
+                        {dev.location && (
+                          <span className="flex items-center gap-1">
+                            <MapPin className="size-3" /> {dev.location}
+                          </span>
+                        )}
+                        {dev.remoteOk && (
+                          <span className="flex items-center gap-1">
+                            <Wifi className="size-3" /> Remote possible
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    {dev.score !== null && (
+                      <span className="badge shrink-0 text-primary">
+                        {dev.score}% compatible
+                      </span>
+                    )}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
       </div>
 

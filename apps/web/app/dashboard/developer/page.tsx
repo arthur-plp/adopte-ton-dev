@@ -102,6 +102,7 @@ export default function DeveloperDashboard() {
   const [applicationsLoading, setApplicationsLoading] = useState(true);
   const [recommendedOffers, setRecommendedOffers] = useState<RecommendedOffer[]>([]);
   const [recommendedLoading, setRecommendedLoading] = useState(true);
+  const [appliedOfferIds, setAppliedOfferIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     fetch(`${apiUrl}/users/me/profile`, { credentials: "include" })
@@ -158,6 +159,8 @@ export default function DeveloperDashboard() {
     fetch(`${apiUrl}/applications/mine`, { credentials: "include" })
       .then((res) => (res.ok ? (res.json() as Promise<Application[]>) : []))
       .then(async (apps) => {
+        setAppliedOfferIds(new Set(apps.map((a) => a.jobOfferId)));
+
         const recent = [...apps]
           .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
           .slice(0, 5);
@@ -394,9 +397,16 @@ export default function DeveloperDashboard() {
                         )}
                       </div>
                     </div>
-                    <span className="badge shrink-0 text-primary">
-                      {offer.score}% compatible
-                    </span>
+                    <div className="flex shrink-0 flex-col items-end gap-1">
+                      {appliedOfferIds.has(offer.id) && (
+                        <span className="badge text-[10px] text-emerald-600">
+                          <CheckCircle2 className="size-3" /> Déjà postulé
+                        </span>
+                      )}
+                      <span className="badge text-primary">
+                        {offer.score}% compatible
+                      </span>
+                    </div>
                   </Link>
                 </li>
               ))}
