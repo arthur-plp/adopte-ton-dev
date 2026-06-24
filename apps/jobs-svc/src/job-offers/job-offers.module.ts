@@ -14,6 +14,14 @@ import { JobOffersService } from "./job-offers.service";
           port: parseInt(process.env["APPLICATIONS_SVC_PORT"] ?? "3003", 10),
         },
       },
+      {
+        name: "PAYMENT_SVC",
+        transport: Transport.TCP,
+        options: {
+          host: process.env["PAYMENT_SVC_HOST"] ?? "localhost",
+          port: parseInt(process.env["PAYMENT_SVC_PORT"] ?? "3004", 10),
+        },
+      },
     ]),
   ],
   controllers: [JobOffersController],
