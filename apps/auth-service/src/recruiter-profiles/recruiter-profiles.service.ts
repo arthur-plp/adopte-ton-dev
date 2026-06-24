@@ -2,6 +2,7 @@ import {
   Injectable,
   NotFoundException,
   ForbiddenException,
+  ConflictException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import type {
@@ -78,6 +79,21 @@ export class RecruiterProfilesService {
       companyData['location'] = companyLocation;
     if (companySector !== undefined) companyData['sector'] = companySector;
     if (companySize !== undefined) companyData['size'] = companySize;
+
+    if (companyData['siret']) {
+      const companyWithSiret = await this.prisma.company.findUnique({
+        where: { siret: companyData['siret'] },
+      });
+      const belongsToOtherCompany =
+        companyWithSiret &&
+        (existing
+          ? companyWithSiret.id !== existing.companyId
+          : companyWithSiret.name !== (companyName ?? 'Mon entreprise'));
+      if (belongsToOtherCompany)
+        throw new ConflictException(
+          `Ce SIRET est déjà utilisé par une autre entreprise (${companyWithSiret.name}).`,
+        );
+    }
 
     // Cas où le profil recruteur n'existe pas encore (rôle promu sans création du profil)
     if (!existing) {

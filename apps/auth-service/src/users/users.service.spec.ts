@@ -25,6 +25,7 @@ const mockPrisma = {
   },
   company: {
     upsert: jest.fn(),
+    findUnique: jest.fn(),
   },
   account: {
     findMany: jest.fn(),
@@ -318,6 +319,7 @@ describe('UsersService', () => {
           callback(mockPrisma),
       );
       mockPrisma.company.upsert.mockResolvedValue({ id: 'co-1' });
+      mockPrisma.company.findUnique.mockResolvedValue(null);
       mockPrisma.recruiterProfile.create.mockResolvedValue({ id: 'rec-1' });
     });
 
@@ -378,6 +380,53 @@ describe('UsersService', () => {
           lastName: 'B',
         }),
       ).rejects.toThrow(ConflictException);
+    });
+
+    it('lance ConflictException si le SIRET est déjà utilisé par une autre entreprise', async () => {
+      mockPrisma.user.findUnique.mockResolvedValue({
+        id: 'u3',
+        role: Role.DEVELOPER,
+      });
+      mockPrisma.recruiterProfile.findUnique.mockResolvedValue(null);
+      mockPrisma.company.findUnique.mockResolvedValue({
+        id: 'co-existing',
+        name: 'Autre Entreprise',
+        siret: '12345678901234',
+      });
+
+      await expect(
+        service.promoteToRecruiter({
+          userId: 'u3',
+          companyName: 'Nouvelle Entreprise',
+          companySiret: '12345678901234',
+          firstName: 'Bob',
+          lastName: 'Martin',
+        }),
+      ).rejects.toThrow(ConflictException);
+      expect(mockPrisma.company.upsert).not.toHaveBeenCalled();
+    });
+
+    it("n'échoue pas si le SIRET appartient déjà à la même entreprise (mise à jour)", async () => {
+      mockPrisma.user.findUnique.mockResolvedValue({
+        id: 'u4',
+        role: Role.DEVELOPER,
+      });
+      mockPrisma.recruiterProfile.findUnique.mockResolvedValue(null);
+      mockPrisma.company.findUnique.mockResolvedValue({
+        id: 'co-1',
+        name: 'Acme',
+        siret: '12345678901234',
+      });
+
+      await expect(
+        service.promoteToRecruiter({
+          userId: 'u4',
+          companyName: 'Acme',
+          companySiret: '12345678901234',
+          firstName: 'Bob',
+          lastName: 'Martin',
+        }),
+      ).resolves.toEqual({ ok: true, userId: 'u4' });
     });
   });
 });

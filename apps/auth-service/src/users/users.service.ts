@@ -207,6 +207,16 @@ export class UsersService {
         'Un profil recruteur existe déjà pour cet utilisateur',
       );
 
+    if (payload.companySiret) {
+      const companyWithSiret = await this.prisma.company.findUnique({
+        where: { siret: payload.companySiret },
+      });
+      if (companyWithSiret && companyWithSiret.name !== payload.companyName)
+        throw new ConflictException(
+          `Ce SIRET est déjà utilisé par une autre entreprise (${companyWithSiret.name}).`,
+        );
+    }
+
     await this.prisma.$transaction(async (tx) => {
       await tx.user.update({
         where: { id: payload.userId },
