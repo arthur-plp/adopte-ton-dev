@@ -1,6 +1,9 @@
 "use client";
 
+import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
+import { toast } from "sonner";
 import { useSession } from "@/lib/auth-client";
 import { Navbar } from "@/components/navbar";
 import { Button } from "@/components/ui/button";
@@ -31,8 +34,86 @@ const PRO_FEATURES = [
 ];
 
 export default function PlansPage() {
+  return (
+    <Suspense fallback={null}>
+      <PlansContent />
+    </Suspense>
+  );
+}
+
+function PlansContent() {
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000/api/v1";
   const { data: session } = useSession();
   const isRecruiter = (session?.user as { role?: string } | null)?.role === "RECRUITER";
+  const searchParams = useSearchParams();
+
+  const [plan, setPlan] = useState<"FREE" | "PRO" | null>(null);
+  const [loadingAction, setLoadingAction] = useState(false);
+
+  useEffect(() => {
+    if (!isRecruiter) return;
+    fetch(`${apiUrl}/payment/subscription`, { credentials: "include" })
+      .then((res) => (res.ok ? (res.json() as Promise<{ plan: "FREE" | "PRO" }>) : null))
+      .then((data) => {
+        if (data) setPlan(data.plan);
+      })
+      .catch(() => setPlan("FREE"));
+  }, [isRecruiter, apiUrl]);
+
+  useEffect(() => {
+    if (searchParams.get("success") === "true") {
+      toast.success("Bienvenue dans le plan Pro !");
+    } else if (searchParams.get("canceled") === "true") {
+      toast.info("Paiement annulé — tu peux réessayer à tout moment.");
+    }
+    // Affiché une seule fois au montage, sur la base des query params de redirection Stripe.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  async function handleUpgrade() {
+    setLoadingAction(true);
+    try {
+      const origin = window.location.origin;
+      const res = await fetch(`${apiUrl}/payment/checkout-session`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          successUrl: `${origin}/plans?success=true`,
+          cancelUrl: `${origin}/plans?canceled=true`,
+        }),
+      });
+      if (!res.ok) {
+        toast.error("Impossible de démarrer le paiement.");
+        return;
+      }
+      const data = (await res.json()) as { url: string };
+      window.location.href = data.url;
+    } finally {
+      setLoadingAction(false);
+    }
+  }
+
+  async function handleManageBilling() {
+    setLoadingAction(true);
+    try {
+      const origin = window.location.origin;
+      const res = await fetch(`${apiUrl}/payment/billing-portal`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ returnUrl: `${origin}/dashboard/recruiter` }),
+      });
+      if (!res.ok) {
+        toast.error("Impossible d'ouvrir le portail de facturation.");
+        return;
+      }
+      const data = (await res.json()) as { url: string };
+      window.location.href = data.url;
+    } finally {
+      setLoadingAction(false);
+    }
+  }
 
   return (
     <div className="flex min-h-screen flex-col bg-background">
@@ -80,7 +161,7 @@ export default function PlansPage() {
             </ul>
 
             <Button variant="outline" className="w-full" disabled>
-              Plan actuel
+              {isRecruiter && plan === "PRO" ? "Inclus dans votre abonnement" : "Plan actuel"}
             </Button>
           </div>
 
@@ -111,10 +192,21 @@ export default function PlansPage() {
               ))}
             </ul>
 
-            <Button className="w-full gap-2" disabled>
-              <Zap className="size-4" />
-              Bientôt disponible
-            </Button>
+            {isRecruiter && plan === "PRO" ? (
+              <Button className="w-full gap-2" onClick={handleManageBilling} disabled={loadingAction}>
+                <Zap className="size-4" />
+                Gérer mon abonnement
+              </Button>
+            ) : (
+              <Button
+                className="w-full gap-2"
+                onClick={handleUpgrade}
+                disabled={!isRecruiter || loadingAction}
+              >
+                <Zap className="size-4" />
+                {isRecruiter ? "Passer au Pro" : "Réservé aux recruteurs"}
+              </Button>
+            )}
             <p className="mt-3 text-center text-xs text-muted-foreground">
               Paiement sécurisé par Stripe · Résiliable à tout moment
             </p>
