@@ -16,9 +16,17 @@ import {
   ExternalLink,
   CheckCircle2,
   AlertCircle,
+  Building2,
+  MapPin,
+  Wifi,
 } from "lucide-react";
 import { SectionHeader } from "@/components/section-header";
 import { EmailVerificationBanner } from "@/components/email-verification-banner";
+import {
+  APPLICATION_STATUS_COLORS,
+  APPLICATION_STATUS_LABELS,
+  type ApplicationStatus,
+} from "@/components/application-event-timeline";
 
 type Project = {
   id: string;
@@ -49,6 +57,21 @@ type CompletionStep = {
   done: boolean;
 };
 
+type Application = {
+  id: string;
+  jobOfferId: string;
+  status: ApplicationStatus;
+  createdAt: string;
+};
+
+type JobOfferSummary = {
+  id: string;
+  title: string;
+  companyName: string | null;
+  location: string | null;
+  remoteOk: boolean;
+};
+
 function getCompletionSteps(profile: DevProfile): CompletionStep[] {
   return [
     { key: "title", label: "Titre professionnel", done: !!profile.title },
@@ -68,6 +91,10 @@ export default function DeveloperDashboard() {
 
   const [profile, setProfile] = useState<DevProfile | null>(null);
   const [profileLoading, setProfileLoading] = useState(true);
+  const [applications, setApplications] = useState<Application[]>([]);
+  const [applicationOffers, setApplicationOffers] = useState<Record<string, JobOfferSummary>>({});
+  const [pendingDocsByApplication, setPendingDocsByApplication] = useState<Record<string, number>>({});
+  const [applicationsLoading, setApplicationsLoading] = useState(true);
 
   useEffect(() => {
     fetch(`${apiUrl}/users/me/profile`, { credentials: "include" })
@@ -78,6 +105,52 @@ export default function DeveloperDashboard() {
       })
       .catch(() => {})
       .finally(() => setProfileLoading(false));
+  }, [apiUrl]);
+
+  useEffect(() => {
+    fetch(`${apiUrl}/applications/mine`, { credentials: "include" })
+      .then((res) => (res.ok ? (res.json() as Promise<Application[]>) : []))
+      .then(async (apps) => {
+        const recent = [...apps]
+          .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+          .slice(0, 5);
+        setApplications(recent);
+
+        const uniqueOfferIds = Array.from(new Set(recent.map((a) => a.jobOfferId)));
+        const fetched = await Promise.all(
+          uniqueOfferIds.map((id) =>
+            fetch(`${apiUrl}/job-offers/${id}`)
+              .then((r) => (r.ok ? (r.json() as Promise<JobOfferSummary>) : null))
+              .catch(() => null),
+          ),
+        );
+        const map: Record<string, JobOfferSummary> = {};
+        uniqueOfferIds.forEach((id, i) => {
+          const offer = fetched[i];
+          if (offer) map[id] = offer;
+        });
+        setApplicationOffers(map);
+
+        const pendingCounts = await Promise.all(
+          recent.map((a) =>
+            fetch(`${apiUrl}/applications/${a.id}/document-requests`, {
+              credentials: "include",
+            })
+              .then((r) =>
+                r.ok ? (r.json() as Promise<{ status: string }[]>) : [],
+              )
+              .then((requests) => requests.filter((r) => r.status === "PENDING").length)
+              .catch(() => 0),
+          ),
+        );
+        const docsMap: Record<string, number> = {};
+        recent.forEach((a, i) => {
+          docsMap[a.id] = pendingCounts[i] ?? 0;
+        });
+        setPendingDocsByApplication(docsMap);
+      })
+      .catch(() => setApplications([]))
+      .finally(() => setApplicationsLoading(false));
   }, [apiUrl]);
 
   const visibleProjects = profile?.projects.filter((p) => p.visible) ?? [];
@@ -227,7 +300,7 @@ export default function DeveloperDashboard() {
         <div className="card p-6">
           <SectionHeader
             title="Offres recommandées"
-            action={<Link href="/jobs" className="text-xs text-primary hover:underline">Voir tout</Link>}
+            action={<Link href="/offres" className="text-xs text-primary hover:underline">Voir tout</Link>}
           />
           <EmptyState
             icon={<Briefcase className="size-8" />}
@@ -337,18 +410,81 @@ export default function DeveloperDashboard() {
             title="Mes candidatures"
             action={<Link href="/applications" className="text-xs text-primary hover:underline">Voir tout</Link>}
           />
-          <EmptyState
-            icon={<Star className="size-8" />}
-            title="Pas encore de candidature"
-            description="Explore les offres et candidate en un clic."
-            action={
-              <Button asChild size="sm">
-                <Link href="/jobs">
-                  Explorer les offres <ArrowRight className="size-3.5" />
-                </Link>
-              </Button>
-            }
-          />
+          {applicationsLoading ? (
+            <div className="flex justify-center py-6">
+              <div className="size-6 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+            </div>
+          ) : applications.length === 0 ? (
+            <EmptyState
+              icon={<Star className="size-8" />}
+              title="Pas encore de candidature"
+              description="Explore les offres et candidate en un clic."
+              action={
+                <Button asChild size="sm">
+                  <Link href="/offres">
+                    Explorer les offres <ArrowRight className="size-3.5" />
+                  </Link>
+                </Button>
+              }
+            />
+          ) : (
+            <ul className="space-y-3">
+              {applications.map((application) => {
+                const offer = applicationOffers[application.jobOfferId];
+                const pendingDocs = pendingDocsByApplication[application.id] ?? 0;
+                const sentAt = new Date(application.createdAt).toLocaleDateString("fr-FR", {
+                  day: "numeric",
+                  month: "long",
+                  year: "numeric",
+                });
+                return (
+                  <li key={application.id}>
+                    <Link
+                      href="/applications"
+                      className="-mx-2 flex items-center justify-between gap-3 rounded-lg px-2 py-2 transition-colors hover:bg-muted/50"
+                    >
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-medium text-foreground">
+                          {offer?.title ?? "Offre"}
+                        </p>
+                        <div className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
+                          {offer?.companyName && (
+                            <span className="flex items-center gap-1">
+                              <Building2 className="size-3" /> {offer.companyName}
+                            </span>
+                          )}
+                          {offer?.location && (
+                            <span className="flex items-center gap-1">
+                              <MapPin className="size-3" /> {offer.location}
+                            </span>
+                          )}
+                          {offer?.remoteOk && (
+                            <span className="flex items-center gap-1">
+                              <Wifi className="size-3" /> Remote possible
+                            </span>
+                          )}
+                          <span>Envoyée le {sentAt}</span>
+                        </div>
+                        {pendingDocs > 0 && (
+                          <p className="mt-1 flex items-center gap-1 text-xs font-medium text-amber-700 dark:text-amber-400">
+                            <AlertCircle className="size-3" />
+                            {pendingDocs === 1
+                              ? "1 document demandé"
+                              : `${pendingDocs} documents demandés`}
+                          </p>
+                        )}
+                      </div>
+                      <span
+                        className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${APPLICATION_STATUS_COLORS[application.status]}`}
+                      >
+                        {APPLICATION_STATUS_LABELS[application.status]}
+                      </span>
+                    </Link>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
         </div>
       </div>
     </div>

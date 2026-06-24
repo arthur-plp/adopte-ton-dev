@@ -8,6 +8,11 @@ import { useSession } from "@/lib/auth-client";
 import { ConfirmDeleteModal } from "@/components/confirm-delete-modal";
 import { Button } from "@/components/ui/button";
 import {
+  APPLICATION_STATUS_COLORS,
+  APPLICATION_STATUS_LABELS,
+  type ApplicationStatus,
+} from "@/components/application-event-timeline";
+import {
   Briefcase,
   Users,
   Bell,
@@ -43,6 +48,19 @@ type JobOffer = {
   remoteOk: boolean;
   createdAt: string;
   rejectionReason?: string | null;
+};
+
+type RecentApplication = {
+  id: string;
+  jobOfferId: string;
+  developerId: string;
+  status: ApplicationStatus;
+  createdAt: string;
+};
+
+type DeveloperSummary = {
+  firstName: string;
+  lastName: string;
 };
 
 type JobOfferEvent = {
@@ -96,6 +114,9 @@ export default function RecruiterDashboard() {
   const [expandedHistoryId, setExpandedHistoryId] = useState<string | null>(null);
   const [history, setHistory] = useState<Record<string, JobOfferEvent[]>>({});
   const [historyLoading, setHistoryLoading] = useState<string | null>(null);
+  const [recentApplications, setRecentApplications] = useState<RecentApplication[]>([]);
+  const [applicants, setApplicants] = useState<Record<string, DeveloperSummary>>({});
+  const [loadingApplications, setLoadingApplications] = useState(true);
 
   useEffect(() => {
     if (!session) return;
@@ -105,6 +126,44 @@ export default function RecruiterDashboard() {
       .catch(() => setOffers([]))
       .finally(() => setLoading(false));
   }, [session, apiUrl]);
+
+  useEffect(() => {
+    if (loading) return;
+    if (offers.length === 0) {
+      setLoadingApplications(false);
+      return;
+    }
+    Promise.all(
+      offers.map((offer) =>
+        fetch(`${apiUrl}/applications/job-offer/${offer.id}`, { credentials: "include" })
+          .then((res) => (res.ok ? (res.json() as Promise<RecentApplication[]>) : []))
+          .catch(() => []),
+      ),
+    )
+      .then(async (lists) => {
+        const all = lists
+          .flat()
+          .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+          .slice(0, 5);
+        setRecentApplications(all);
+
+        const uniqueDeveloperIds = Array.from(new Set(all.map((a) => a.developerId)));
+        const fetched = await Promise.all(
+          uniqueDeveloperIds.map((id) =>
+            fetch(`${apiUrl}/users/developer/${id}`, { credentials: "include" })
+              .then((r) => (r.ok ? (r.json() as Promise<DeveloperSummary>) : null))
+              .catch(() => null),
+          ),
+        );
+        const map: Record<string, DeveloperSummary> = {};
+        uniqueDeveloperIds.forEach((id, i) => {
+          const dev = fetched[i];
+          if (dev) map[id] = dev;
+        });
+        setApplicants(map);
+      })
+      .finally(() => setLoadingApplications(false));
+  }, [loading, offers, apiUrl]);
 
   async function handlePublish(id: string) {
     setPublishing(id);
@@ -556,15 +615,47 @@ export default function RecruiterDashboard() {
         <div className="rounded-2xl border border-border bg-card p-6">
           <div className="mb-5 flex items-center justify-between">
             <h2 className="font-semibold text-foreground">Candidatures récentes</h2>
-            <Link href="/applications" className="text-xs text-primary hover:underline">
-              Voir tout
-            </Link>
           </div>
-          <EmptyState
-            icon={<FileText className="size-8" />}
-            title="Aucune candidature"
-            description="Les candidatures apparaîtront ici dès que vous aurez une offre active."
-          />
+          {loadingApplications ? (
+            <div className="flex justify-center py-6">
+              <div className="size-6 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+            </div>
+          ) : recentApplications.length === 0 ? (
+            <EmptyState
+              icon={<FileText className="size-8" />}
+              title="Aucune candidature"
+              description="Les candidatures apparaîtront ici dès que vous aurez une offre active."
+            />
+          ) : (
+            <ul className="space-y-3">
+              {recentApplications.map((application) => {
+                const offer = offers.find((o) => o.id === application.jobOfferId);
+                const applicant = applicants[application.developerId];
+                return (
+                  <li key={application.id}>
+                    <Link
+                      href={`/jobs/${application.jobOfferId}/edit?tab=applications&applicationId=${application.id}`}
+                      className="flex items-center justify-between gap-3 rounded-lg px-2 py-1.5 -mx-2 transition-colors hover:bg-muted/50"
+                    >
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-medium text-foreground">
+                          {applicant ? `${applicant.firstName} ${applicant.lastName}` : "Candidat"}
+                        </p>
+                        <p className="truncate text-xs text-muted-foreground">
+                          {offer?.title ?? "Offre"}
+                        </p>
+                      </div>
+                      <span
+                        className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${APPLICATION_STATUS_COLORS[application.status]}`}
+                      >
+                        {APPLICATION_STATUS_LABELS[application.status]}
+                      </span>
+                    </Link>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
         </div>
 
         {/* Profils recommandés */}
