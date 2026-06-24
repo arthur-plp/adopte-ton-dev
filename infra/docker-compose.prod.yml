@@ -88,6 +88,27 @@ services:
       timeout: 5s
       retries: 5
 
+  applications-svc:
+    build:
+      context: ..
+      dockerfile: infra/docker/applications-svc.Dockerfile
+    container_name: atd-applications-svc
+    restart: unless-stopped
+    env_file: .env.applications-svc
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      jobs-svc:
+        condition: service_healthy
+    networks: [atd]
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('net').createConnection(3003,'localhost').on('connect',()=>process.exit(0)).on('error',()=>process.exit(1))"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
   api-gateway:
     build:
       context: ..
@@ -101,6 +122,8 @@ services:
       auth-service:
         condition: service_healthy
       jobs-svc:
+        condition: service_healthy
+      applications-svc:
         condition: service_healthy
     networks: [atd]
 

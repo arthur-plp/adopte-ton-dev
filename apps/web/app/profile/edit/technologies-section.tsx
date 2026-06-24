@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Plus, Trash2, ChevronDown } from "lucide-react";
+import { Plus, Trash2, ChevronDown, Check } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 
@@ -63,9 +63,9 @@ type Props = {
 export function TechnologiesSection({ technologies, apiUrl, onUpdate }: Props) {
   const [adding, setAdding] = useState(false);
   const [search, setSearch] = useState("");
-  const [selected, setSelected] = useState<string>("");
-  const [customName, setCustomName] = useState("");
-  const [newLevel, setNewLevel] = useState<SkillLevel>("INTERMEDIATE");
+  const [pending, setPending] = useState<Set<string>>(new Set());
+  const [pendingLevels, setPendingLevels] = useState<Record<string, SkillLevel>>({});
+  const [customInput, setCustomInput] = useState("");
   const [saving, setSaving] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
@@ -92,27 +92,52 @@ export function TechnologiesSection({ technologies, apiUrl, onUpdate }: Props) {
     ),
   })).filter((g) => g.items.length > 0);
 
-  const nameToAdd = selected || customName.trim();
+  function toggle(name: string) {
+    setPending((prev) => {
+      const next = new Set(prev);
+      if (next.has(name)) {
+        next.delete(name);
+        setPendingLevels((l) => { const n = { ...l }; delete n[name]; return n; });
+      } else {
+        next.add(name);
+        setPendingLevels((l) => ({ ...l, [name]: "INTERMEDIATE" }));
+      }
+      return next;
+    });
+  }
+
+  function addCustom() {
+    const name = customInput.trim();
+    if (!name || existingNames.has(name.toLowerCase())) return;
+    setPending((prev) => new Set([...prev, name]));
+    setPendingLevels((l) => ({ ...l, [name]: "INTERMEDIATE" }));
+    setCustomInput("");
+  }
 
   async function handleAdd() {
-    if (!nameToAdd) return;
+    if (pending.size === 0) return;
     setSaving(true);
     setError(null);
     try {
-      const res = await fetch(`${apiUrl}/users/developer/me/technologies`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ name: nameToAdd, level: newLevel }),
-      });
-      if (!res.ok) {
-        const d = (await res.json()) as { message?: string };
-        throw new Error(d.message ?? "Erreur");
+      const created: Technology[] = [];
+      for (const name of pending) {
+        const level = pendingLevels[name] ?? "INTERMEDIATE";
+        const res = await fetch(`${apiUrl}/users/developer/me/technologies`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ name, level }),
+        });
+        if (!res.ok) {
+          const d = (await res.json()) as { message?: string };
+          throw new Error(d.message ?? "Erreur");
+        }
+        created.push((await res.json()) as Technology);
       }
-      const tech = (await res.json()) as Technology;
-      onUpdate([...technologies, tech]);
-      setSelected("");
-      setCustomName("");
+      onUpdate([...technologies, ...created]);
+      setPending(new Set());
+      setPendingLevels({});
+      setCustomInput("");
       setSearch("");
       setAdding(false);
     } catch (e) {
@@ -225,7 +250,7 @@ export function TechnologiesSection({ technologies, apiUrl, onUpdate }: Props) {
             className="input-base"
             placeholder="Rechercher une technologie…"
             value={search}
-            onChange={(e) => { setSearch(e.target.value); setSelected(""); setCustomName(""); }}
+            onChange={(e) => setSearch(e.target.value)}
           />
 
           {/* Catalogue groupé */}
@@ -239,77 +264,90 @@ export function TechnologiesSection({ technologies, apiUrl, onUpdate }: Props) {
                   {group.category}
                 </p>
                 <div className="grid grid-cols-2 gap-0.5 sm:grid-cols-3">
-                  {group.items.map((item) => (
-                    <button
-                      key={item}
-                      type="button"
-                      onClick={() => { setSelected(selected === item ? "" : item); setCustomName(""); }}
-                      className={`rounded-lg px-3 py-1.5 text-left text-sm transition-colors ${
-                        selected === item
-                          ? "bg-primary/10 text-primary font-medium"
-                          : "hover:bg-muted text-foreground"
-                      }`}
-                    >
-                      {item}
-                    </button>
-                  ))}
+                  {group.items.map((item) => {
+                    const isPending = pending.has(item);
+                    return (
+                      <button
+                        key={item}
+                        type="button"
+                        onClick={() => toggle(item)}
+                        className={`flex items-center gap-2 rounded-lg px-3 py-1.5 text-left text-sm transition-colors ${
+                          isPending
+                            ? "bg-primary/10 text-primary font-medium"
+                            : "hover:bg-muted text-foreground"
+                        }`}
+                      >
+                        <span className={`flex size-4 shrink-0 items-center justify-center rounded border transition-colors ${
+                          isPending ? "border-primary bg-primary" : "border-border"
+                        }`}>
+                          {isPending && <Check className="size-2.5 text-primary-foreground" />}
+                        </span>
+                        {item}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
             ))}
-
-            {/* Champ libre si non trouvé */}
-            {search && !CATALOG.flatMap((g) => g.items).some((i) => i.toLowerCase() === search.toLowerCase()) && (
-              <div className="border-t border-border pt-2 mt-1">
-                <p className="px-2 pb-1 text-xs text-muted-foreground">Pas dans la liste ?</p>
-                <button
-                  type="button"
-                  onClick={() => { setCustomName(search); setSelected(""); }}
-                  className={`w-full rounded-lg px-3 py-1.5 text-left text-sm transition-colors ${
-                    customName === search
-                      ? "bg-primary/10 text-primary font-medium"
-                      : "hover:bg-muted text-foreground"
-                  }`}
-                >
-                  Ajouter &quot;{search}&quot;
-                </button>
-              </div>
-            )}
           </div>
 
-          {/* Sélection en cours + niveau */}
-          {nameToAdd && (
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="rounded-lg border border-primary/30 bg-primary/5 px-2.5 py-1 text-sm font-medium text-primary">
-                {nameToAdd}
-              </span>
-              <span className="text-sm text-muted-foreground">—</span>
-              <span className="text-sm text-muted-foreground">Niveau :</span>
-              {LEVELS.map((l) => (
-                <button
-                  key={l}
-                  type="button"
-                  onClick={() => setNewLevel(l)}
-                  className={`rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
-                    newLevel === l ? LEVEL_COLORS[l] : "bg-muted text-muted-foreground hover:bg-muted/80"
-                  }`}
-                >
-                  {LEVEL_LABELS[l]}
-                </button>
-              ))}
+          {/* Saisie libre */}
+          <div className="flex gap-2">
+            <input
+              className="input-base flex-1 text-sm"
+              placeholder="Autre technologie (saisie libre)…"
+              value={customInput}
+              onChange={(e) => setCustomInput(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addCustom(); } }}
+            />
+            <Button type="button" size="sm" variant="outline" onClick={addCustom} disabled={!customInput.trim()}>
+              <Plus className="size-3.5" />
+            </Button>
+          </div>
+
+          {/* Preview des sélections en attente avec niveau par élément */}
+          {pending.size > 0 && (
+            <div className="space-y-1.5 rounded-lg border border-border bg-background p-3">
+              <p className="text-xs font-medium text-muted-foreground">Niveaux :</p>
+              {Array.from(pending).map((name) => {
+                const level = pendingLevels[name] ?? "INTERMEDIATE";
+                return (
+                  <div key={name} className="flex flex-wrap items-center gap-2">
+                    <span className="min-w-0 flex-1 text-sm text-foreground">{name}</span>
+                    <div className="flex items-center gap-1">
+                      {LEVELS.map((l) => (
+                        <button
+                          key={l}
+                          type="button"
+                          onClick={() => setPendingLevels((prev) => ({ ...prev, [name]: l }))}
+                          className={`rounded-md px-2 py-0.5 text-xs font-medium transition-colors ${
+                            level === l ? LEVEL_COLORS[l] : "bg-muted text-muted-foreground hover:bg-muted/80"
+                          }`}
+                        >
+                          {LEVEL_LABELS[l]}
+                        </button>
+                      ))}
+                    </div>
+                    <button type="button" onClick={() => toggle(name)} className="text-muted-foreground/50 hover:text-destructive">
+                      ×
+                    </button>
+                  </div>
+                );
+              })}
             </div>
           )}
 
           {error && <p className="text-xs text-destructive">{error}</p>}
 
           <div className="flex gap-2">
-            <Button type="button" size="sm" disabled={!nameToAdd || saving} onClick={() => void handleAdd()}>
-              {saving ? "Ajout…" : "Ajouter"}
+            <Button type="button" size="sm" disabled={pending.size === 0 || saving} onClick={() => void handleAdd()}>
+              {saving ? "Ajout…" : `Ajouter${pending.size > 0 ? ` (${pending.size})` : ""}`}
             </Button>
             <Button
               type="button"
               size="sm"
               variant="ghost"
-              onClick={() => { setAdding(false); setSelected(""); setCustomName(""); setSearch(""); setError(null); }}
+              onClick={() => { setAdding(false); setPending(new Set()); setPendingLevels({}); setCustomInput(""); setSearch(""); setError(null); }}
             >
               Annuler
             </Button>

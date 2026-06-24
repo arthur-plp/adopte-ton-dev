@@ -123,7 +123,10 @@ export class UsersController {
   // ── Profil développeur ────────────────────────────────────────────────────
 
   @Get('developer/:userId')
-  @ApiOperation({ summary: "Profil public d'un développeur" })
+  @Roles(Role.RECRUITER, Role.ADMIN)
+  @ApiOperation({
+    summary: "Profil d'un développeur (réservé aux recruteurs et à l'admin)",
+  })
   @ApiParam({ name: 'userId' })
   async getDeveloperProfile(@Param('userId') userId: string) {
     return this.send({ cmd: 'developer.getProfile' }, { userId });

@@ -1,0 +1,103 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum ApplicationStatus {
+  SENT
+  VIEWED
+  INTERVIEW
+  ACCEPTED
+  REJECTED
+  WITHDRAWN
+}
+
+enum InterviewMode {
+  REMOTE
+  IN_PERSON
+}
+
+model Application {
+  id                String            @id @default(cuid())
+  jobOfferId        String
+  developerId       String
+  status            ApplicationStatus @default(SENT)
+  coverLetter       String?
+  // Renseignés au passage en statut INTERVIEW : lien de visio (REMOTE) ou
+  // adresse (IN_PERSON). ACCEPTED n'est autorisé que si un entretien a eu lieu.
+  interviewMode     InterviewMode?
+  interviewLocation String?
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+
+  history           ApplicationEvent[]
+  documentRequests  DocumentRequest[]
+
+  @@unique([jobOfferId, developerId])
+  @@index([developerId])
+  @@index([jobOfferId, status])
+}
+
+enum DocumentRequestStatus {
+  PENDING
+  FULFILLED
+}
+
+// Qui est à l'origine de la demande : le recruteur (cas historique, "pièce
+// justificative demandée") ou le développeur lui-même (document joint en
+// complément spontané de sa candidature) — distingue le libellé affiché côté UI.
+enum DocumentRequestSource {
+  RECRUITER
+  DEVELOPER
+}
+
+// Pièce justificative demandée par le recruteur (CV, diplôme, pièce d'identité…)
+// et déposée par le candidat — ou jointe spontanément par le développeur.
+// Le fichier lui-même est stocké sur S3 (fileKey) ; seules les URLs presignées
+// (upload/download) transitent, jamais le binaire.
+model DocumentRequest {
+  id            String                @id @default(cuid())
+  applicationId String
+  application   Application           @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  label         String
+  note          String?
+  source        DocumentRequestSource @default(RECRUITER)
+  status        DocumentRequestStatus @default(PENDING)
+  fileKey       String?
+  fileName      String?
+  createdAt     DateTime              @default(now())
+  fulfilledAt   DateTime?
+
+  @@index([applicationId])
+}
+
+// Historique des transitions de statut (audit + timeline dev/recruteur).
+// actorRole/actorId identifient qui a déclenché la transition (DEVELOPER | RECRUITER).
+model ApplicationEvent {
+  id            String            @id @default(cuid())
+  applicationId String
+  application   Application       @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  status        ApplicationStatus
+  note          String?
+  actorRole     String
+  actorId       String?
+  createdAt     DateTime          @default(now())
+
+  @@index([applicationId, createdAt])
+}
+
+model OutboxEvent {
+  id        String    @id @default(cuid())
+  type      String
+  payload   Json
+  status    String    @default("PENDING")
+  attempts  Int       @default(0)
+  createdAt DateTime  @default(now())
+  sentAt    DateTime?
+
+  @@index([status, attempts, createdAt])
+}

@@ -2,10 +2,31 @@
 
 import { use, useEffect, useState } from "react";
 import Link from "next/link";
+import { toast } from "sonner";
 import { useSession } from "@/lib/auth-client";
 import { Navbar } from "@/components/navbar";
 import { Footer } from "@/components/footer";
 import { Button } from "@/components/ui/button";
+import { EmailVerificationBanner } from "@/components/email-verification-banner";
+import {
+  APPLICATION_STATUS_COLORS,
+  APPLICATION_STATUS_LABELS,
+  InterviewBanner,
+  type ApplicationStatus,
+  type InterviewMode,
+} from "@/components/application-event-timeline";
+import { DocumentRequestsPanel } from "@/components/document-requests";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import {
   ArrowLeft,
   MapPin,
@@ -16,6 +37,16 @@ import {
   Building2,
   Send,
 } from "lucide-react";
+
+type Application = {
+  id: string;
+  jobOfferId: string;
+  status: ApplicationStatus;
+  interviewMode: InterviewMode | null;
+  interviewLocation: string | null;
+};
+
+const TERMINAL_STATUSES: ApplicationStatus[] = ["ACCEPTED", "REJECTED", "WITHDRAWN"];
 
 type JobOffer = {
   id: string;
@@ -49,7 +80,8 @@ const TYPE_COLORS: Record<JobOffer["type"], string> = {
 export default function OfferDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const { data: session } = useSession();
-  const isDeveloper = (session?.user as { role?: string } | undefined)?.role === "DEVELOPER";
+  const user = session?.user as { role?: string; emailVerified?: boolean } | undefined;
+  const isDeveloper = user?.role === "DEVELOPER";
   const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000/api/v1";
 
   const [offer, setOffer] = useState<JobOffer | null>(null);
@@ -206,19 +238,16 @@ export default function OfferDetailPage({ params }: { params: Promise<{ id: stri
             {isDeveloper ? (
               <>
                 <h2 className="mb-1 font-semibold text-foreground">Postuler à cette offre</h2>
-                <p className="mb-4 text-sm text-muted-foreground">
-                  Envoyez votre candidature et mettez en avant votre profil et vos projets.
-                </p>
-                <div className="flex flex-wrap gap-3">
-                  <Button disabled title="Candidatures disponibles prochainement">
-                    <Send className="size-4" />
-                    Candidater
-                  </Button>
-                  <Button asChild variant="outline">
-                    <Link href="/offres">Voir d&apos;autres offres</Link>
-                  </Button>
-                </div>
-                <p className="mt-3 text-xs text-muted-foreground">Les candidatures seront disponibles très prochainement.</p>
+                {user?.emailVerified === false ? (
+                  <>
+                    <p className="mb-4 text-sm text-muted-foreground">
+                      Confirme ton adresse email pour pouvoir postuler.
+                    </p>
+                    <EmailVerificationBanner />
+                  </>
+                ) : (
+                  <ApplySection jobOfferId={offer.id} apiUrl={apiUrl} />
+                )}
               </>
             ) : (
               <>
@@ -244,5 +273,201 @@ export default function OfferDetailPage({ params }: { params: Promise<{ id: stri
 
       <Footer />
     </div>
+  );
+}
+
+function ApplySection({ jobOfferId, apiUrl }: { jobOfferId: string; apiUrl: string }) {
+  const [application, setApplication] = useState<Application | null | undefined>(undefined);
+  const [showForm, setShowForm] = useState(false);
+  const [coverLetter, setCoverLetter] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [withdrawing, setWithdrawing] = useState(false);
+  const [reactivating, setReactivating] = useState(false);
+
+  useEffect(() => {
+    fetch(`${apiUrl}/applications/mine`, { credentials: "include" })
+      .then((res) => (res.ok ? (res.json() as Promise<Application[]>) : []))
+      .then((apps) => setApplication(apps.find((a) => a.jobOfferId === jobOfferId) ?? null))
+      .catch(() => setApplication(null));
+  }, [apiUrl, jobOfferId]);
+
+  async function handleApply(e: React.FormEvent) {
+    e.preventDefault();
+    setSubmitting(true);
+    try {
+      const res = await fetch(`${apiUrl}/applications`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ jobOfferId, coverLetter: coverLetter.trim() || undefined }),
+      });
+      if (!res.ok) {
+        const body = (await res.json().catch(() => ({}))) as { message?: string };
+        toast.error(body.message ?? "Impossible d'envoyer la candidature");
+        return;
+      }
+      const created = (await res.json()) as Application;
+      setApplication(created);
+      setShowForm(false);
+      toast.success("Candidature envoyée !", { description: "Le recruteur a été notifié." });
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function handleWithdraw() {
+    if (!application) return;
+    setWithdrawing(true);
+    try {
+      const res = await fetch(`${apiUrl}/applications/${application.id}/withdraw`, {
+        method: "POST",
+        credentials: "include",
+      });
+      if (!res.ok) {
+        toast.error("Impossible de retirer la candidature");
+        return;
+      }
+      const updated = (await res.json()) as Application;
+      setApplication(updated);
+      toast.success("Candidature retirée");
+    } finally {
+      setWithdrawing(false);
+    }
+  }
+
+  async function handleReactivate() {
+    if (!application) return;
+    setReactivating(true);
+    try {
+      const res = await fetch(`${apiUrl}/applications/${application.id}/reactivate`, {
+        method: "POST",
+        credentials: "include",
+      });
+      if (!res.ok) {
+        const body = (await res.json().catch(() => ({}))) as { message?: string };
+        toast.error(body.message ?? "Impossible de réactiver la candidature");
+        return;
+      }
+      const updated = (await res.json()) as Application;
+      setApplication(updated);
+      toast.success("Candidature réactivée");
+    } finally {
+      setReactivating(false);
+    }
+  }
+
+  if (application === undefined) {
+    return (
+      <div className="flex justify-center py-4">
+        <div className="size-5 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+      </div>
+    );
+  }
+
+  if (application) {
+    const isTerminal = TERMINAL_STATUSES.includes(application.status);
+    return (
+      <>
+        <div className="mb-4 flex flex-wrap items-center gap-2">
+          <span className="text-sm text-muted-foreground">Statut de ta candidature :</span>
+          <span
+            className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${APPLICATION_STATUS_COLORS[application.status]}`}
+          >
+            {APPLICATION_STATUS_LABELS[application.status]}
+          </span>
+        </div>
+        {application.status === "INTERVIEW" && (
+          <InterviewBanner mode={application.interviewMode} location={application.interviewLocation} />
+        )}
+
+        <DocumentRequestsPanel
+          applicationId={application.id}
+          apiUrl={apiUrl}
+          role="DEVELOPER"
+          readOnly={isTerminal}
+        />
+
+        <div className="mt-4 flex flex-wrap gap-3">
+          <Button asChild variant="outline">
+            <Link href="/applications">Voir le suivi de mes candidatures</Link>
+          </Button>
+          {!isTerminal && (
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="outline" disabled={withdrawing}>
+                  {withdrawing ? "Retrait…" : "Retirer ma candidature"}
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Retirer cette candidature ?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Tu pourras la réactiver plus tard si tu changes d'avis,
+                    tant que l'offre reste publiée.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Annuler</AlertDialogCancel>
+                  <AlertDialogAction onClick={() => void handleWithdraw()}>
+                    Retirer ma candidature
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          )}
+          {application.status === "WITHDRAWN" && (
+            <Button
+              variant="outline"
+              onClick={() => void handleReactivate()}
+              disabled={reactivating}
+            >
+              {reactivating ? "Réactivation…" : "Réactiver ma candidature"}
+            </Button>
+          )}
+        </div>
+      </>
+    );
+  }
+
+  if (!showForm) {
+    return (
+      <>
+        <p className="mb-4 text-sm text-muted-foreground">
+          Envoyez votre candidature et mettez en avant votre profil et vos projets.
+        </p>
+        <div className="flex flex-wrap gap-3">
+          <Button onClick={() => setShowForm(true)}>
+            <Send className="size-4" />
+            Candidater
+          </Button>
+          <Button asChild variant="outline">
+            <Link href="/offres">Voir d&apos;autres offres</Link>
+          </Button>
+        </div>
+      </>
+    );
+  }
+
+  return (
+    <form onSubmit={handleApply} className="space-y-3">
+      <label className="block text-sm font-medium text-foreground">
+        Lettre de motivation (optionnel)
+      </label>
+      <textarea
+        rows={5}
+        value={coverLetter}
+        onChange={(e) => setCoverLetter(e.target.value)}
+        placeholder="Présentez votre motivation pour ce poste…"
+        className="input-base resize-none"
+      />
+      <div className="flex flex-wrap gap-3">
+        <Button type="submit" disabled={submitting}>
+          {submitting ? "Envoi…" : "Envoyer ma candidature"}
+        </Button>
+        <Button type="button" variant="outline" onClick={() => setShowForm(false)}>
+          Annuler
+        </Button>
+      </div>
+    </form>
   );
 }

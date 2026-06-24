@@ -34,6 +34,11 @@ export enum ApplicationStatus {
   WITHDRAWN = "WITHDRAWN",
 }
 
+export enum InterviewMode {
+  REMOTE = "REMOTE",
+  IN_PERSON = "IN_PERSON",
+}
+
 export enum NotificationType {
   APPLICATION = "APPLICATION",
   MESSAGE = "MESSAGE",

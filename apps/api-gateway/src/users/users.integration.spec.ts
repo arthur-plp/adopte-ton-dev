@@ -214,3 +214,59 @@ describe('UsersController (intégration TCP)', () => {
     });
   });
 });
+
+// ─── GET /developer/:userId — RBAC réel (RolesGuard non mocké) ─────────────
+
+describe('UsersController (intégration RBAC réelle)', () => {
+  let app: INestApplication;
+  let currentUser: typeof mockUser;
+
+  beforeAll(async () => {
+    const module = await Test.createTestingModule({
+      controllers: [UsersController],
+      providers: [{ provide: 'USERS_SVC', useValue: mockUsersSvc }],
+    })
+      .overrideGuard(AuthGuard)
+      .useValue({
+        canActivate: (ctx: {
+          switchToHttp: () => { getRequest: () => object };
+        }) => {
+          ctx.switchToHttp().getRequest()['user'] = currentUser;
+          return true;
+        },
+      })
+      .compile();
+
+    app = module.createNestApplication();
+    await app.init();
+  });
+
+  afterAll(() => app.close());
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockUsersSvc.send.mockReturnValue(of({ id: 'dev-1', firstName: 'Alice' }));
+  });
+
+  it('retourne 403 si le développeur connecté consulte le profil d’un autre développeur', async () => {
+    currentUser = { ...mockUser, role: 'DEVELOPER' };
+    await request(app.getHttpServer())
+      .get('/users/developer/dev-2')
+      .expect(403);
+    expect(mockUsersSvc.send).not.toHaveBeenCalled();
+  });
+
+  it('retourne 200 si un recruteur consulte le profil', async () => {
+    currentUser = { ...mockUser, role: 'RECRUITER' };
+    await request(app.getHttpServer())
+      .get('/users/developer/dev-2')
+      .expect(200);
+  });
+
+  it('retourne 200 si un admin consulte le profil', async () => {
+    currentUser = { ...mockUser, role: 'ADMIN' };
+    await request(app.getHttpServer())
+      .get('/users/developer/dev-2')
+      .expect(200);
+  });
+});

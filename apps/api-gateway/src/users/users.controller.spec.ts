@@ -23,6 +23,7 @@ type AuthenticatedUser = {
   image: string | null | undefined;
   role: string;
   onboarded: boolean;
+  emailVerified: boolean;
   companyId?: string;
 };
 
@@ -35,6 +36,7 @@ const mockDev: AuthenticatedUser = {
   image: null,
   role: Role.DEVELOPER,
   onboarded: true,
+  emailVerified: true,
 };
 
 function mockReq(user: AuthenticatedUser = mockDev): AuthRequest {

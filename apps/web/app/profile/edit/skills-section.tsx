@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Plus, Trash2, ChevronDown } from "lucide-react";
+import { Plus, Trash2, ChevronDown, Check } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import type { SkillLevel } from "./technologies-section";
@@ -43,10 +43,11 @@ type Props = {
 export function SkillsSection({ skills, catalog, apiUrl, onUpdate }: Props) {
   const [adding, setAdding] = useState(false);
   const [search, setSearch] = useState("");
-  const [selectedId, setSelectedId] = useState("");
-  const [customName, setCustomName] = useState("");
-  const [customCategory, setCustomCategory] = useState<"technique" | "soft">("technique");
-  const [newLevel, setNewLevel] = useState<SkillLevel>("INTERMEDIATE");
+  const [pending, setPending] = useState<Set<string>>(new Set());
+  const [pendingLevels, setPendingLevels] = useState<Record<string, SkillLevel>>({});
+  const [customNames, setCustomNames] = useState<Set<string>>(new Set());
+  const [customCategories, setCustomCategories] = useState<Record<string, "technique" | "soft">>({});
+  const [customInput, setCustomInput] = useState("");
   const [saving, setSaving] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
@@ -83,41 +84,80 @@ export function SkillsSection({ skills, catalog, apiUrl, onUpdate }: Props) {
   );
 
   const categoryOrder = Object.keys(CATEGORY_LABELS);
-  const selectedEntry = catalog.find((c) => c.id === selectedId);
-  const nameToAdd = selectedEntry?.name ?? customName.trim();
+  const selectedEntries = catalog.filter((c) => pending.has(c.id));
+  const totalPending = selectedEntries.length + customNames.size;
+
+  function toggle(id: string) {
+    setPending((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+        setPendingLevels((l) => { const n = { ...l }; delete n[id]; return n; });
+      } else {
+        next.add(id);
+        setPendingLevels((l) => ({ ...l, [id]: "INTERMEDIATE" }));
+      }
+      return next;
+    });
+  }
+
+  function addCustom() {
+    const name = customInput.trim();
+    if (!name || existingNames.has(name.toLowerCase()) || customNames.has(name)) return;
+    setCustomNames((prev) => new Set([...prev, name]));
+    setPendingLevels((l) => ({ ...l, [name]: "INTERMEDIATE" }));
+    setCustomCategories((c) => ({ ...c, [name]: "technique" }));
+    setCustomInput("");
+  }
+
+  function removeCustom(name: string) {
+    setCustomNames((prev) => { const n = new Set(prev); n.delete(name); return n; });
+    setPendingLevels((l) => { const n = { ...l }; delete n[name]; return n; });
+    setCustomCategories((c) => { const n = { ...c }; delete n[name]; return n; });
+  }
+
+  async function addOne(body: { skillId: string; level: SkillLevel } | { name: string; level: SkillLevel; category: string }, fallbackName: string) {
+    const res = await fetch(`${apiUrl}/users/developer/me/skills`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) {
+      const d = (await res.json()) as { message?: string };
+      throw new Error(d.message ?? "Erreur");
+    }
+    const entry = (await res.json()) as {
+      id: string;
+      skillId: string;
+      level: SkillLevel;
+      skill?: SkillCatalogEntry;
+    };
+    const skillMeta: SkillCatalogEntry = entry.skill ?? { id: entry.skillId, name: fallbackName };
+    return { ...entry, skill: skillMeta };
+  }
 
   async function handleAdd() {
-    if (!nameToAdd) return;
+    if (totalPending === 0) return;
     setSaving(true);
     setError(null);
     try {
-      const body = selectedId
-        ? { skillId: selectedId, level: newLevel }
-        : { name: nameToAdd, level: newLevel, category: customCategory };
-
-      const res = await fetch(`${apiUrl}/users/developer/me/skills`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify(body),
-      });
-      if (!res.ok) {
-        const d = (await res.json()) as { message?: string };
-        throw new Error(d.message ?? "Erreur");
+      const created: DeveloperSkillEntry[] = [];
+      for (const entry of selectedEntries) {
+        const level = pendingLevels[entry.id] ?? "INTERMEDIATE";
+        created.push(await addOne({ skillId: entry.id, level }, entry.name));
       }
-      const entry = (await res.json()) as {
-        id: string;
-        skillId: string;
-        level: SkillLevel;
-        skill?: SkillCatalogEntry;
-      };
-      const skillMeta: SkillCatalogEntry = entry.skill ?? {
-        id: entry.skillId,
-        name: nameToAdd,
-      };
-      onUpdate([...skills, { ...entry, skill: skillMeta }]);
-      setSelectedId("");
-      setCustomName("");
+      for (const name of customNames) {
+        const level = pendingLevels[name] ?? "INTERMEDIATE";
+        const category = customCategories[name] ?? "technique";
+        created.push(await addOne({ name, level, category }, name));
+      }
+      onUpdate([...skills, ...created]);
+      setPending(new Set());
+      setPendingLevels({});
+      setCustomNames(new Set());
+      setCustomCategories({});
+      setCustomInput("");
       setSearch("");
       setAdding(false);
     } catch (e) {
@@ -258,12 +298,16 @@ export function SkillsSection({ skills, catalog, apiUrl, onUpdate }: Props) {
             className="input-base"
             placeholder="Rechercher une compétence…"
             value={search}
-            onChange={(e) => { setSearch(e.target.value); setSelectedId(""); setCustomName(""); }}
+            onChange={(e) => setSearch(e.target.value)}
           />
 
           <div className="max-h-56 overflow-y-auto space-y-2 rounded-lg border border-border bg-background p-2">
             {filteredCatalog.length === 0 && !search && (
-              <p className="py-2 text-center text-xs text-muted-foreground">Toutes les compétences sont déjà ajoutées.</p>
+              <p className="py-2 text-center text-xs text-muted-foreground">
+                {catalog.length === 0
+                  ? "Aucune compétence disponible dans le catalogue pour le moment."
+                  : "Toutes les compétences sont déjà ajoutées."}
+              </p>
             )}
             {categoryOrder.map((cat) => {
               const group = catalogByCategory[cat];
@@ -274,100 +318,148 @@ export function SkillsSection({ skills, catalog, apiUrl, onUpdate }: Props) {
                     {CATEGORY_LABELS[cat] ?? cat}
                   </p>
                   <div className="grid grid-cols-2 gap-0.5 sm:grid-cols-3">
-                    {group.map((c) => (
-                      <button
-                        key={c.id}
-                        type="button"
-                        onClick={() => { setSelectedId(selectedId === c.id ? "" : c.id); setCustomName(""); }}
-                        className={`rounded-lg px-3 py-1.5 text-left text-sm transition-colors ${
-                          selectedId === c.id
-                            ? "bg-primary/10 text-primary font-medium"
-                            : "hover:bg-muted text-foreground"
-                        }`}
-                      >
-                        {c.name}
-                      </button>
-                    ))}
+                    {group.map((c) => {
+                      const isPending = pending.has(c.id);
+                      return (
+                        <button
+                          key={c.id}
+                          type="button"
+                          onClick={() => toggle(c.id)}
+                          className={`flex items-center gap-2 rounded-lg px-3 py-1.5 text-left text-sm transition-colors ${
+                            isPending
+                              ? "bg-primary/10 text-primary font-medium"
+                              : "hover:bg-muted text-foreground"
+                          }`}
+                        >
+                          <span className={`flex size-4 shrink-0 items-center justify-center rounded border transition-colors ${
+                            isPending ? "border-primary bg-primary" : "border-border"
+                          }`}>
+                            {isPending && <Check className="size-2.5 text-primary-foreground" />}
+                          </span>
+                          {c.name}
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
               );
             })}
-
-            {/* Ajout libre si non trouvé dans le catalogue */}
-            {search &&
-              !catalog.some((c) => c.name.toLowerCase() === search.toLowerCase()) &&
-              !existingNames.has(search.toLowerCase()) && (
-              <div className="border-t border-border pt-2 mt-1">
-                <p className="px-2 pb-1 text-xs text-muted-foreground">Pas dans la liste ?</p>
-                <button
-                  type="button"
-                  onClick={() => { setCustomName(search); setSelectedId(""); }}
-                  className={`w-full rounded-lg px-3 py-1.5 text-left text-sm transition-colors ${
-                    customName === search
-                      ? "bg-primary/10 text-primary font-medium"
-                      : "hover:bg-muted text-foreground"
-                  }`}
-                >
-                  Ajouter &quot;{search}&quot;
-                </button>
-              </div>
-            )}
           </div>
 
-          {/* Sélection en cours + catégorie (custom seulement) + niveau */}
-          {nameToAdd && (
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="rounded-lg border border-primary/30 bg-primary/5 px-2.5 py-1 text-sm font-medium text-primary">
-                {nameToAdd}
-              </span>
-              {customName && (
-                <>
-                  <span className="text-sm text-muted-foreground">—</span>
-                  <span className="text-sm text-muted-foreground">Type :</span>
-                  {(["technique", "soft"] as const).map((cat) => (
-                    <button
-                      key={cat}
-                      type="button"
-                      onClick={() => setCustomCategory(cat)}
-                      className={`rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
-                        customCategory === cat
-                          ? "bg-primary/10 text-primary"
-                          : "bg-muted text-muted-foreground hover:bg-muted/80"
-                      }`}
-                    >
-                      {cat === "technique" ? "Technique" : "Soft skill"}
+          {/* Saisie libre */}
+          <div className="flex gap-2">
+            <input
+              className="input-base flex-1 text-sm"
+              placeholder="Autre compétence (saisie libre)…"
+              value={customInput}
+              onChange={(e) => setCustomInput(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addCustom(); } }}
+            />
+            <Button type="button" size="sm" variant="outline" onClick={addCustom} disabled={!customInput.trim()}>
+              <Plus className="size-3.5" />
+            </Button>
+          </div>
+
+          {/* Preview des sélections en attente avec niveau (+ catégorie pour le libre) par élément */}
+          {totalPending > 0 && (
+            <div className="space-y-1.5 rounded-lg border border-border bg-background p-3">
+              <p className="text-xs font-medium text-muted-foreground">Niveaux :</p>
+              {selectedEntries.map((entry) => {
+                const level = pendingLevels[entry.id] ?? "INTERMEDIATE";
+                return (
+                  <div key={entry.id} className="flex flex-wrap items-center gap-2">
+                    <span className="min-w-0 flex-1 text-sm text-foreground">{entry.name}</span>
+                    <div className="flex items-center gap-1">
+                      {LEVELS.map((l) => (
+                        <button
+                          key={l}
+                          type="button"
+                          onClick={() => setPendingLevels((prev) => ({ ...prev, [entry.id]: l }))}
+                          className={`rounded-md px-2 py-0.5 text-xs font-medium transition-colors ${
+                            level === l ? LEVEL_COLORS[l] : "bg-muted text-muted-foreground hover:bg-muted/80"
+                          }`}
+                        >
+                          {LEVEL_LABELS[l]}
+                        </button>
+                      ))}
+                    </div>
+                    <button type="button" onClick={() => toggle(entry.id)} className="text-muted-foreground/50 hover:text-destructive">
+                      ×
                     </button>
-                  ))}
-                </>
-              )}
-              <span className="text-sm text-muted-foreground">—</span>
-              <span className="text-sm text-muted-foreground">Niveau :</span>
-              {LEVELS.map((l) => (
-                <button
-                  key={l}
-                  type="button"
-                  onClick={() => setNewLevel(l)}
-                  className={`rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
-                    newLevel === l ? LEVEL_COLORS[l] : "bg-muted text-muted-foreground hover:bg-muted/80"
-                  }`}
-                >
-                  {LEVEL_LABELS[l]}
-                </button>
-              ))}
+                  </div>
+                );
+              })}
+              {Array.from(customNames).map((name) => {
+                const level = pendingLevels[name] ?? "INTERMEDIATE";
+                const category = customCategories[name] ?? "technique";
+                return (
+                  <div key={name} className="flex flex-wrap items-center gap-2">
+                    <span className="min-w-0 flex-1 text-sm text-foreground">{name}</span>
+                    <div className="flex items-center gap-1">
+                      {(["technique", "soft"] as const).map((cat) => (
+                        <button
+                          key={cat}
+                          type="button"
+                          onClick={() => setCustomCategories((prev) => ({ ...prev, [name]: cat }))}
+                          className={`rounded-md px-2 py-0.5 text-xs font-medium transition-colors ${
+                            category === cat
+                              ? "bg-primary/10 text-primary"
+                              : "bg-muted text-muted-foreground hover:bg-muted/80"
+                          }`}
+                        >
+                          {cat === "technique" ? "Technique" : "Soft skill"}
+                        </button>
+                      ))}
+                    </div>
+                    <span className="text-muted-foreground/40">|</span>
+                    <div className="flex items-center gap-1">
+                      {LEVELS.map((l) => (
+                        <button
+                          key={l}
+                          type="button"
+                          onClick={() => setPendingLevels((prev) => ({ ...prev, [name]: l }))}
+                          className={`rounded-md px-2 py-0.5 text-xs font-medium transition-colors ${
+                            level === l ? LEVEL_COLORS[l] : "bg-muted text-muted-foreground hover:bg-muted/80"
+                          }`}
+                        >
+                          {LEVEL_LABELS[l]}
+                        </button>
+                      ))}
+                    </div>
+                    <button type="button" onClick={() => removeCustom(name)} className="text-muted-foreground/50 hover:text-destructive">
+                      ×
+                    </button>
+                  </div>
+                );
+              })}
             </div>
           )}
 
           {error && <p className="text-xs text-destructive">{error}</p>}
 
           <div className="flex gap-2">
-            <Button type="button" size="sm" disabled={!nameToAdd || saving} onClick={() => void handleAdd()}>
-              {saving ? "Ajout…" : "Ajouter"}
+            <Button
+              type="button"
+              size="sm"
+              disabled={totalPending === 0 || saving}
+              onClick={() => void handleAdd()}
+            >
+              {saving ? "Ajout…" : `Ajouter${totalPending > 0 ? ` (${totalPending})` : ""}`}
             </Button>
             <Button
               type="button"
               size="sm"
               variant="ghost"
-              onClick={() => { setAdding(false); setSelectedId(""); setCustomName(""); setCustomCategory("technique"); setSearch(""); setError(null); }}
+              onClick={() => {
+                setAdding(false);
+                setPending(new Set());
+                setPendingLevels({});
+                setCustomNames(new Set());
+                setCustomCategories({});
+                setCustomInput("");
+                setSearch("");
+                setError(null);
+              }}
             >
               Annuler
             </Button>

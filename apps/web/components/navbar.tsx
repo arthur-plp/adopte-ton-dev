@@ -63,6 +63,7 @@ export function Navbar() {
               <NavLink href="/offres">Offres</NavLink>
               <NavLink href="/recruteurs">Pour les recruteurs</NavLink>
               <NavLink href="/a-propos">À propos</NavLink>
+              <NavLink href="/contact">Contact</NavLink>
             </>
           ) : role === "ADMIN" ? (
             <NavLink href="/dashboard/admin">Administration</NavLink>
@@ -70,6 +71,7 @@ export function Navbar() {
             <>
               <NavLink href="/offres">Offres</NavLink>
               <NavLink href={dashboardUrl}>Tableau de bord</NavLink>
+              <NavLink href="/contact">Contact</NavLink>
             </>
           )}
         </div>
@@ -105,6 +107,7 @@ export function Navbar() {
                 <MobileNavLink href="/offres" onClick={closeMobile}>Offres</MobileNavLink>
                 <MobileNavLink href="/recruteurs" onClick={closeMobile}>Pour les recruteurs</MobileNavLink>
                 <MobileNavLink href="/a-propos" onClick={closeMobile}>À propos</MobileNavLink>
+                <MobileNavLink href="/contact" onClick={closeMobile}>Contact</MobileNavLink>
                 <div className="mt-3 flex flex-col gap-2 border-t border-border pt-3">
                   <Link href="/sign-in" onClick={closeMobile} className="rounded-lg px-3 py-2 text-sm text-muted-foreground hover:bg-muted">
                     Se connecter
@@ -124,6 +127,7 @@ export function Navbar() {
                 {role === "RECRUITER" && (
                   <MobileNavLink href="/jobs/new" onClick={closeMobile}>Créer une offre</MobileNavLink>
                 )}
+                <MobileNavLink href="/contact" onClick={closeMobile}>Contact</MobileNavLink>
               </>
             )}
           </nav>

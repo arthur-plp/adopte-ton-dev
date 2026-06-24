@@ -43,6 +43,24 @@ const TYPE_COLORS: Record<JobOffer["type"], string> = {
   FIRST_JOB: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400",
 };
 
+const LEVEL_LABELS: Record<string, string> = {
+  BEGINNER: "Débutant",
+  INTERMEDIATE: "Intermédiaire",
+  ADVANCED: "Avancé",
+};
+
+const LEVEL_DOT_COUNT: Record<string, number> = {
+  BEGINNER: 1,
+  INTERMEDIATE: 2,
+  ADVANCED: 3,
+};
+
+const LEVEL_DOT_COLOR: Record<string, string> = {
+  BEGINNER: "bg-sky-500",
+  INTERMEDIATE: "bg-emerald-500",
+  ADVANCED: "bg-violet-500",
+};
+
 const PAGE_SIZE = 12;
 
 export default function OffresPage() {
@@ -270,15 +288,22 @@ function OfferCard({ offer }: { offer: JobOffer }) {
           {offer.requiredTechnologies.slice(0, 4).map((tech) => {
             const level = offer.requiredTechLevels?.[tech];
             return (
-              <span key={tech} className="badge flex items-center gap-1">
+              <span
+                key={tech}
+                className="badge flex items-center gap-1.5"
+                title={level ? `Niveau souhaité : ${LEVEL_LABELS[level]}` : undefined}
+              >
                 {tech}
                 {level && (
-                  <span className={`rounded text-[10px] font-semibold px-1 ${
-                    level === "BEGINNER" ? "text-sky-600" :
-                    level === "INTERMEDIATE" ? "text-emerald-600" :
-                    "text-violet-600"
-                  }`}>
-                    {level === "BEGINNER" ? "Déb" : level === "INTERMEDIATE" ? "Int" : "Avancé"}
+                  <span className="flex items-center gap-0.5">
+                    {[0, 1, 2].map((i) => (
+                      <span
+                        key={i}
+                        className={`size-1.5 rounded-full ${
+                          i < (LEVEL_DOT_COUNT[level] ?? 0) ? LEVEL_DOT_COLOR[level] : "bg-muted-foreground/20"
+                        }`}
+                      />
+                    ))}
                   </span>
                 )}
               </span>
