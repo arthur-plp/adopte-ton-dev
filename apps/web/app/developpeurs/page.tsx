@@ -2,9 +2,11 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
+import { toast } from "sonner";
 import { useSession } from "@/lib/auth-client";
 import { Navbar } from "@/components/navbar";
 import { Footer } from "@/components/footer";
+import { CityAutocomplete, type Coordinates } from "@/components/city-autocomplete";
 import { Button } from "@/components/ui/button";
 import { Users, ArrowRight, MapPin, Wifi, X } from "lucide-react";
 import { DeveloperTechnologiesFilter, type TechLevel } from "./developer-technologies-filter";
@@ -91,6 +93,7 @@ function DeveloperSearch() {
   const [techLevels, setTechLevels] = useState<Record<string, TechLevel>>({});
   const [filterRemote, setFilterRemote] = useState(false);
   const [filterLocation, setFilterLocation] = useState("");
+  const [filterCoords, setFilterCoords] = useState<Coordinates | null>(null);
 
   const fetchDevelopers = useCallback(
     async (p: number) => {
@@ -100,6 +103,10 @@ function DeveloperSearch() {
       if (Object.keys(techLevels).length > 0) params.set("levels", JSON.stringify(techLevels));
       if (filterRemote) params.set("remoteOk", "true");
       if (filterLocation.trim()) params.set("location", filterLocation.trim());
+      if (filterCoords) {
+        params.set("latitude", filterCoords.lat.toString());
+        params.set("longitude", filterCoords.lon.toString());
+      }
 
       try {
         const res = await fetch(`${apiUrl}/matching/developers?${params.toString()}`, {
@@ -108,20 +115,22 @@ function DeveloperSearch() {
         if (res.ok) {
           const data = (await res.json()) as PaginatedDevelopers;
           setResult(data);
+        } else {
+          toast.error("Impossible de charger les profils. Réessaie.");
         }
       } catch {
-        // ignore
+        toast.error("Impossible de charger les profils. Réessaie.");
       } finally {
         setLoading(false);
       }
     },
-    [apiUrl, selectedTechs, techLevels, filterRemote, filterLocation],
+    [apiUrl, selectedTechs, techLevels, filterRemote, filterLocation, filterCoords],
   );
 
   useEffect(() => {
     setPage(1);
     void fetchDevelopers(1);
-  }, [selectedTechs, techLevels, filterRemote, filterLocation, fetchDevelopers]);
+  }, [selectedTechs, techLevels, filterRemote, filterLocation, filterCoords, fetchDevelopers]);
 
   useEffect(() => {
     void fetchDevelopers(page);
@@ -132,6 +141,7 @@ function DeveloperSearch() {
     setTechLevels({});
     setFilterRemote(false);
     setFilterLocation("");
+    setFilterCoords(null);
   }
 
   const hasFilters = selectedTechs.length > 0 || filterRemote || filterLocation !== "";
@@ -150,20 +160,22 @@ function DeveloperSearch() {
         </section>
 
         <section className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
-          <div className="grid gap-6 lg:grid-cols-[280px_1fr]">
+          <div className="grid gap-6 lg:grid-cols-[300px_1fr]">
             {/* Filtres */}
             <div className="card space-y-4 p-5">
               <div>
                 <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Localisation</label>
-                <div className="relative">
-                  <MapPin className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-                  <input
-                    className="input-base pl-9"
-                    value={filterLocation}
-                    onChange={(e) => setFilterLocation(e.target.value)}
-                    placeholder="Ville…"
-                  />
-                </div>
+                <CityAutocomplete
+                  city={filterLocation}
+                  country=""
+                  onChange={(city, _country, coords) => { setFilterLocation(city); setFilterCoords(coords ?? null); }}
+                  placeholder="Ville…"
+                />
+                {filterCoords && (
+                  <p className="mt-1 px-1 text-xs text-muted-foreground">
+                    Inclut les communes proches (~25 km)
+                  </p>
+                )}
               </div>
 
               <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground">

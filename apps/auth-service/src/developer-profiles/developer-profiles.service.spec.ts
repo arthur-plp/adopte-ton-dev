@@ -419,5 +419,131 @@ describe('DeveloperProfilesService', () => {
         expect.objectContaining({ where: {} }),
       );
     });
+
+    describe('recherche par proximité (lat/lon fournis)', () => {
+      // Rouen (point de recherche) ↔ Mont-Saint-Aignan : ville limitrophe (~2 km).
+      const rouen = { latitude: 49.4431, longitude: 1.0993 };
+      const montSaintAignan = {
+        id: 'dev-near',
+        location: 'Mont-Saint-Aignan',
+        latitude: 49.4571,
+        longitude: 1.0817,
+        technologies: [],
+      };
+      const lyon = {
+        id: 'dev-far',
+        location: 'Lyon',
+        latitude: 45.764,
+        longitude: 4.8357,
+        technologies: [],
+      };
+      const noCoordsMatching = {
+        id: 'dev-no-coords-match',
+        location: 'Rouen Centre',
+        latitude: null,
+        longitude: null,
+        technologies: [],
+      };
+      const noCoordsNotMatching = {
+        id: 'dev-no-coords-nomatch',
+        location: 'Marseille',
+        latitude: null,
+        longitude: null,
+        technologies: [],
+      };
+
+      it('inclut les profils dans le rayon par défaut (25km) et exclut les trop lointains', async () => {
+        mockPrisma.developerProfile.findMany.mockResolvedValue([
+          lyon,
+          montSaintAignan,
+        ]);
+
+        const result = await service.search({
+          location: 'Rouen',
+          latitude: rouen.latitude,
+          longitude: rouen.longitude,
+          page: 1,
+          pageSize: 20,
+        });
+
+        expect(result.data).toEqual([montSaintAignan]);
+        expect(result.total).toBe(1);
+      });
+
+      it('inclut en repli les profils sans coordonnées si leur localisation correspond textuellement', async () => {
+        mockPrisma.developerProfile.findMany.mockResolvedValue([
+          lyon,
+          montSaintAignan,
+          noCoordsMatching,
+          noCoordsNotMatching,
+        ]);
+
+        const result = await service.search({
+          location: 'Rouen',
+          latitude: rouen.latitude,
+          longitude: rouen.longitude,
+          page: 1,
+          pageSize: 20,
+        });
+
+        expect(result.data).toEqual([montSaintAignan, noCoordsMatching]);
+      });
+
+      it('trie par distance croissante (le plus proche en premier)', async () => {
+        mockPrisma.developerProfile.findMany.mockResolvedValue([
+          noCoordsMatching,
+          montSaintAignan,
+        ]);
+
+        const result = await service.search({
+          location: 'Rouen',
+          latitude: rouen.latitude,
+          longitude: rouen.longitude,
+          page: 1,
+          pageSize: 20,
+        });
+
+        expect(result.data.map((p) => p.id)).toEqual([
+          'dev-near',
+          'dev-no-coords-match',
+        ]);
+      });
+
+      it('respecte un rayon personnalisé', async () => {
+        mockPrisma.developerProfile.findMany.mockResolvedValue([
+          montSaintAignan,
+        ]);
+
+        const result = await service.search({
+          latitude: rouen.latitude,
+          longitude: rouen.longitude,
+          radiusKm: 1,
+          page: 1,
+          pageSize: 20,
+        });
+
+        expect(result.data).toEqual([]);
+      });
+
+      it('ne passe pas skip/take à Prisma (la pagination se fait en mémoire)', async () => {
+        mockPrisma.developerProfile.findMany.mockResolvedValue([
+          montSaintAignan,
+        ]);
+
+        await service.search({
+          latitude: rouen.latitude,
+          longitude: rouen.longitude,
+          page: 1,
+          pageSize: 20,
+        });
+
+        expect(mockPrisma.developerProfile.findMany).toHaveBeenCalledWith(
+          expect.not.objectContaining({
+            skip: expect.anything(),
+            take: expect.anything(),
+          }),
+        );
+      });
+    });
   });
 });

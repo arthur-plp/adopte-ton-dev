@@ -3,10 +3,13 @@
 import { useEffect, useRef, useState } from "react";
 import { MapPin, Loader2 } from "lucide-react";
 
+export type Coordinates = { lat: number; lon: number };
+
 type Suggestion = {
   city: string;
   country: string;
   label: string;
+  coords?: Coordinates;
 };
 
 type PhotonFeature = {
@@ -18,12 +21,15 @@ type PhotonFeature = {
     type?: string;
     state?: string;
   };
+  geometry?: {
+    coordinates?: [number, number]; // [lon, lat], format GeoJSON
+  };
 };
 
 type Props = {
   city: string;
   country: string;
-  onChange: (city: string, country: string) => void;
+  onChange: (city: string, country: string, coords?: Coordinates) => void;
   placeholder?: string;
   disabled?: boolean;
 };
@@ -76,10 +82,12 @@ export function CityAutocomplete({ city, country, onChange, placeholder = "Paris
           const key = `${cityName}|${countryName}`;
           if (seen.has(key)) continue;
           seen.add(key);
+          const [lon, lat] = f.geometry?.coordinates ?? [];
           results.push({
             city: cityName,
             country: countryName,
             label: `${cityName}, ${countryName}`,
+            coords: lat !== undefined && lon !== undefined ? { lat, lon } : undefined,
           });
           if (results.length >= 5) break;
         }
@@ -97,7 +105,7 @@ export function CityAutocomplete({ city, country, onChange, placeholder = "Paris
     setQuery(s.label);
     setSuggestions([]);
     setOpen(false);
-    onChange(s.city, s.country);
+    onChange(s.city, s.country, s.coords);
   }
 
   function handleBlur() {

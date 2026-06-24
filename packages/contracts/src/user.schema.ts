@@ -82,6 +82,8 @@ export const UpdateDeveloperProfileSchema = z.object({
   bio: z.string().max(2000),
   location: z.string().max(200),
   country: z.string().max(100),
+  latitude: z.number().min(-90).max(90),
+  longitude: z.number().min(-180).max(180),
   remoteOk: z.boolean(),
   availability: z.string().max(200),
   phone: z.string().max(30),

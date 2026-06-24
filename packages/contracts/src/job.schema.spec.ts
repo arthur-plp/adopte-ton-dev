@@ -146,6 +146,11 @@ describe('JobOfferFiltersSchema', () => {
     expect(result.technologies).toHaveLength(2);
   });
 
+  it("normalise technologies en tableau quand une seule valeur est fournie (qs ne renvoie pas un tableau à un seul élément)", () => {
+    const result = JobOfferFiltersSchema.parse({ technologies: 'TypeScript' });
+    expect(result.technologies).toEqual(['TypeScript']);
+  });
+
   it('rejette un type d\'offre inconnu dans les filtres', () => {
     expect(() => JobOfferFiltersSchema.parse({ type: 'FREELANCE' })).toThrow();
   });

@@ -2,8 +2,10 @@
 
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
+import { toast } from "sonner";
 import { Navbar } from "@/components/navbar";
 import { Footer } from "@/components/footer";
+import { CityAutocomplete } from "@/components/city-autocomplete";
 import { Button } from "@/components/ui/button";
 import { Search, MapPin, Wifi, Briefcase, ArrowRight, X } from "lucide-react";
 
@@ -88,9 +90,11 @@ export default function OffresPage() {
       if (res.ok) {
         const data = (await res.json()) as PaginatedOffers;
         setResult(data);
+      } else {
+        toast.error("Impossible de charger les offres. Réessaie.");
       }
     } catch {
-      // ignore
+      toast.error("Impossible de charger les offres. Réessaie.");
     } finally {
       setLoading(false);
     }
@@ -143,12 +147,11 @@ export default function OffresPage() {
             </div>
 
             {/* Localisation */}
-            <div className="relative min-w-36">
-              <MapPin className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-              <input
-                className="input-base pl-9"
-                value={filterLocation}
-                onChange={(e) => setFilterLocation(e.target.value)}
+            <div className="min-w-36">
+              <CityAutocomplete
+                city={filterLocation}
+                country=""
+                onChange={(city) => setFilterLocation(city)}
                 placeholder="Ville…"
               />
             </div>

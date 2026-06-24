@@ -1,9 +1,10 @@
 import { z } from "zod";
+import { stringArrayQueryParam } from "./query-helpers";
 
 const SkillLevelEnum = z.enum(["BEGINNER", "INTERMEDIATE", "ADVANCED"]);
 
 export const MatchingSearchFiltersSchema = z.object({
-  technologies: z.array(z.string()).optional(),
+  technologies: stringArrayQueryParam,
   levels: z
     .string()
     .optional()
@@ -21,6 +22,8 @@ export const MatchingSearchFiltersSchema = z.object({
     .transform((v) => v === "true")
     .optional(),
   location: z.string().optional(),
+  latitude: z.coerce.number().min(-90).max(90).optional(),
+  longitude: z.coerce.number().min(-180).max(180).optional(),
   jobOfferId: z.string().optional(),
 });
 

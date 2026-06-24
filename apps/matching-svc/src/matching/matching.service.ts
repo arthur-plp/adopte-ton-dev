@@ -11,6 +11,8 @@ export type SearchDevelopersFilters = {
   levels?: Record<string, SkillLevel>;
   remoteOk?: boolean;
   location?: string;
+  latitude?: number;
+  longitude?: number;
   jobOfferId?: string;
   page: number;
   pageSize: number;
@@ -69,6 +71,8 @@ export class MatchingService {
           technologies: technologies.length ? technologies : undefined,
           remoteOk: filters.remoteOk,
           location: filters.location,
+          latitude: filters.latitude,
+          longitude: filters.longitude,
           page: filters.page,
           pageSize: filters.pageSize,
         },
@@ -97,6 +101,8 @@ export class MatchingService {
     levels?: Record<string, SkillLevel>;
     remoteOk?: boolean;
     location?: string;
+    latitude?: number;
+    longitude?: number;
     page: number;
     pageSize: number;
   }): string {
@@ -105,6 +111,8 @@ export class MatchingService {
       levels: params.levels ?? null,
       remoteOk: params.remoteOk ?? null,
       location: params.location?.toLowerCase() ?? null,
+      latitude: params.latitude ?? null,
+      longitude: params.longitude ?? null,
       page: params.page,
       pageSize: params.pageSize,
     };

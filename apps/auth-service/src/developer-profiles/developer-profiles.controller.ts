@@ -39,6 +39,9 @@ export class DeveloperProfilesController {
       technologies?: string[];
       remoteOk?: boolean;
       location?: string;
+      latitude?: number;
+      longitude?: number;
+      radiusKm?: number;
       page: number;
       pageSize: number;
     },

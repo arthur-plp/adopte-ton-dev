@@ -42,4 +42,20 @@ describe("MatchingSearchFiltersSchema", () => {
     const result = MatchingSearchFiltersSchema.parse({ jobOfferId: "job-1" });
     expect(result.jobOfferId).toBe("job-1");
   });
+
+  it("normalise technologies en tableau quand une seule valeur est fournie (qs ne renvoie pas un tableau à un seul élément)", () => {
+    const result = MatchingSearchFiltersSchema.parse({ technologies: "TypeScript" });
+    expect(result.technologies).toEqual(["TypeScript"]);
+  });
+
+  it("convertit latitude et longitude (chaînes de query string) en nombres", () => {
+    const result = MatchingSearchFiltersSchema.parse({ latitude: "49.4431", longitude: "1.0993" });
+    expect(result.latitude).toBe(49.4431);
+    expect(result.longitude).toBe(1.0993);
+  });
+
+  it("rejette une latitude hors limites", () => {
+    const result = MatchingSearchFiltersSchema.safeParse({ latitude: "200" });
+    expect(result.success).toBe(false);
+  });
 });

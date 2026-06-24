@@ -55,6 +55,8 @@ type DeveloperProfileData = {
   bio: string;
   location: string;
   country: string;
+  latitude: number | null;
+  longitude: number | null;
   remoteOk: boolean;
   availability: string;
   phone: string;
@@ -85,6 +87,8 @@ const emptyDevForm: DeveloperProfileData = {
   title: "",
   bio: "",
   location: "",
+  latitude: null,
+  longitude: null,
   remoteOk: false,
   availability: "",
   phone: "",
@@ -237,6 +241,8 @@ export default function ProfileEditPage() {
               bio: data.profile.bio ?? "",
               location: data.profile.location ?? "",
               country: (data.profile as { country?: string }).country ?? "",
+              latitude: (data.profile as { latitude?: number | null }).latitude ?? null,
+              longitude: (data.profile as { longitude?: number | null }).longitude ?? null,
               remoteOk: data.profile.remoteOk ?? false,
               availability: data.profile.availability ?? "",
               phone: data.profile.phone ?? "",
@@ -416,6 +422,8 @@ export default function ProfileEditPage() {
     if (devForm.bio) payload.bio = devForm.bio;
     if (devForm.location) payload.location = devForm.location;
     if (devForm.country) payload.country = devForm.country;
+    if (devForm.latitude !== null) payload.latitude = devForm.latitude;
+    if (devForm.longitude !== null) payload.longitude = devForm.longitude;
     payload.remoteOk = devForm.remoteOk;
     if (devForm.availability) payload.availability = devForm.availability;
     if (devForm.phone) payload.phone = devForm.phone;
@@ -1293,7 +1301,13 @@ export default function ProfileEditPage() {
               <CityAutocomplete
                 city={devForm.location}
                 country={devForm.country}
-                onChange={(city, country) => setDevForm((prev) => ({ ...prev, location: city, country }))}
+                onChange={(city, country, coords) => setDevForm((prev) => ({
+                  ...prev,
+                  location: city,
+                  country,
+                  latitude: coords?.lat ?? prev.latitude,
+                  longitude: coords?.lon ?? prev.longitude,
+                }))}
                 placeholder="Paris, Lyon, Berlin…"
               />
               {devForm.country && (
