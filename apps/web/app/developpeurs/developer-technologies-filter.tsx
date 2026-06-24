@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { Check, Trash2 } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { Plus, Trash2 } from "lucide-react";
 
 const CATALOG: { category: string; items: string[] }[] = [
   {
@@ -30,6 +30,12 @@ const CATALOG: { category: string; items: string[] }[] = [
   },
 ];
 
+const ALL_ITEMS = CATALOG.flatMap((group) => group.items.map((item) => ({ name: item, category: group.category })));
+
+const POPULAR = ["TypeScript", "JavaScript", "React", "Node.js", "Python", "PostgreSQL", "Docker", "Next.js", "NestJS", "Java"];
+
+const MAX_SUGGESTIONS = 8;
+
 export type TechLevel = "BEGINNER" | "INTERMEDIATE" | "ADVANCED";
 
 const LEVEL_LABELS: Record<TechLevel, string> = {
@@ -54,21 +60,34 @@ type Props = {
 
 /**
  * Sélecteur de technologies en mode "filtre" (sélection immédiate, pas de
- * staging/confirmation) — réutilise le catalogue et le langage visuel de
- * JobTechnologiesSelector (apps/web/app/jobs/job-technologies-selector.tsx),
- * adapté pour une recherche en direct côté recruteur.
+ * staging/confirmation) : recherche par autocomplétion + pastilles "populaires"
+ * en repli, pour rester utilisable dans une sidebar étroite (cf. la grille de
+ * catégories toujours visible débordait au-delà de 280px).
  */
 export function DeveloperTechnologiesFilter({ selected, levels, onChange }: Props) {
   const [search, setSearch] = useState("");
+  const [open, setOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   const selectedSet = new Set(selected.map((t) => t.toLowerCase()));
 
-  const filteredCatalog = CATALOG.map((group) => ({
-    ...group,
-    items: group.items.filter(
-      (item) => search === "" || item.toLowerCase().includes(search.toLowerCase()),
-    ),
-  })).filter((g) => g.items.length > 0);
+  const suggestions = search.trim() === ""
+    ? []
+    : ALL_ITEMS.filter(
+        (i) => !selectedSet.has(i.name.toLowerCase()) && i.name.toLowerCase().includes(search.trim().toLowerCase()),
+      ).slice(0, MAX_SUGGESTIONS);
+
+  const popularItems = POPULAR.filter((p) => !selectedSet.has(p.toLowerCase()));
 
   function toggle(item: string) {
     if (selectedSet.has(item.toLowerCase())) {
@@ -78,6 +97,11 @@ export function DeveloperTechnologiesFilter({ selected, levels, onChange }: Prop
     } else {
       onChange([...selected, item], { ...levels, [item]: "INTERMEDIATE" });
     }
+  }
+
+  function handlePick(item: string) {
+    toggle(item);
+    setSearch("");
   }
 
   function handleRemove(tech: string) {
@@ -131,46 +155,62 @@ export function DeveloperTechnologiesFilter({ selected, levels, onChange }: Prop
         </div>
       )}
 
-      <input
-        className="input-base"
-        placeholder="Rechercher une technologie souhaitée…"
-        value={search}
-        onChange={(e) => setSearch(e.target.value)}
-      />
+      <div className="relative" ref={containerRef}>
+        <input
+          className="input-base"
+          placeholder="Rechercher une technologie souhaitée…"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          onFocus={() => setOpen(true)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && suggestions.length > 0) {
+              e.preventDefault();
+              handlePick(suggestions[0]!.name);
+            }
+          }}
+        />
 
-      <div className="max-h-56 space-y-2 overflow-y-auto rounded-lg border border-border bg-background p-2">
-        {filteredCatalog.map((group) => (
-          <div key={group.category}>
-            <p className="px-2 py-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              {group.category}
-            </p>
-            <div className="grid grid-cols-2 gap-0.5 sm:grid-cols-3">
-              {group.items.map((item) => {
-                const isSelected = selectedSet.has(item.toLowerCase());
-                return (
-                  <button
-                    key={item}
-                    type="button"
-                    onClick={() => toggle(item)}
-                    className={`flex items-center gap-2 rounded-lg px-3 py-1.5 text-left text-sm transition-colors ${
-                      isSelected ? "bg-primary/10 font-medium text-primary" : "text-foreground hover:bg-muted"
-                    }`}
-                  >
-                    <span
-                      className={`flex size-4 shrink-0 items-center justify-center rounded border transition-colors ${
-                        isSelected ? "border-primary bg-primary" : "border-border"
-                      }`}
-                    >
-                      {isSelected && <Check className="size-2.5 text-primary-foreground" />}
-                    </span>
-                    {item}
-                  </button>
-                );
-              })}
-            </div>
+        {open && search.trim() !== "" && (
+          <div className="absolute z-10 mt-1 max-h-60 w-full overflow-y-auto rounded-lg border border-border bg-popover p-1 shadow-md">
+            {suggestions.length === 0 ? (
+              <p className="px-3 py-2 text-sm text-muted-foreground">Aucun résultat</p>
+            ) : (
+              suggestions.map((item) => (
+                <button
+                  key={item.name}
+                  type="button"
+                  onClick={() => handlePick(item.name)}
+                  className="flex w-full items-center justify-between gap-2 rounded-md px-3 py-2 text-left text-sm text-foreground transition-colors hover:bg-muted"
+                >
+                  <span>{item.name}</span>
+                  <span className="text-xs text-muted-foreground">{item.category}</span>
+                </button>
+              ))
+            )}
           </div>
-        ))}
+        )}
       </div>
+
+      {search.trim() === "" && popularItems.length > 0 && (
+        <div>
+          <p className="mb-1.5 px-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            Technologies populaires
+          </p>
+          <div className="flex flex-wrap gap-1.5">
+            {popularItems.map((item) => (
+              <button
+                key={item}
+                type="button"
+                onClick={() => toggle(item)}
+                className="inline-flex items-center gap-1 rounded-full border border-border px-2.5 py-1 text-xs font-medium text-foreground transition-colors hover:border-primary/40 hover:bg-primary/10 hover:text-primary"
+              >
+                <Plus className="size-3" />
+                {item}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
