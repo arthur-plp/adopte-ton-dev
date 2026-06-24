@@ -46,7 +46,7 @@ type DevProfile = {
   location: string | null;
   githubUrl: string | null;
   portfolioUrl: string | null;
-  technologies: { id: string }[];
+  technologies: { id: string; name: string }[];
   skills: { id: string }[];
   projects: Project[];
 };
@@ -72,6 +72,11 @@ type JobOfferSummary = {
   remoteOk: boolean;
 };
 
+type RecommendedOffer = JobOfferSummary & {
+  requiredTechnologies: string[];
+  score: number;
+};
+
 function getCompletionSteps(profile: DevProfile): CompletionStep[] {
   return [
     { key: "title", label: "Titre professionnel", done: !!profile.title },
@@ -95,6 +100,8 @@ export default function DeveloperDashboard() {
   const [applicationOffers, setApplicationOffers] = useState<Record<string, JobOfferSummary>>({});
   const [pendingDocsByApplication, setPendingDocsByApplication] = useState<Record<string, number>>({});
   const [applicationsLoading, setApplicationsLoading] = useState(true);
+  const [recommendedOffers, setRecommendedOffers] = useState<RecommendedOffer[]>([]);
+  const [recommendedLoading, setRecommendedLoading] = useState(true);
 
   useEffect(() => {
     fetch(`${apiUrl}/users/me/profile`, { credentials: "include" })
@@ -106,6 +113,46 @@ export default function DeveloperDashboard() {
       .catch(() => {})
       .finally(() => setProfileLoading(false));
   }, [apiUrl]);
+
+  useEffect(() => {
+    if (profileLoading) return;
+    const techNames = profile?.technologies.map((t) => t.name) ?? [];
+    if (techNames.length === 0) {
+      setRecommendedLoading(false);
+      return;
+    }
+
+    const params = new URLSearchParams({ page: "1", pageSize: "20" });
+    techNames.forEach((name) => params.append("technologies", name));
+
+    fetch(`${apiUrl}/job-offers?${params.toString()}`)
+      .then((r) =>
+        r.ok
+          ? (r.json() as Promise<{
+              data: (JobOfferSummary & { requiredTechnologies: string[] })[];
+            }>)
+          : { data: [] },
+      )
+      .then(({ data }) => {
+        const scored = data
+          .map((offer) => {
+            const matched = offer.requiredTechnologies.filter((t) =>
+              techNames.includes(t),
+            ).length;
+            const score =
+              offer.requiredTechnologies.length > 0
+                ? Math.round((matched / offer.requiredTechnologies.length) * 100)
+                : 0;
+            return { ...offer, score };
+          })
+          .filter((offer) => offer.score > 0)
+          .sort((a, b) => b.score - a.score)
+          .slice(0, 6);
+        setRecommendedOffers(scored);
+      })
+      .catch(() => setRecommendedOffers([]))
+      .finally(() => setRecommendedLoading(false));
+  }, [profileLoading, profile, apiUrl]);
 
   useEffect(() => {
     fetch(`${apiUrl}/applications/mine`, { credentials: "include" })
@@ -267,7 +314,7 @@ export default function DeveloperDashboard() {
         {[
           {
             label: "Offres correspondantes",
-            value: "—",
+            value: recommendedLoading ? "…" : recommendedOffers.length.toString(),
             icon: <Briefcase className="size-5" />,
             color: "text-primary bg-primary/10",
           },
@@ -302,16 +349,59 @@ export default function DeveloperDashboard() {
             title="Offres recommandées"
             action={<Link href="/offres" className="text-xs text-primary hover:underline">Voir tout</Link>}
           />
-          <EmptyState
-            icon={<Briefcase className="size-8" />}
-            title="Aucune offre pour l'instant"
-            description="Complète ton profil pour recevoir des offres personnalisées."
-            action={
-              <Button asChild size="sm" variant="outline">
-                <Link href="/profile/edit">Compléter mon profil</Link>
-              </Button>
-            }
-          />
+          {recommendedLoading ? (
+            <div className="flex justify-center py-6">
+              <div className="size-6 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+            </div>
+          ) : recommendedOffers.length === 0 ? (
+            <EmptyState
+              icon={<Briefcase className="size-8" />}
+              title="Aucune offre pour l'instant"
+              description="Complète ton profil pour recevoir des offres personnalisées."
+              action={
+                <Button asChild size="sm" variant="outline">
+                  <Link href="/profile/edit">Compléter mon profil</Link>
+                </Button>
+              }
+            />
+          ) : (
+            <ul className="space-y-3">
+              {recommendedOffers.map((offer) => (
+                <li key={offer.id}>
+                  <Link
+                    href={`/offres/${offer.id}`}
+                    className="-mx-2 flex items-center justify-between gap-3 rounded-lg px-2 py-2 transition-colors hover:bg-muted/50"
+                  >
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-medium text-foreground">
+                        {offer.title}
+                      </p>
+                      <div className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
+                        {offer.companyName && (
+                          <span className="flex items-center gap-1">
+                            <Building2 className="size-3" /> {offer.companyName}
+                          </span>
+                        )}
+                        {offer.location && (
+                          <span className="flex items-center gap-1">
+                            <MapPin className="size-3" /> {offer.location}
+                          </span>
+                        )}
+                        {offer.remoteOk && (
+                          <span className="flex items-center gap-1">
+                            <Wifi className="size-3" /> Remote possible
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <span className="badge shrink-0 text-primary">
+                      {offer.score}% compatible
+                    </span>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
 
         {/* Mes projets */}
