@@ -323,7 +323,7 @@ export default function DeveloperDashboard() {
           },
           {
             label: "Candidatures envoyées",
-            value: "0",
+            value: applicationsLoading ? "…" : appliedOfferIds.size.toString(),
             icon: <FileText className="size-5" />,
             color: "text-violet-600 bg-violet-500/10",
           },

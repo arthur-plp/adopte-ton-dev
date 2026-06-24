@@ -56,6 +56,7 @@ type JobOffer = {
 
 type RecommendedDeveloper = {
   id: string;
+  userId: string;
   firstName: string;
   lastName: string;
   title: string | null;
@@ -134,6 +135,7 @@ export default function RecruiterDashboard() {
   const [loadingApplications, setLoadingApplications] = useState(true);
   const [plan, setPlan] = useState<"FREE" | "PRO" | null>(null);
   const [recommendedDevs, setRecommendedDevs] = useState<RecommendedDeveloper[]>([]);
+  const [recommendedDevsTotal, setRecommendedDevsTotal] = useState(0);
   const [recommendedDevsLoading, setRecommendedDevsLoading] = useState(true);
 
   useEffect(() => {
@@ -158,6 +160,7 @@ export default function RecruiterDashboard() {
     );
     if (techs.length === 0) {
       setRecommendedDevsLoading(false);
+      setRecommendedDevsTotal(0);
       return;
     }
 
@@ -166,9 +169,19 @@ export default function RecruiterDashboard() {
     techs.forEach((t) => params.append("technologies", t));
 
     fetch(`${apiUrl}/matching/developers?${params.toString()}`, { credentials: "include" })
-      .then((r) => (r.ok ? (r.json() as Promise<{ data: RecommendedDeveloper[] }>) : { data: [] }))
-      .then(({ data }) => setRecommendedDevs(data))
-      .catch(() => setRecommendedDevs([]))
+      .then((r) =>
+        r.ok
+          ? (r.json() as Promise<{ data: RecommendedDeveloper[]; total: number }>)
+          : { data: [], total: 0 },
+      )
+      .then(({ data, total }) => {
+        setRecommendedDevs(data);
+        setRecommendedDevsTotal(total);
+      })
+      .catch(() => {
+        setRecommendedDevs([]);
+        setRecommendedDevsTotal(0);
+      })
       .finally(() => setRecommendedDevsLoading(false));
   }, [loading, offers, apiUrl]);
 
@@ -472,7 +485,7 @@ export default function RecruiterDashboard() {
           },
           {
             label: "Profils matchés",
-            value: "—",
+            value: loading || recommendedDevsLoading ? "…" : recommendedDevsTotal.toString(),
             icon: <Users className="size-5" />,
             color: "text-emerald-600 bg-emerald-500/10",
           },
@@ -758,7 +771,7 @@ export default function RecruiterDashboard() {
               {recommendedDevs.map((dev) => (
                 <li key={dev.id}>
                   <Link
-                    href={`/developpeurs/${dev.id}`}
+                    href={`/developpeurs/${dev.userId}`}
                     className="-mx-2 flex items-center justify-between gap-3 rounded-lg px-2 py-2 transition-colors hover:bg-muted/50"
                   >
                     <div className="min-w-0">
