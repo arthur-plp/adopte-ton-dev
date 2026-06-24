@@ -114,4 +114,9 @@ export class JobOffersController {
   ) {
     return this.service.getHistory(data.id, data.requesterId, data.isAdmin);
   }
+
+  @MessagePattern({ cmd: "job.getStats" })
+  getStats() {
+    return this.service.getStats();
+  }
 }

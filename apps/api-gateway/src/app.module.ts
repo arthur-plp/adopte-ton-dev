@@ -1,10 +1,14 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
+import { APP_GUARD } from '@nestjs/core';
 import { UsersModule } from './users/users.module';
 import { JobOffersModule } from './job-offers/job-offers.module';
 import { AdminModule } from './admin/admin.module';
 import { ApplicationsModule } from './applications/applications.module';
 import { PaymentModule } from './payment/payment.module';
+import { MatchingModule } from './matching/matching.module';
+import { ReportsModule } from './reports/reports.module';
+import { RedisRateLimitGuard } from './rate-limit/redis-rate-limit.guard';
 
 @Module({
   imports: [
@@ -14,6 +18,9 @@ import { PaymentModule } from './payment/payment.module';
     AdminModule,
     ApplicationsModule,
     PaymentModule,
+    MatchingModule,
+    ReportsModule,
   ],
+  providers: [{ provide: APP_GUARD, useClass: RedisRateLimitGuard }],
 })
 export class AppModule {}

@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { JobStatus, JobType } from "@repo/types";
+import { stringArrayQueryParam } from "./query-helpers";
 
 export const TechLevelEnum = z.enum(["BEGINNER", "INTERMEDIATE", "ADVANCED"]);
 export type TechLevel = z.infer<typeof TechLevelEnum>;
@@ -41,7 +42,7 @@ export type UpdateJobOfferDto = z.infer<typeof UpdateJobOfferSchema>;
 export const JobOfferFiltersSchema = z.object({
   type: z.nativeEnum(JobType).optional(),
   status: z.nativeEnum(JobStatus).optional(),
-  technologies: z.array(z.string()).optional(),
+  technologies: stringArrayQueryParam,
   remoteOk: z
     .string()
     .transform((v) => v === "true")

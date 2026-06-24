@@ -18,6 +18,7 @@ const mockService = {
   confirmUpload: jest.fn(),
   getDownloadUrl: jest.fn(),
   deleteDocument: jest.fn(),
+  getStats: jest.fn(),
 };
 
 const baseApplication = {
@@ -234,5 +235,12 @@ describe("ApplicationsController", () => {
       developerId: "dev-1",
     });
     expect(mockService.deleteDocument).toHaveBeenCalledWith("req-1", "dev-1");
+  });
+
+  it("getStats → délègue au service", async () => {
+    mockService.getStats.mockResolvedValueOnce({ total: 0 });
+    const result = await controller.getStats();
+    expect(mockService.getStats).toHaveBeenCalled();
+    expect(result).toEqual({ total: 0 });
   });
 });

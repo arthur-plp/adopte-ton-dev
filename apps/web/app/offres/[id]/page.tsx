@@ -8,6 +8,7 @@ import { Navbar } from "@/components/navbar";
 import { Footer } from "@/components/footer";
 import { Button } from "@/components/ui/button";
 import { EmailVerificationBanner } from "@/components/email-verification-banner";
+import { ReportDialog } from "@/components/report-dialog";
 import {
   APPLICATION_STATUS_COLORS,
   APPLICATION_STATUS_LABELS,
@@ -141,13 +142,16 @@ export default function OfferDetailPage({ params }: { params: Promise<{ id: stri
       <main className="flex-1">
         <div className="mx-auto max-w-3xl px-4 py-10 sm:px-6">
           {/* Back */}
-          <Link
-            href="/offres"
-            className="mb-8 flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
-          >
-            <ArrowLeft className="size-4" />
-            Retour aux offres
-          </Link>
+          <div className="mb-8 flex items-center justify-between">
+            <Link
+              href="/offres"
+              className="flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
+            >
+              <ArrowLeft className="size-4" />
+              Retour aux offres
+            </Link>
+            {session && <ReportDialog targetType="job" targetId={id} />}
+          </div>
 
           {/* Header */}
           <div className="mb-6">

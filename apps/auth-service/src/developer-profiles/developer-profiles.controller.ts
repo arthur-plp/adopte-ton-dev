@@ -32,6 +32,23 @@ export class DeveloperProfilesController {
     return this.service.findByUserId(payload.userId);
   }
 
+  @MessagePattern({ cmd: 'developer.search' })
+  search(
+    @Payload()
+    payload: {
+      technologies?: string[];
+      remoteOk?: boolean;
+      location?: string;
+      latitude?: number;
+      longitude?: number;
+      radiusKm?: number;
+      page: number;
+      pageSize: number;
+    },
+  ) {
+    return this.service.search(payload);
+  }
+
   @MessagePattern({ cmd: 'developer.updateProfile' })
   update(
     @Payload() payload: { userId: string; requesterId: string; data: unknown },

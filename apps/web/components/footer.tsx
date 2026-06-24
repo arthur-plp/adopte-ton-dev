@@ -1,33 +1,47 @@
-import Link from "next/link";
-import { Code2 } from "lucide-react";
+"use client";
 
-const LINKS = [
-  {
-    heading: "Plateforme",
-    items: [
-      { label: "Offres d'emploi", href: "/offres" },
-      { label: "Profils développeurs", href: "/developpeurs" },
-      { label: "Accès recruteur", href: "/recruteurs" },
-    ],
-  },
-  {
-    heading: "Entreprise",
-    items: [
-      { label: "À propos", href: "/a-propos" },
-      { label: "Nous contacter", href: "/contact" },
-    ],
-  },
-  {
-    heading: "Légal",
-    items: [
-      { label: "CGU", href: "/cgu" },
-      { label: "Politique de confidentialité", href: "/confidentialite" },
-      { label: "Mentions légales", href: "/mentions-legales" },
-    ],
-  },
-];
+import Link from "next/link";
+import { useState, useEffect } from "react";
+import { Code2 } from "lucide-react";
+import { useSession } from "@/lib/auth-client";
 
 export function Footer() {
+  const { data: session } = useSession();
+
+  // Même précaution que dans Navbar : éviter un mismatch d'hydratation entre
+  // le rendu serveur (pas de session) et le client (session déjà résolue).
+  const [hasMounted, setHasMounted] = useState(false);
+  useEffect(() => { setHasMounted(true); }, []);
+
+  const role = hasMounted ? (session?.user as { role?: string } | undefined)?.role : undefined;
+  const isRecruiterOrAdmin = role === "RECRUITER" || role === "ADMIN";
+
+  const LINKS = [
+    {
+      heading: "Plateforme",
+      items: [
+        { label: "Offres d'emploi", href: "/offres" },
+        ...(isRecruiterOrAdmin ? [{ label: "Profils développeurs", href: "/developpeurs" }] : []),
+        { label: "Accès recruteur", href: "/recruteurs" },
+      ],
+    },
+    {
+      heading: "Entreprise",
+      items: [
+        { label: "À propos", href: "/a-propos" },
+        { label: "Nous contacter", href: "/contact" },
+      ],
+    },
+    {
+      heading: "Légal",
+      items: [
+        { label: "CGU", href: "/cgu" },
+        { label: "Politique de confidentialité", href: "/confidentialite" },
+        { label: "Mentions légales", href: "/mentions-legales" },
+      ],
+    },
+  ];
+
   return (
     <footer className="border-t border-border/60 bg-muted/20">
       <div className="mx-auto max-w-6xl px-4 py-12 sm:px-6">

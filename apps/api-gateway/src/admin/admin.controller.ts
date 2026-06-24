@@ -48,6 +48,8 @@ export class AdminController {
   constructor(
     @Inject('USERS_SVC') private readonly usersSvc: ClientProxy,
     @Inject('JOBS_SVC') private readonly jobsSvc: ClientProxy,
+    @Inject('APPLICATIONS_SVC')
+    private readonly applicationsSvc: ClientProxy,
   ) {}
 
   private async send<T>(pattern: { cmd: string }, data: unknown): Promise<T> {
@@ -69,10 +71,26 @@ export class AdminController {
     }
   }
 
+  private async sendApplications<T>(
+    pattern: { cmd: string },
+    data: unknown,
+  ): Promise<T> {
+    try {
+      return await lastValueFrom(this.applicationsSvc.send<T>(pattern, data));
+    } catch (err: unknown) {
+      toHttpException(err);
+    }
+  }
+
   @Get('stats')
   @ApiOperation({ summary: 'Statistiques globales de la plateforme' })
-  getStats() {
-    return this.send({ cmd: 'admin.getStats' }, {});
+  async getStats() {
+    const [users, jobOffers, applications] = await Promise.all([
+      this.send({ cmd: 'admin.getStats' }, {}),
+      this.sendJobs({ cmd: 'job.getStats' }, {}),
+      this.sendApplications({ cmd: 'application.getStats' }, {}),
+    ]);
+    return { users, jobOffers, applications };
   }
 
   @Get('users')
@@ -168,6 +186,37 @@ export class AdminController {
     return this.sendJobs(
       { cmd: 'job.getHistory' },
       { id, requesterId: req.user.id, isAdmin: true },
+    );
+  }
+
+  // ── Signalements ────────────────────────────────────────────────────────
+
+  @Get('reports')
+  @ApiOperation({ summary: 'Lister les signalements (paginé + filtre statut)' })
+  listReports(
+    @Query('status') status?: string,
+    @Query('page') page = '1',
+    @Query('pageSize') pageSize = '20',
+  ) {
+    return this.send(
+      { cmd: 'report.list' },
+      {
+        status: status || undefined,
+        page: Math.max(1, parseInt(page, 10)),
+        pageSize: Math.min(100, parseInt(pageSize, 10)),
+      },
+    );
+  }
+
+  @Patch('reports/:id')
+  @ApiOperation({ summary: "Changer le statut d'un signalement" })
+  updateReportStatus(
+    @Param('id') id: string,
+    @Body() body: { status: string },
+  ) {
+    return this.send(
+      { cmd: 'report.updateStatus' },
+      { id, status: body.status },
     );
   }
 }

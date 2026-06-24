@@ -8,12 +8,35 @@ import {
   ChevronLeft, ChevronRight, ShieldAlert,
   Plus, X, Eye, EyeOff, Pencil, Trash2, AlertTriangle,
   CheckCircle2, XCircle, Clock, MapPin, Wifi, Euro,
-  History, MessageSquare,
+  History, MessageSquare, FileText, TrendingUp, Flag, BarChart3,
 } from "lucide-react";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
+import { AdminStatsCharts } from "./admin-stats-charts";
 
-type Stats = { total: number; developers: number; recruiters: number; admins: number };
+type Stats = {
+  users: { total: number; developers: number; recruiters: number; admins: number };
+  jobOffers: {
+    total: number;
+    draft: number;
+    pendingReview: number;
+    approved: number;
+    published: number;
+    rejected: number;
+    archived: number;
+  };
+  applications: {
+    total: number;
+    sent: number;
+    viewed: number;
+    interview: number;
+    accepted: number;
+    rejected: number;
+    withdrawn: number;
+    acceptanceRate: number;
+  };
+};
 
 type PendingOffer = {
   id: string;
@@ -36,7 +59,19 @@ type PendingOffer = {
 
 type PaginatedOffers = { data: PendingOffer[]; total: number; page: number; pageSize: number };
 
-type ActiveTab = "users" | "offers";
+type ReportRow = {
+  id: string;
+  reporterId: string;
+  targetType: "profile" | "job";
+  targetId: string;
+  reason: string;
+  status: "open" | "resolved" | "dismissed";
+  createdAt: string;
+};
+
+type PaginatedReports = { data: ReportRow[]; total: number; page: number; pageSize: number };
+
+type ActiveTab = "stats" | "users" | "offers" | "reports";
 
 type UserRow = {
   id: string;
@@ -81,7 +116,7 @@ export default function AdminDashboard() {
   const { data: session, isPending } = useSession();
   const router = useRouter();
 
-  const [activeTab, setActiveTab] = useState<ActiveTab>("users");
+  const [activeTab, setActiveTab] = useState<ActiveTab>("stats");
   const [stats, setStats] = useState<Stats | null>(null);
   const [result, setResult] = useState<Paginated | null>(null);
   const [loading, setLoading] = useState(true);
@@ -99,6 +134,14 @@ export default function AdminDashboard() {
   const [moderatingOffer, setModeratingOffer] = useState<string | null>(null);
   const [rejectTarget, setRejectTarget] = useState<PendingOffer | null>(null);
   const [viewingOffer, setViewingOffer] = useState<PendingOffer | null>(null);
+
+  // Signalements
+  const [reports, setReports] = useState<PaginatedReports | null>(null);
+  const [reportsLoading, setReportsLoading] = useState(false);
+  const [reportPage, setReportPage] = useState(1);
+  const [reportStatusFilter, setReportStatusFilter] = useState<"open" | "resolved" | "dismissed" | "ALL">("open");
+  const [moderatingReport, setModeratingReport] = useState<string | null>(null);
+  const [openReportsCount, setOpenReportsCount] = useState(0);
 
   const isAdmin = !isPending && !!session && (session.user as { role?: string }).role === "ADMIN";
 
@@ -223,6 +266,56 @@ export default function AdminDashboard() {
     } finally { setModeratingOffer(null); }
   }
 
+  const fetchReports = useCallback(async (p: number, status: typeof reportStatusFilter) => {
+    setReportsLoading(true);
+    const params = new URLSearchParams({ page: p.toString(), pageSize: "10" });
+    if (status !== "ALL") params.set("status", status);
+    try {
+      const res = await fetch(`${apiUrl}/admin/reports?${params}`, { credentials: "include" });
+      if (res.ok) setReports(await res.json() as PaginatedReports);
+    } catch { /* ignore */ } finally {
+      setReportsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!isAdmin) return;
+    void fetchReports(reportPage, reportStatusFilter);
+  }, [isAdmin, reportPage, reportStatusFilter, fetchReports]);
+
+  const fetchOpenReportsCount = useCallback(async () => {
+    try {
+      const res = await fetch(`${apiUrl}/admin/reports?status=open&page=1&pageSize=1`, { credentials: "include" });
+      if (res.ok) setOpenReportsCount((await res.json() as PaginatedReports).total);
+    } catch { /* ignore */ }
+  }, []);
+
+  useEffect(() => {
+    if (!isAdmin) return;
+    void fetchOpenReportsCount();
+  }, [isAdmin, fetchOpenReportsCount]);
+
+  async function handleReportStatus(id: string, status: "resolved" | "dismissed") {
+    setModeratingReport(id);
+    try {
+      const res = await fetch(`${apiUrl}/admin/reports/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ status }),
+      });
+      if (res.ok) {
+        setReports((prev) => prev ? { ...prev, data: prev.data.filter((r) => r.id !== id), total: prev.total - 1 } : prev);
+        setOpenReportsCount((c) => Math.max(0, c - 1));
+        toast.success(status === "resolved" ? "Signalement résolu." : "Signalement rejeté.");
+      } else {
+        toast.error("Erreur lors de la mise à jour du signalement.");
+      }
+    } catch {
+      toast.error("Erreur réseau.");
+    } finally { setModeratingReport(null); }
+  }
+
   if (isPending || !session) {
     return (
       <div className="flex min-h-[60vh] items-center justify-center">
@@ -259,6 +352,13 @@ export default function AdminDashboard() {
       <div className="mb-6 flex gap-1 rounded-xl border border-border bg-muted/40 p-1 w-fit">
         <button
           type="button"
+          onClick={() => setActiveTab("stats")}
+          className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors ${activeTab === "stats" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+        >
+          <span className="flex items-center gap-2"><BarChart3 className="size-4" />Statistiques</span>
+        </button>
+        <button
+          type="button"
           onClick={() => setActiveTab("users")}
           className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors ${activeTab === "users" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
         >
@@ -274,6 +374,19 @@ export default function AdminDashboard() {
             Modération des offres
             {pendingCount > 0 && (
               <span className="rounded-full bg-primary px-1.5 py-0.5 text-xs font-semibold text-primary-foreground">{pendingCount}</span>
+            )}
+          </span>
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab("reports")}
+          className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors ${activeTab === "reports" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+        >
+          <span className="flex items-center gap-2">
+            <Flag className="size-4" />
+            Signalements
+            {openReportsCount > 0 && (
+              <span className="rounded-full bg-primary px-1.5 py-0.5 text-xs font-semibold text-primary-foreground">{openReportsCount}</span>
             )}
           </span>
         </button>
@@ -298,6 +411,50 @@ export default function AdminDashboard() {
         />
       )}
 
+      {/* ── Onglet Statistiques ── */}
+      {activeTab === "stats" && (
+        <>
+          {!stats ? (
+            <div className="flex justify-center py-16">
+              <div className="size-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+            </div>
+          ) : (
+            <>
+              <div className="mb-4 grid gap-4 sm:grid-cols-4">
+                {[
+                  { label: "Total utilisateurs", value: stats.users.total, icon: <Users className="size-5" />, color: "text-foreground bg-muted" },
+                  { label: "Développeurs", value: stats.users.developers, icon: <Code2 className="size-5" />, color: "text-sky-600 bg-sky-500/10" },
+                  { label: "Recruteurs", value: stats.users.recruiters, icon: <Briefcase className="size-5" />, color: "text-violet-600 bg-violet-500/10" },
+                  { label: "Admins", value: stats.users.admins, icon: <ShieldAlert className="size-5" />, color: "text-amber-600 bg-amber-500/10" },
+                ].map(({ label, value, icon, color }) => (
+                  <div key={label} className="rounded-2xl border border-border bg-card p-5">
+                    <div className={`mb-3 inline-flex size-9 items-center justify-center rounded-lg ${color}`}>{icon}</div>
+                    <p className="text-2xl font-bold text-foreground">{value}</p>
+                    <p className="mt-1 text-sm text-muted-foreground">{label}</p>
+                  </div>
+                ))}
+              </div>
+
+              <div className="mb-6 grid gap-4 sm:grid-cols-3">
+                {[
+                  { label: "Offres publiées", value: stats.jobOffers.published, icon: <Briefcase className="size-5" />, color: "text-emerald-600 bg-emerald-500/10" },
+                  { label: "Candidatures totales", value: stats.applications.total, icon: <FileText className="size-5" />, color: "text-sky-600 bg-sky-500/10" },
+                  { label: "Taux d'acceptation", value: `${stats.applications.acceptanceRate}%`, icon: <TrendingUp className="size-5" />, color: "text-violet-600 bg-violet-500/10" },
+                ].map(({ label, value, icon, color }) => (
+                  <div key={label} className="rounded-2xl border border-border bg-card p-5">
+                    <div className={`mb-3 inline-flex size-9 items-center justify-center rounded-lg ${color}`}>{icon}</div>
+                    <p className="text-2xl font-bold text-foreground">{value}</p>
+                    <p className="mt-1 text-sm text-muted-foreground">{label}</p>
+                  </div>
+                ))}
+              </div>
+
+              <AdminStatsCharts stats={stats} />
+            </>
+          )}
+        </>
+      )}
+
       {/* ── Onglet Utilisateurs ── */}
       {activeTab === "users" && (<>
       {showCreateForm && (
@@ -308,24 +465,6 @@ export default function AdminDashboard() {
       )}
       {deletingUser && (
         <DeleteUserModal user={deletingUser} onClose={() => setDeletingUser(null)} onSuccess={handleDeleted} />
-      )}
-
-      {/* Stats */}
-      {stats && (
-        <div className="mb-8 grid gap-4 sm:grid-cols-4">
-          {[
-            { label: "Total", value: stats.total, icon: <Users className="size-5" />, color: "text-foreground bg-muted" },
-            { label: "Développeurs", value: stats.developers, icon: <Code2 className="size-5" />, color: "text-sky-600 bg-sky-500/10" },
-            { label: "Recruteurs", value: stats.recruiters, icon: <Briefcase className="size-5" />, color: "text-violet-600 bg-violet-500/10" },
-            { label: "Admins", value: stats.admins, icon: <ShieldAlert className="size-5" />, color: "text-amber-600 bg-amber-500/10" },
-          ].map(({ label, value, icon, color }) => (
-            <div key={label} className="rounded-2xl border border-border bg-card p-5">
-              <div className={`mb-3 inline-flex size-9 items-center justify-center rounded-lg ${color}`}>{icon}</div>
-              <p className="text-2xl font-bold text-foreground">{value}</p>
-              <p className="mt-1 text-sm text-muted-foreground">{label}</p>
-            </div>
-          ))}
-        </div>
       )}
 
       {/* Table utilisateurs */}
@@ -525,6 +664,105 @@ export default function AdminDashboard() {
                   <ChevronLeft className="size-4" />
                 </Button>
                 <Button size="icon-sm" variant="outline" disabled={offerPage >= Math.ceil(pendingOffers.total / 10)} onClick={() => setOfferPage((p) => p + 1)}>
+                  <ChevronRight className="size-4" />
+                </Button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── Onglet Signalements ── */}
+      {activeTab === "reports" && (
+        <div className="rounded-2xl border border-border bg-card">
+          <div className="flex flex-wrap items-center gap-2 border-b border-border px-6 py-4">
+            {([
+              { value: "open", label: "Ouverts" },
+              { value: "resolved", label: "Résolus" },
+              { value: "dismissed", label: "Rejetés" },
+              { value: "ALL", label: "Tous" },
+            ] as const).map(({ value, label }) => (
+              <button
+                key={value}
+                type="button"
+                onClick={() => { setReportPage(1); setReportStatusFilter(value); }}
+                className={`rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${reportStatusFilter === value ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-muted hover:text-foreground"}`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+
+          {reportsLoading ? (
+            <div className="flex justify-center py-16">
+              <div className="size-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+            </div>
+          ) : !reports || reports.data.length === 0 ? (
+            <div className="empty-state py-16">
+              <Flag className="mb-3 size-10 text-muted-foreground/40" />
+              <p className="text-sm font-medium text-foreground">Aucun signalement</p>
+            </div>
+          ) : (
+            <div className="divide-y divide-border">
+              {reports.data.map((report) => (
+                <div key={report.id} className="flex flex-wrap items-start justify-between gap-3 px-6 py-4">
+                  <div className="min-w-0 flex-1">
+                    <div className="mb-1 flex items-center gap-2">
+                      <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-foreground">
+                        {report.targetType === "profile" ? "Profil" : "Offre"}
+                      </span>
+                      <Link
+                        href={report.targetType === "profile" ? `/developpeurs/${report.targetId}` : `/offres/${report.targetId}`}
+                        className="text-xs text-primary hover:underline"
+                      >
+                        Voir la cible
+                      </Link>
+                      <span className="text-xs text-muted-foreground">
+                        {new Date(report.createdAt).toLocaleDateString("fr-FR")}
+                      </span>
+                    </div>
+                    <p className="text-sm text-foreground">{report.reason}</p>
+                  </div>
+                  {report.status === "open" ? (
+                    <div className="flex shrink-0 gap-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={moderatingReport === report.id}
+                        onClick={() => void handleReportStatus(report.id, "dismissed")}
+                      >
+                        <XCircle className="size-3.5" />
+                        Rejeter
+                      </Button>
+                      <Button
+                        size="sm"
+                        disabled={moderatingReport === report.id}
+                        onClick={() => void handleReportStatus(report.id, "resolved")}
+                      >
+                        <CheckCircle2 className="size-3.5" />
+                        Résoudre
+                      </Button>
+                    </div>
+                  ) : (
+                    <span className={`shrink-0 rounded-full px-2.5 py-0.5 text-xs font-medium ${report.status === "resolved" ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400" : "bg-muted text-muted-foreground"}`}>
+                      {report.status === "resolved" ? "Résolu" : "Rejeté"}
+                    </span>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+
+          {reports && Math.ceil(reports.total / 10) > 1 && (
+            <div className="flex items-center justify-between border-t border-border px-6 py-3">
+              <span className="text-sm text-muted-foreground">
+                {reports.total} signalement{reports.total > 1 ? "s" : ""} · page {reportPage}/{Math.ceil(reports.total / 10)}
+              </span>
+              <div className="flex gap-1">
+                <Button size="icon-sm" variant="outline" disabled={reportPage <= 1} onClick={() => setReportPage((p) => p - 1)}>
+                  <ChevronLeft className="size-4" />
+                </Button>
+                <Button size="icon-sm" variant="outline" disabled={reportPage >= Math.ceil(reports.total / 10)} onClick={() => setReportPage((p) => p + 1)}>
                   <ChevronRight className="size-4" />
                 </Button>
               </div>

@@ -1,4 +1,8 @@
-import { ForbiddenException, NotFoundException } from '@nestjs/common';
+import {
+  ConflictException,
+  ForbiddenException,
+  NotFoundException,
+} from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { RecruiterProfilesService } from './recruiter-profiles.service';
 import { PrismaService } from '../prisma/prisma.service';
@@ -13,6 +17,7 @@ const mockPrisma = {
   company: {
     upsert: jest.fn(),
     update: jest.fn(),
+    findUnique: jest.fn(),
   },
   $transaction: jest.fn(),
 };
@@ -36,6 +41,7 @@ describe('RecruiterProfilesService', () => {
 
     service = module.get<RecruiterProfilesService>(RecruiterProfilesService);
     jest.clearAllMocks();
+    mockPrisma.company.findUnique.mockResolvedValue(null);
   });
 
   // ─── create ───────────────────────────────────────────────────────────────
@@ -230,6 +236,45 @@ describe('RecruiterProfilesService', () => {
         update: { siret: '12345678901234' },
         create: { name: 'Acme', siret: '12345678901234' },
       });
+    });
+
+    it('lance ConflictException si le SIRET appartient déjà à une autre entreprise (profil existant)', async () => {
+      mockPrisma.recruiterProfile.findUnique.mockResolvedValue({
+        id: 'rec-1',
+        userId: 'user-1',
+        companyId: 'co-1',
+      });
+      mockPrisma.company.findUnique.mockResolvedValue({
+        id: 'co-autre',
+        name: 'Autre Entreprise',
+        siret: '12345678901234',
+      });
+
+      await expect(
+        service.update('user-1', 'user-1', {
+          companySiret: '12345678901234',
+        }),
+      ).rejects.toThrow(ConflictException);
+      expect(mockPrisma.company.update).not.toHaveBeenCalled();
+    });
+
+    it('lance ConflictException si le SIRET appartient déjà à une autre entreprise (création)', async () => {
+      mockPrisma.recruiterProfile.findUnique.mockResolvedValue(null);
+      mockPrisma.company.findUnique.mockResolvedValue({
+        id: 'co-autre',
+        name: 'Autre Entreprise',
+        siret: '12345678901234',
+      });
+
+      await expect(
+        service.update('user-2', 'user-2', {
+          companyName: 'Nouvelle Entreprise',
+          companySiret: '12345678901234',
+          firstName: 'Bob',
+          lastName: 'Martin',
+        }),
+      ).rejects.toThrow(ConflictException);
+      expect(mockPrisma.company.upsert).not.toHaveBeenCalled();
     });
   });
 });

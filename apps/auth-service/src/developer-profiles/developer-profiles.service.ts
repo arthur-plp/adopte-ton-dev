@@ -11,6 +11,9 @@ import type {
   UpdateDeveloperProfileDto,
 } from '@repo/contracts';
 import { Events } from '@repo/contracts/events';
+import { haversineDistanceKm } from './geo.util';
+
+const DEFAULT_SEARCH_RADIUS_KM = 25;
 
 export type SkillLevel = 'BEGINNER' | 'INTERMEDIATE' | 'ADVANCED';
 
@@ -341,5 +344,103 @@ export class DeveloperProfilesService {
 
     await this.prisma.project.delete({ where: { id: projectId } });
     return { deleted: true };
+  }
+
+  // ── Recherche (appelée par matching-svc) ────────────────────────────────
+
+  async search(filters: {
+    technologies?: string[];
+    remoteOk?: boolean;
+    location?: string;
+    latitude?: number;
+    longitude?: number;
+    radiusKm?: number;
+    page: number;
+    pageSize: number;
+  }) {
+    const where: Record<string, unknown> = {};
+    if (filters.technologies?.length)
+      where['technologies'] = { some: { name: { in: filters.technologies } } };
+    if (filters.remoteOk !== undefined) where['remoteOk'] = filters.remoteOk;
+
+    const hasCoordinates =
+      filters.latitude !== undefined && filters.longitude !== undefined;
+
+    if (!hasCoordinates) {
+      if (filters.location)
+        where['location'] = { contains: filters.location, mode: 'insensitive' };
+
+      const skip = (filters.page - 1) * filters.pageSize;
+      const [data, total] = await Promise.all([
+        this.prisma.developerProfile.findMany({
+          where,
+          include: { technologies: true },
+          skip,
+          take: filters.pageSize,
+        }),
+        this.prisma.developerProfile.count({ where }),
+      ]);
+
+      return { data, total, page: filters.page, pageSize: filters.pageSize };
+    }
+
+    // Recherche par proximité ("villes proches") : pas de PostGIS dans la
+    // stack, donc impossible de filtrer/trier par distance en SQL. On
+    // récupère tous les candidats correspondant aux autres filtres, puis on
+    // filtre/trie/pagine en mémoire à partir de la distance Haversine.
+    return this.searchByProximity(where, filters);
+  }
+
+  private async searchByProximity(
+    where: Record<string, unknown>,
+    filters: {
+      location?: string;
+      latitude?: number;
+      longitude?: number;
+      radiusKm?: number;
+      page: number;
+      pageSize: number;
+    },
+  ) {
+    const radiusKm = filters.radiusKm ?? DEFAULT_SEARCH_RADIUS_KM;
+    const origin = {
+      latitude: filters.latitude as number,
+      longitude: filters.longitude as number,
+    };
+    const locationText = filters.location?.toLowerCase();
+
+    const candidates = await this.prisma.developerProfile.findMany({
+      where,
+      include: { technologies: true },
+    });
+
+    const withDistance = candidates
+      .map((profile) => ({
+        profile,
+        distanceKm:
+          profile.latitude !== null && profile.longitude !== null
+            ? haversineDistanceKm(origin, {
+                latitude: profile.latitude,
+                longitude: profile.longitude,
+              })
+            : null,
+      }))
+      .filter(({ profile, distanceKm }) => {
+        if (distanceKm !== null) return distanceKm <= radiusKm;
+        // Repli pour les profils sans coordonnées enregistrées : correspondance textuelle.
+        return (
+          !!locationText &&
+          !!profile.location?.toLowerCase().includes(locationText)
+        );
+      })
+      .sort((a, b) => (a.distanceKm ?? Infinity) - (b.distanceKm ?? Infinity));
+
+    const total = withDistance.length;
+    const skip = (filters.page - 1) * filters.pageSize;
+    const data = withDistance
+      .slice(skip, skip + filters.pageSize)
+      .map(({ profile }) => profile);
+
+    return { data, total, page: filters.page, pageSize: filters.pageSize };
   }
 }
