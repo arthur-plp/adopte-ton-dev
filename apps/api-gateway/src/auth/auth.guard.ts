@@ -20,6 +20,7 @@ export type AuthenticatedUser = {
   image: string | null | undefined;
   role: string;
   onboarded: boolean;
+  emailVerified: boolean;
   companyId?: string;
 };
 
@@ -30,6 +31,7 @@ type RawSessionUser = {
   image?: string | null;
   role?: string;
   onboarded?: boolean;
+  emailVerified?: boolean;
   companyId?: string;
 };
 
@@ -105,6 +107,7 @@ export class AuthGuard implements CanActivate {
       image: raw.image,
       role: raw.role ?? 'DEVELOPER',
       onboarded: raw.onboarded ?? false,
+      emailVerified: raw.emailVerified ?? false,
       companyId: raw.companyId,
     };
 

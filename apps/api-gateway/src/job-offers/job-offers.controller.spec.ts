@@ -24,6 +24,7 @@ type AuthenticatedUser = {
   image: string | null | undefined;
   role: string;
   onboarded: boolean;
+  emailVerified: boolean;
   companyId?: string;
 };
 
@@ -36,6 +37,7 @@ const mockRecruiter: AuthenticatedUser = {
   image: null,
   role: Role.RECRUITER,
   onboarded: true,
+  emailVerified: true,
   companyId: 'company-1',
 };
 

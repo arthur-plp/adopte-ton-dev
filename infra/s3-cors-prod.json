@@ -1,0 +1,11 @@
+{
+  "CORSRules": [
+    {
+      "AllowedMethods": ["PUT", "POST", "GET"],
+      "AllowedOrigins": ["https://adopte-ton-dev.arthurphilippe.fr"],
+      "AllowedHeaders": ["*"],
+      "ExposeHeaders": [],
+      "MaxAgeSeconds": 3000
+    }
+  ]
+}
