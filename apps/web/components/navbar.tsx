@@ -37,10 +37,19 @@ function NavLink({ href, children }: { href: string; children: React.ReactNode }
 
 export function Navbar() {
   const { data: session, isPending } = useSession();
-  const user = session?.user;
-  const role = (user as { role?: string } | undefined)?.role ?? "";
   const [mobileOpen, setMobileOpen] = useState(false);
+
+  // Le rendu serveur n'a jamais de session (composant client, pas de cookie lu en SSR),
+  // alors que le client la résout souvent avant même la passe d'hydratation. Tant que
+  // le composant n'a pas "monté", on retombe sur l'état invité pour que la première
+  // passe client matche exactement le HTML serveur (cf. erreur d'hydratation React).
+  const [hasMounted, setHasMounted] = useState(false);
+  useEffect(() => { setHasMounted(true); }, []);
+
+  const user = hasMounted ? session?.user : undefined;
+  const role = (user as { role?: string } | undefined)?.role ?? "";
   const dashboardUrl = getDashboardUrl(role);
+  const showPending = hasMounted && isPending;
 
   function closeMobile() { setMobileOpen(false); }
 
@@ -70,6 +79,9 @@ export function Navbar() {
           ) : (
             <>
               <NavLink href="/offres">Offres</NavLink>
+              {role === "RECRUITER" && (
+                <NavLink href="/developpeurs">Développeurs</NavLink>
+              )}
               <NavLink href={dashboardUrl}>Tableau de bord</NavLink>
               <NavLink href="/contact">Contact</NavLink>
             </>
@@ -78,7 +90,7 @@ export function Navbar() {
 
         {/* Right side */}
         <div className="flex items-center gap-2">
-          {isPending ? (
+          {showPending ? (
             <div className="size-7 animate-pulse rounded-full bg-muted" />
           ) : user ? (
             <AuthedMenu user={user} />
@@ -122,6 +134,9 @@ export function Navbar() {
             ) : (
               <>
                 <MobileNavLink href="/offres" onClick={closeMobile}>Offres</MobileNavLink>
+                {role === "RECRUITER" && (
+                  <MobileNavLink href="/developpeurs" onClick={closeMobile}>Développeurs</MobileNavLink>
+                )}
                 <MobileNavLink href={dashboardUrl} onClick={closeMobile}>Tableau de bord</MobileNavLink>
                 <MobileNavLink href="/profile/edit" onClick={closeMobile}>Mon profil</MobileNavLink>
                 {role === "RECRUITER" && (
