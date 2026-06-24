@@ -14,6 +14,7 @@ const mockPrisma = {
     update: jest.fn(),
     updateMany: jest.fn(),
     count: jest.fn(),
+    groupBy: jest.fn(),
   },
   applicationEvent: {
     create: jest.fn(),
@@ -1209,6 +1210,43 @@ describe("ApplicationsService", () => {
       await expect(
         service.deleteDocument("req-1", "autre-dev"),
       ).rejects.toThrow(RpcException);
+    });
+  });
+
+  // ── getStats ─────────────────────────────────────────────────────────────
+
+  describe("getStats", () => {
+    it("agrège le nombre de candidatures par statut et calcule le taux d'acceptation", async () => {
+      mockPrisma.application.groupBy.mockResolvedValueOnce([
+        { status: ApplicationStatus.SENT, _count: { status: 4 } },
+        { status: ApplicationStatus.ACCEPTED, _count: { status: 3 } },
+        { status: ApplicationStatus.REJECTED, _count: { status: 1 } },
+      ]);
+      mockPrisma.application.count.mockResolvedValueOnce(8);
+
+      const result = await service.getStats();
+
+      expect(result).toEqual({
+        total: 8,
+        sent: 4,
+        viewed: 0,
+        interview: 0,
+        accepted: 3,
+        rejected: 1,
+        withdrawn: 0,
+        acceptanceRate: 75,
+      });
+    });
+
+    it("retourne un taux d'acceptation de 0 si aucune décision n'a encore été prise", async () => {
+      mockPrisma.application.groupBy.mockResolvedValueOnce([
+        { status: ApplicationStatus.SENT, _count: { status: 2 } },
+      ]);
+      mockPrisma.application.count.mockResolvedValueOnce(2);
+
+      const result = await service.getStats();
+
+      expect(result.acceptanceRate).toBe(0);
     });
   });
 });

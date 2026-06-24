@@ -18,6 +18,7 @@ const mockService = {
   resetToDraft: jest.fn(),
   findPendingReview: jest.fn(),
   getHistory: jest.fn(),
+  getStats: jest.fn(),
 };
 
 const baseOffer = {
@@ -225,5 +226,12 @@ describe("JobOffersController", () => {
       "admin-1",
       true,
     );
+  });
+
+  it("getStats → délègue au service", async () => {
+    mockService.getStats.mockResolvedValueOnce({ total: 0 });
+    const result = await controller.getStats();
+    expect(mockService.getStats).toHaveBeenCalled();
+    expect(result).toEqual({ total: 0 });
   });
 });

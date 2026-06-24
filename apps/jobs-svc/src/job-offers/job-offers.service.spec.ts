@@ -23,6 +23,7 @@ const mockPrisma = {
     update: jest.fn(),
     count: jest.fn(),
     delete: jest.fn(),
+    groupBy: jest.fn(),
   },
   jobOfferEvent: {
     create: jest.fn(),
@@ -740,6 +741,30 @@ describe("JobOffersService", () => {
       await expect(
         service.getHistory("unknown", "recruiter-1", false),
       ).rejects.toThrow(RpcException);
+    });
+  });
+
+  // ── getStats ─────────────────────────────────────────────────────────────
+
+  describe("getStats", () => {
+    it("agrège le nombre d'offres par statut", async () => {
+      mockPrisma.jobOffer.groupBy.mockResolvedValueOnce([
+        { status: JobStatus.DRAFT, _count: { status: 3 } },
+        { status: JobStatus.PUBLISHED, _count: { status: 5 } },
+      ]);
+      mockPrisma.jobOffer.count.mockResolvedValueOnce(8);
+
+      const result = await service.getStats();
+
+      expect(result).toEqual({
+        total: 8,
+        draft: 3,
+        pendingReview: 0,
+        approved: 0,
+        published: 5,
+        rejected: 0,
+        archived: 0,
+      });
     });
   });
 });

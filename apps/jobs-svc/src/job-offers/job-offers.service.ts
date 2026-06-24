@@ -372,6 +372,30 @@ export class JobOffersService {
     return { data, total, page, pageSize };
   }
 
+  async getStats() {
+    const [total, grouped] = await Promise.all([
+      retry(() => this.prisma.jobOffer.count()),
+      retry(() =>
+        this.prisma.jobOffer.groupBy({
+          by: ["status"],
+          _count: { status: true },
+        }),
+      ),
+    ]);
+    const byStatus = Object.fromEntries(
+      grouped.map((g) => [g.status, g._count.status]),
+    ) as Partial<Record<JobStatus, number>>;
+    return {
+      total,
+      draft: byStatus[JobStatus.DRAFT] ?? 0,
+      pendingReview: byStatus[JobStatus.PENDING_REVIEW] ?? 0,
+      approved: byStatus[JobStatus.APPROVED] ?? 0,
+      published: byStatus[JobStatus.PUBLISHED] ?? 0,
+      rejected: byStatus[JobStatus.REJECTED] ?? 0,
+      archived: byStatus[JobStatus.ARCHIVED] ?? 0,
+    };
+  }
+
   async delete(id: string, recruiterId: string) {
     const offer = await this.requireOffer(id);
     this.requireOwner(offer, recruiterId);

@@ -14,6 +14,7 @@ import { RolesGuard } from '../auth/roles.guard';
 
 const mockUsersClient = { send: jest.fn() };
 const mockJobsClient = { send: jest.fn() };
+const mockApplicationsClient = { send: jest.fn() };
 
 describe('AdminController', () => {
   let controller: AdminController;
@@ -24,6 +25,7 @@ describe('AdminController', () => {
       providers: [
         { provide: 'USERS_SVC', useValue: mockUsersClient },
         { provide: 'JOBS_SVC', useValue: mockJobsClient },
+        { provide: 'APPLICATIONS_SVC', useValue: mockApplicationsClient },
       ],
     })
       .overrideGuard(AuthGuard)
@@ -36,11 +38,29 @@ describe('AdminController', () => {
     jest.clearAllMocks();
   });
 
-  it('getStats → appelle admin.getStats', async () => {
-    const stats = { total: 10, developers: 5, recruiters: 3, admins: 2 };
-    mockUsersClient.send.mockReturnValueOnce(of(stats));
+  it('getStats → agrège les statistiques users, offres et candidatures', async () => {
+    const users = { total: 10, developers: 5, recruiters: 3, admins: 2 };
+    const jobOffers = { total: 4, draft: 1, published: 3 };
+    const applications = { total: 6, accepted: 2, acceptanceRate: 50 };
+    mockUsersClient.send.mockReturnValueOnce(of(users));
+    mockJobsClient.send.mockReturnValueOnce(of(jobOffers));
+    mockApplicationsClient.send.mockReturnValueOnce(of(applications));
+
     const result = await controller.getStats();
-    expect(result).toEqual(stats);
+
+    expect(mockUsersClient.send).toHaveBeenCalledWith(
+      { cmd: 'admin.getStats' },
+      {},
+    );
+    expect(mockJobsClient.send).toHaveBeenCalledWith(
+      { cmd: 'job.getStats' },
+      {},
+    );
+    expect(mockApplicationsClient.send).toHaveBeenCalledWith(
+      { cmd: 'application.getStats' },
+      {},
+    );
+    expect(result).toEqual({ users, jobOffers, applications });
   });
 
   it('listUsers → appelle admin.listUsers avec pagination', async () => {
@@ -138,5 +158,29 @@ describe('AdminController', () => {
       { cmd: 'job.getHistory' },
       { id: 'job-1', requesterId: 'admin-1', isAdmin: true },
     );
+  });
+
+  it('listReports → appelle report.list avec le filtre statut et la pagination', async () => {
+    const paginated = { data: [], total: 0, page: 1, pageSize: 20 };
+    mockUsersClient.send.mockReturnValueOnce(of(paginated));
+    const result = await controller.listReports('open', '1', '20');
+    expect(mockUsersClient.send).toHaveBeenCalledWith(
+      { cmd: 'report.list' },
+      { status: 'open', page: 1, pageSize: 20 },
+    );
+    expect(result).toEqual(paginated);
+  });
+
+  it('updateReportStatus → appelle report.updateStatus avec id et status', async () => {
+    const updated = { id: 'report-1', status: 'resolved' };
+    mockUsersClient.send.mockReturnValueOnce(of(updated));
+    const result = await controller.updateReportStatus('report-1', {
+      status: 'resolved',
+    });
+    expect(mockUsersClient.send).toHaveBeenCalledWith(
+      { cmd: 'report.updateStatus' },
+      { id: 'report-1', status: 'resolved' },
+    );
+    expect(result).toEqual(updated);
   });
 });

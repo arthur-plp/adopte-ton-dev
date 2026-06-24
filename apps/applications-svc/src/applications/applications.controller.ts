@@ -163,4 +163,9 @@ export class ApplicationsController {
   deleteDocument(@Payload() data: { requestId: string; developerId: string }) {
     return this.service.deleteDocument(data.requestId, data.developerId);
   }
+
+  @MessagePattern({ cmd: "application.getStats" })
+  getStats() {
+    return this.service.getStats();
+  }
 }

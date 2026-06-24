@@ -581,4 +581,32 @@ export class ApplicationsService {
       },
     });
   }
+
+  async getStats() {
+    const [total, grouped] = await Promise.all([
+      retry(() => this.prisma.application.count()),
+      retry(() =>
+        this.prisma.application.groupBy({
+          by: ["status"],
+          _count: { status: true },
+        }),
+      ),
+    ]);
+    const byStatus = Object.fromEntries(
+      grouped.map((g) => [g.status, g._count.status]),
+    ) as Partial<Record<ApplicationStatus, number>>;
+    const accepted = byStatus[ApplicationStatus.ACCEPTED] ?? 0;
+    const rejected = byStatus[ApplicationStatus.REJECTED] ?? 0;
+    const decided = accepted + rejected;
+    return {
+      total,
+      sent: byStatus[ApplicationStatus.SENT] ?? 0,
+      viewed: byStatus[ApplicationStatus.VIEWED] ?? 0,
+      interview: byStatus[ApplicationStatus.INTERVIEW] ?? 0,
+      accepted,
+      rejected,
+      withdrawn: byStatus[ApplicationStatus.WITHDRAWN] ?? 0,
+      acceptanceRate: decided > 0 ? Math.round((accepted / decided) * 100) : 0,
+    };
+  }
 }

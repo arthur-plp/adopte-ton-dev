@@ -21,6 +21,14 @@ import { AdminController } from './admin.controller';
           port: parseInt(process.env['JOBS_SVC_PORT'] ?? '3002', 10),
         },
       },
+      {
+        name: 'APPLICATIONS_SVC',
+        transport: Transport.TCP,
+        options: {
+          host: process.env['APPLICATIONS_SVC_HOST'] ?? 'localhost',
+          port: parseInt(process.env['APPLICATIONS_SVC_PORT'] ?? '3003', 10),
+        },
+      },
     ]),
   ],
   controllers: [AdminController],

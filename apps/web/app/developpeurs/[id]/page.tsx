@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Navbar } from "@/components/navbar";
 import { Footer } from "@/components/footer";
 import { Button } from "@/components/ui/button";
+import { ReportDialog } from "@/components/report-dialog";
 import {
   ArrowLeft,
   MapPin,
@@ -156,14 +157,17 @@ export default function DeveloperProfilePage({ params }: { params: Promise<{ id:
 
       <main className="flex-1">
         <div className="page-container max-w-3xl">
-          <button
-            type="button"
-            onClick={() => router.back()}
-            className="mb-8 flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
-          >
-            <ArrowLeft className="size-4" />
-            Retour
-          </button>
+          <div className="mb-8 flex items-center justify-between">
+            <button
+              type="button"
+              onClick={() => router.back()}
+              className="flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
+            >
+              <ArrowLeft className="size-4" />
+              Retour
+            </button>
+            <ReportDialog targetType="profile" targetId={id} />
+          </div>
 
           {/* En-tête */}
           <div className="card mb-6 p-6">
