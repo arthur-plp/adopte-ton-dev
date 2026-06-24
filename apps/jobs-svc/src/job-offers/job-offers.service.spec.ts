@@ -1,10 +1,15 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { RpcException } from "@nestjs/microservices";
+import { of } from "rxjs";
 import { JobOffersService } from "./job-offers.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { JobStatus, JobType } from "@repo/types";
 
 const FREE_PLAN_LIMIT = 2;
+
+const mockApplicationsClient = {
+  send: jest.fn(),
+};
 
 const mockPrisma = {
   jobOffer: {
@@ -50,10 +55,12 @@ describe("JobOffersService", () => {
       providers: [
         JobOffersService,
         { provide: PrismaService, useValue: mockPrisma },
+        { provide: "APPLICATIONS_SVC", useValue: mockApplicationsClient },
       ],
     }).compile();
     service = module.get<JobOffersService>(JobOffersService);
     jest.clearAllMocks();
+    mockApplicationsClient.send.mockReturnValue(of({ hasActive: false }));
   });
 
   // ── create ─────────────────────────────────────────────────────────────────
@@ -401,6 +408,23 @@ describe("JobOffersService", () => {
         RpcException,
       );
     });
+
+    it("lance RpcException 400 si des candidatures actives existent", async () => {
+      mockPrisma.jobOffer.findUnique.mockResolvedValueOnce(baseOffer);
+      mockApplicationsClient.send.mockReturnValueOnce(of({ hasActive: true }));
+      await expect(service.delete("job-1", "recruiter-1")).rejects.toThrow(
+        RpcException,
+      );
+      expect(mockPrisma.jobOffer.delete).not.toHaveBeenCalled();
+    });
+
+    it("autorise la suppression si toutes les candidatures sont dans un état terminal", async () => {
+      mockPrisma.jobOffer.findUnique.mockResolvedValueOnce(baseOffer);
+      mockApplicationsClient.send.mockReturnValueOnce(of({ hasActive: false }));
+      mockPrisma.jobOffer.delete.mockResolvedValueOnce(baseOffer);
+      const result = await service.delete("job-1", "recruiter-1");
+      expect(result).toEqual({ ok: true });
+    });
   });
 
   // ── archive ────────────────────────────────────────────────────────────────
@@ -456,6 +480,26 @@ describe("JobOffersService", () => {
           note: null,
         },
       });
+    });
+
+    it("lance RpcException 400 si des candidatures actives existent", async () => {
+      const publishedOffer = { ...baseOffer, status: JobStatus.PUBLISHED };
+      mockPrisma.jobOffer.findUnique.mockResolvedValueOnce(publishedOffer);
+      mockApplicationsClient.send.mockReturnValueOnce(of({ hasActive: true }));
+      await expect(service.archive("job-1", "recruiter-1")).rejects.toThrow(
+        RpcException,
+      );
+      expect(mockPrisma.$transaction).not.toHaveBeenCalled();
+    });
+
+    it("autorise l'archivage si toutes les candidatures sont dans un état terminal (ex. ACCEPTED)", async () => {
+      const publishedOffer = { ...baseOffer, status: JobStatus.PUBLISHED };
+      mockPrisma.jobOffer.findUnique.mockResolvedValueOnce(publishedOffer);
+      mockApplicationsClient.send.mockReturnValueOnce(of({ hasActive: false }));
+      const archived = { ...publishedOffer, status: JobStatus.ARCHIVED };
+      mockPrisma.$transaction.mockResolvedValueOnce([archived]);
+      const result = await service.archive("job-1", "recruiter-1");
+      expect(result.status).toBe(JobStatus.ARCHIVED);
     });
   });
 

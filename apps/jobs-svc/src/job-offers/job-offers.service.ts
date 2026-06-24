@@ -1,5 +1,6 @@
-import { Injectable } from "@nestjs/common";
-import { RpcException } from "@nestjs/microservices";
+import { Inject, Injectable } from "@nestjs/common";
+import { ClientProxy, RpcException } from "@nestjs/microservices";
+import { lastValueFrom } from "rxjs";
 import { PrismaService } from "../prisma/prisma.service";
 import { Events } from "@repo/contracts";
 import { JobStatus } from "@repo/types";
@@ -28,7 +29,21 @@ async function retry<T>(fn: () => Promise<T>, attempts = 3): Promise<T> {
 
 @Injectable()
 export class JobOffersService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    @Inject("APPLICATIONS_SVC")
+    private readonly applicationsClient: ClientProxy,
+  ) {}
+
+  private async hasActiveApplications(jobOfferId: string): Promise<boolean> {
+    const result = await lastValueFrom(
+      this.applicationsClient.send<{ hasActive: boolean }>(
+        { cmd: "application.hasActiveForJobOffer" },
+        { jobOfferId },
+      ),
+    );
+    return result.hasActive;
+  }
 
   // ── Helpers ───────────────────────────────────────────────────────────────
 
@@ -341,6 +356,12 @@ export class JobOffersService {
           "Une offre publiée ne peut pas être supprimée. Archivez-la d'abord.",
       });
     }
+    if (await this.hasActiveApplications(id))
+      throw new RpcException({
+        statusCode: 400,
+        message:
+          "Impossible de supprimer cette offre : des candidatures sont encore en cours.",
+      });
     await this.prisma.jobOffer.delete({ where: { id } });
     return { ok: true };
   }
@@ -353,6 +374,13 @@ export class JobOffersService {
       throw new RpcException({
         statusCode: 400,
         message: "Cette offre est déjà archivée",
+      });
+
+    if (await this.hasActiveApplications(id))
+      throw new RpcException({
+        statusCode: 400,
+        message:
+          "Impossible d'archiver cette offre : des candidatures sont encore en cours.",
       });
 
     const [archived] = await this.prisma.$transaction([
