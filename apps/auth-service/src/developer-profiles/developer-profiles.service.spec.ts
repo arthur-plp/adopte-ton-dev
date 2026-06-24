@@ -16,6 +16,8 @@ const mockPrisma = {
     create: jest.fn(),
     findUnique: jest.fn(),
     update: jest.fn(),
+    findMany: jest.fn(),
+    count: jest.fn(),
   },
   developerTechnology: {
     create: jest.fn(),
@@ -340,6 +342,82 @@ describe('DeveloperProfilesService', () => {
       await expect(
         service.deleteProject('user-1', 'user-1', 'proj-1'),
       ).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  // ─── search ─────────────────────────────────────────────────────────────
+
+  describe('search', () => {
+    const profiles = [
+      { id: 'dev-1', userId: 'user-1', technologies: [{ name: 'React' }] },
+    ];
+
+    it('filtre par technologies via "some.name.in"', async () => {
+      mockPrisma.developerProfile.findMany.mockResolvedValue(profiles);
+      mockPrisma.developerProfile.count.mockResolvedValue(1);
+
+      await service.search({
+        technologies: ['React', 'Node.js'],
+        page: 1,
+        pageSize: 20,
+      });
+
+      expect(mockPrisma.developerProfile.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            technologies: { some: { name: { in: ['React', 'Node.js'] } } },
+          },
+        }),
+      );
+    });
+
+    it('filtre par remoteOk et location (insensible à la casse)', async () => {
+      mockPrisma.developerProfile.findMany.mockResolvedValue([]);
+      mockPrisma.developerProfile.count.mockResolvedValue(0);
+
+      await service.search({
+        remoteOk: true,
+        location: 'Paris',
+        page: 1,
+        pageSize: 20,
+      });
+
+      expect(mockPrisma.developerProfile.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            remoteOk: true,
+            location: { contains: 'Paris', mode: 'insensitive' },
+          },
+        }),
+      );
+    });
+
+    it('retourne data/total/page/pageSize avec pagination', async () => {
+      mockPrisma.developerProfile.findMany.mockResolvedValue(profiles);
+      mockPrisma.developerProfile.count.mockResolvedValue(42);
+
+      const result = await service.search({ page: 2, pageSize: 10 });
+
+      expect(result).toEqual({
+        data: profiles,
+        total: 42,
+        page: 2,
+        pageSize: 10,
+      });
+      expect(mockPrisma.developerProfile.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ skip: 10, take: 10 }),
+      );
+    });
+
+    it('ne filtre sur rien si aucun critère fourni (where vide)', async () => {
+      mockPrisma.developerProfile.findMany.mockResolvedValue([]);
+      mockPrisma.developerProfile.count.mockResolvedValue(0);
+
+      await service.search({ page: 1, pageSize: 20 });
+
+      expect(mockPrisma.developerProfile.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where: {} }),
+      );
     });
   });
 });

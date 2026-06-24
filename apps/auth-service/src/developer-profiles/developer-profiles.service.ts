@@ -342,4 +342,34 @@ export class DeveloperProfilesService {
     await this.prisma.project.delete({ where: { id: projectId } });
     return { deleted: true };
   }
+
+  // ── Recherche (appelée par matching-svc) ────────────────────────────────
+
+  async search(filters: {
+    technologies?: string[];
+    remoteOk?: boolean;
+    location?: string;
+    page: number;
+    pageSize: number;
+  }) {
+    const where: Record<string, unknown> = {};
+    if (filters.technologies?.length)
+      where['technologies'] = { some: { name: { in: filters.technologies } } };
+    if (filters.remoteOk !== undefined) where['remoteOk'] = filters.remoteOk;
+    if (filters.location)
+      where['location'] = { contains: filters.location, mode: 'insensitive' };
+
+    const skip = (filters.page - 1) * filters.pageSize;
+    const [data, total] = await Promise.all([
+      this.prisma.developerProfile.findMany({
+        where,
+        include: { technologies: true },
+        skip,
+        take: filters.pageSize,
+      }),
+      this.prisma.developerProfile.count({ where }),
+    ]);
+
+    return { data, total, page: filters.page, pageSize: filters.pageSize };
+  }
 }

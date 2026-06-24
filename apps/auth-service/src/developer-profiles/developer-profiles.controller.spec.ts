@@ -12,6 +12,7 @@ const mockService = {
   create: jest.fn(),
   findByUserId: jest.fn(),
   update: jest.fn(),
+  search: jest.fn(),
 };
 
 const mockGitHubSync = {
@@ -110,6 +111,26 @@ describe('DeveloperProfilesController', () => {
       await expect(
         controller.findOne({ userId: 'user-inconnu' }),
       ).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  // ─── search (appelé par matching-svc) ──────────────────────────────────────
+
+  describe('search', () => {
+    it('délègue les filtres au service', async () => {
+      const expected = { data: [], total: 0, page: 1, pageSize: 20 };
+      mockService.search.mockResolvedValue(expected);
+
+      const payload = {
+        technologies: ['React'],
+        remoteOk: true,
+        page: 1,
+        pageSize: 20,
+      };
+      const result = await controller.search(payload);
+
+      expect(result).toEqual(expected);
+      expect(mockService.search).toHaveBeenCalledWith(payload);
     });
   });
 
