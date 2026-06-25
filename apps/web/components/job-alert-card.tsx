@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Bell, Plus, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { CityAutocomplete } from "@/components/city-autocomplete";
 import { toast } from "sonner";
 
 type JobAlertSubscription = {
@@ -154,12 +155,14 @@ export function JobAlertCard() {
             />
             Remote uniquement
           </label>
-          <input
-            className="input-base max-w-48 text-sm"
-            placeholder="Localisation (optionnel)"
-            value={location}
-            onChange={(e) => setLocation(e.target.value)}
-          />
+          <div className="max-w-48 flex-1">
+            <CityAutocomplete
+              city={location}
+              country=""
+              onChange={(city) => setLocation(city)}
+              placeholder="Localisation (optionnel)"
+            />
+          </div>
         </div>
 
         <div className="flex gap-2 pt-1">
