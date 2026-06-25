@@ -6,9 +6,10 @@ import { useSession, signOut } from "@/lib/auth-client";
 import { Button } from "@/components/ui/button";
 import {
   Code2, LogOut, LayoutDashboard, ChevronDown, UserCircle,
-  Briefcase, ShieldAlert, Plus, Menu, X,
+  Briefcase, ShieldAlert, Plus, Menu, X, MessageCircle,
 } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
+import { NotificationBell } from "@/components/notification-bell";
 
 const ROLE_LABELS: Record<string, string> = {
   DEVELOPER: "Développeur",
@@ -83,6 +84,7 @@ export function Navbar() {
                 <NavLink href="/developpeurs">Développeurs</NavLink>
               )}
               <NavLink href={dashboardUrl}>Tableau de bord</NavLink>
+              <NavLink href="/messages">Messages</NavLink>
               <NavLink href="/contact">Contact</NavLink>
             </>
           )}
@@ -93,7 +95,10 @@ export function Navbar() {
           {showPending ? (
             <div className="size-7 animate-pulse rounded-full bg-muted" />
           ) : user ? (
-            <AuthedMenu user={user} />
+            <>
+              <NotificationBell />
+              <AuthedMenu user={user} />
+            </>
           ) : (
             <GuestButtons />
           )}
@@ -138,6 +143,7 @@ export function Navbar() {
                   <MobileNavLink href="/developpeurs" onClick={closeMobile}>Développeurs</MobileNavLink>
                 )}
                 <MobileNavLink href={dashboardUrl} onClick={closeMobile}>Tableau de bord</MobileNavLink>
+                <MobileNavLink href="/messages" onClick={closeMobile}>Messages</MobileNavLink>
                 <MobileNavLink href="/profile/edit" onClick={closeMobile}>Mon profil</MobileNavLink>
                 {role === "RECRUITER" && (
                   <MobileNavLink href="/jobs/new" onClick={closeMobile}>Créer une offre</MobileNavLink>
@@ -276,6 +282,9 @@ function AuthedMenu({ user }: { user: UserLike }) {
             <>
               <DropdownItem href={dashboardUrl} icon={<LayoutDashboard className="size-4" />}>
                 Tableau de bord
+              </DropdownItem>
+              <DropdownItem href="/messages" icon={<MessageCircle className="size-4" />}>
+                Messages
               </DropdownItem>
               <DropdownItem href="/profile/edit" icon={<UserCircle className="size-4" />}>
                 Mon profil

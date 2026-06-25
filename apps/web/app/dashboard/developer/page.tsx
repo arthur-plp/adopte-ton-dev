@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import { SectionHeader } from "@/components/section-header";
 import { EmailVerificationBanner } from "@/components/email-verification-banner";
+import { JobAlertCard } from "@/components/job-alert-card";
 import {
   APPLICATION_STATUS_COLORS,
   APPLICATION_STATUS_LABELS,
@@ -503,6 +504,9 @@ export default function DeveloperDashboard() {
             </div>
           )}
         </div>
+
+        {/* Alertes offres */}
+        <JobAlertCard />
 
         {/* Mes candidatures */}
         <div className="card p-6 md:col-span-2">

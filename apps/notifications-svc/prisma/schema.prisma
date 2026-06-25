@@ -1,0 +1,39 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// NotificationType (@repo/types) en string : APPLICATION | MESSAGE | JOB_ALERT | SYSTEM
+model Notification {
+  id        String    @id @default(cuid())
+  userId    String
+  type      String
+  payload   Json
+  readAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId, readAt, createdAt])
+}
+
+// Abonnement aux alertes opportunités (§13.5) : un développeur s'abonne à des
+// critères, notifié quand une offre PUBLISHED matche.
+model JobAlertSubscription {
+  id           String   @id @default(cuid())
+  developerId  String   @unique
+  technologies String[]
+  remoteOk     Boolean?
+  location     String?
+  updatedAt    DateTime @updatedAt
+}
+
+// Idempotence des consumers RabbitMQ (CLAUDE.md §28.2) : déduplique par
+// messageId (posé par l'outbox émetteur, cf. OutboxRelayService).
+model ProcessedEvent {
+  id          String   @id @default(cuid())
+  messageId   String   @unique
+  processedAt DateTime @default(now())
+}
