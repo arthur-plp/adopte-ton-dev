@@ -1,4 +1,8 @@
-import { CreateConversationSchema, SendMessageSchema } from './messaging.schema';
+import {
+  CreateConversationSchema,
+  SendMessageSchema,
+  SendMessageBodySchema,
+} from './messaging.schema';
 
 const validCuid = 'clxxxxxxxxxxxxxxxxxxxxxxxx';
 
@@ -65,5 +69,31 @@ describe('SendMessageSchema', () => {
     expect(() =>
       SendMessageSchema.parse({ conversationId: 'pas-un-cuid', content: 'Texte' }),
     ).toThrow();
+  });
+
+  it('supprime les balises HTML du contenu (sanitization XSS)', () => {
+    const result = SendMessageSchema.parse({
+      conversationId: validCuid,
+      content: '<script>alert(1)</script>Salut',
+    });
+    expect(result.content).toBe('alert(1)Salut');
+  });
+});
+
+describe('SendMessageBodySchema', () => {
+  it('valide un contenu seul (sans conversationId)', () => {
+    const result = SendMessageBodySchema.parse({ content: 'Bonjour !' });
+    expect(result.content).toBe('Bonjour !');
+  });
+
+  it('rejette un contenu vide', () => {
+    expect(() => SendMessageBodySchema.parse({ content: '' })).toThrow();
+  });
+
+  it('sanitize le contenu (XSS)', () => {
+    const result = SendMessageBodySchema.parse({
+      content: '<b>Salut</b>',
+    });
+    expect(result.content).toBe('Salut');
   });
 });
