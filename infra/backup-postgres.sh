@@ -15,7 +15,7 @@ set -euo pipefail
 INFRA_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BACKUP_DIR="${BACKUP_DIR:-/opt/adopte-ton-dev/backups}"
 CONTAINER="atd-postgres"
-DATABASES=(atd_users atd_jobs atd_applications atd_messaging atd_notifications atd_payment)
+DATABASES=(atd_users atd_jobs atd_applications atd_messaging atd_notifications atd_payment atd_email)
 
 # En prod, les identifiants viennent de infra/.env ; en dev (docker-compose.yml),
 # ils sont en dur dans le compose, on retombe donc sur les valeurs par défaut.
