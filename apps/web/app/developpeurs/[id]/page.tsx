@@ -2,10 +2,12 @@
 
 import { use, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useSession } from "@/lib/auth-client";
 import { Navbar } from "@/components/navbar";
 import { Footer } from "@/components/footer";
 import { Button } from "@/components/ui/button";
 import { ReportDialog } from "@/components/report-dialog";
+import { MessageButton } from "@/components/message-button";
 import {
   ArrowLeft,
   MapPin,
@@ -101,6 +103,8 @@ function LevelDots({ level }: { level: SkillLevel }) {
 export default function DeveloperProfilePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const router = useRouter();
+  const { data: session } = useSession();
+  const recruiterId = (session?.user as { id?: string } | undefined)?.id;
   const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000/api/v1";
 
   const [profile, setProfile] = useState<DeveloperProfileDetail | null>(null);
@@ -170,7 +174,12 @@ export default function DeveloperProfilePage({ params }: { params: Promise<{ id:
               <ArrowLeft className="size-4" />
               Retour
             </button>
-            <ReportDialog targetType="profile" targetId={id} />
+            <div className="flex items-center gap-2">
+              {recruiterId && (
+                <MessageButton developerId={id} recruiterId={recruiterId} />
+              )}
+              <ReportDialog targetType="profile" targetId={id} />
+            </div>
           </div>
 
           {/* En-tête */}

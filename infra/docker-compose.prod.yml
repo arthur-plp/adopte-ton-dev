@@ -7,7 +7,7 @@ services:
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_MULTIPLE_DATABASES: atd_users,atd_jobs,atd_applications,atd_messaging,atd_notifications,atd_payment
+      POSTGRES_MULTIPLE_DATABASES: atd_users,atd_jobs,atd_applications,atd_messaging,atd_notifications,atd_payment,atd_email
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./init-multiple-dbs.sh:/docker-entrypoint-initdb.d/init-multiple-dbs.sh:ro
@@ -151,6 +151,69 @@ services:
       timeout: 5s
       retries: 5
 
+  messaging-svc:
+    build:
+      context: ..
+      dockerfile: infra/docker/messaging-svc.Dockerfile
+    container_name: atd-messaging-svc
+    restart: unless-stopped
+    env_file: .env.messaging-svc
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks: [atd]
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('net').createConnection(3006,'localhost').on('connect',()=>process.exit(0)).on('error',()=>process.exit(1))"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
+  notifications-svc:
+    build:
+      context: ..
+      dockerfile: infra/docker/notifications-svc.Dockerfile
+    container_name: atd-notifications-svc
+    restart: unless-stopped
+    env_file: .env.notifications-svc
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      jobs-svc:
+        condition: service_healthy
+    networks: [atd]
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('net').createConnection(3007,'localhost').on('connect',()=>process.exit(0)).on('error',()=>process.exit(1))"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
+  email-svc:
+    build:
+      context: ..
+      dockerfile: infra/docker/email-svc.Dockerfile
+    container_name: atd-email-svc
+    restart: unless-stopped
+    env_file: .env.email-svc
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      auth-service:
+        condition: service_healthy
+      jobs-svc:
+        condition: service_healthy
+    networks: [atd]
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('net').createConnection(3008,'localhost').on('connect',()=>process.exit(0)).on('error',()=>process.exit(1))"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
   api-gateway:
     build:
       context: ..
@@ -170,6 +233,10 @@ services:
       payment-svc:
         condition: service_healthy
       matching-svc:
+        condition: service_healthy
+      messaging-svc:
+        condition: service_healthy
+      notifications-svc:
         condition: service_healthy
     networks: [atd]
 

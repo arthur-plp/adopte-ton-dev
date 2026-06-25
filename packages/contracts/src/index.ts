@@ -6,6 +6,7 @@ export * from "./user.schema";
 export * from "./job.schema";
 export * from "./application.schema";
 export * from "./messaging.schema";
+export * from "./notification.schema";
 export * from "./payment.schema";
 export * from "./matching.schema";
 export * from "./report.schema";

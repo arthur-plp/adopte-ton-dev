@@ -1,4 +1,8 @@
-import { CreateConversationSchema, SendMessageSchema } from './messaging.schema';
+import {
+  CreateConversationSchema,
+  SendMessageSchema,
+  SendMessageBodySchema,
+} from './messaging.schema';
 
 const validCuid = 'clxxxxxxxxxxxxxxxxxxxxxxxx';
 
@@ -24,9 +28,22 @@ describe('CreateConversationSchema', () => {
     ).toThrow();
   });
 
-  it('rejette un recruiterId au format invalide (non-cuid)', () => {
+  it('accepte un id BetterAuth (pas un cuid Prisma) pour recruiterId/developerId', () => {
     expect(() =>
-      CreateConversationSchema.parse({ recruiterId: 'pas-un-cuid', developerId: validCuid }),
+      CreateConversationSchema.parse({
+        recruiterId: 'aT1HYpllVyAqtTkNjhfJZS8ONiveFICD',
+        developerId: '6Rfe3PvAiJAJSFC9GXh8MKF9e33BD86B',
+      }),
+    ).not.toThrow();
+  });
+
+  it('rejette un jobOfferId au format invalide (non-cuid)', () => {
+    expect(() =>
+      CreateConversationSchema.parse({
+        recruiterId: validCuid,
+        developerId: validCuid,
+        jobOfferId: 'pas-un-cuid',
+      }),
     ).toThrow();
   });
 
@@ -65,5 +82,31 @@ describe('SendMessageSchema', () => {
     expect(() =>
       SendMessageSchema.parse({ conversationId: 'pas-un-cuid', content: 'Texte' }),
     ).toThrow();
+  });
+
+  it('supprime les balises HTML du contenu (sanitization XSS)', () => {
+    const result = SendMessageSchema.parse({
+      conversationId: validCuid,
+      content: '<script>alert(1)</script>Salut',
+    });
+    expect(result.content).toBe('alert(1)Salut');
+  });
+});
+
+describe('SendMessageBodySchema', () => {
+  it('valide un contenu seul (sans conversationId)', () => {
+    const result = SendMessageBodySchema.parse({ content: 'Bonjour !' });
+    expect(result.content).toBe('Bonjour !');
+  });
+
+  it('rejette un contenu vide', () => {
+    expect(() => SendMessageBodySchema.parse({ content: '' })).toThrow();
+  });
+
+  it('sanitize le contenu (XSS)', () => {
+    const result = SendMessageBodySchema.parse({
+      content: '<b>Salut</b>',
+    });
+    expect(result.content).toBe('Salut');
   });
 });

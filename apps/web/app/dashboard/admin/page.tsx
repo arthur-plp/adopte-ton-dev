@@ -14,6 +14,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { AdminStatsCharts } from "./admin-stats-charts";
+import { MessageButton } from "@/components/message-button";
 
 type Stats = {
   users: { total: number; developers: number; recruiters: number; admins: number };
@@ -114,6 +115,7 @@ const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000/api/v1"
 
 export default function AdminDashboard() {
   const { data: session, isPending } = useSession();
+  const adminId = (session?.user as { id?: string } | undefined)?.id;
   const router = useRouter();
 
   const [activeTab, setActiveTab] = useState<ActiveTab>("stats");
@@ -535,6 +537,15 @@ export default function AdminDashboard() {
                 </span>
                 {user.role !== "ADMIN" && (
                   <div className="flex shrink-0 items-center gap-1">
+                    {adminId && (
+                      <MessageButton
+                        developerId={user.role === "DEVELOPER" ? user.id : adminId}
+                        recruiterId={user.role === "RECRUITER" ? user.id : adminId}
+                        label=""
+                        variant="ghost"
+                        size="icon"
+                      />
+                    )}
                     <button
                       type="button"
                       onClick={() => setEditingUser(user)}

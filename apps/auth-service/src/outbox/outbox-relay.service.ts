@@ -96,6 +96,7 @@ export class OutboxRelayService implements OnModuleInit, OnModuleDestroy {
           const payload = Buffer.from(JSON.stringify(event.payload));
           this.channel.publish(EXCHANGE, event.type, payload, {
             persistent: true,
+            messageId: event.id,
           });
 
           await client.query(

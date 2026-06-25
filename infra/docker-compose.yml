@@ -7,7 +7,7 @@ services:
     environment:
       POSTGRES_USER: atd
       POSTGRES_PASSWORD: atd_dev_password
-      POSTGRES_MULTIPLE_DATABASES: atd_users,atd_jobs,atd_applications,atd_messaging,atd_notifications,atd_payment
+      POSTGRES_MULTIPLE_DATABASES: atd_users,atd_jobs,atd_applications,atd_messaging,atd_notifications,atd_payment,atd_email
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./init-multiple-dbs.sh:/docker-entrypoint-initdb.d/init-multiple-dbs.sh:ro

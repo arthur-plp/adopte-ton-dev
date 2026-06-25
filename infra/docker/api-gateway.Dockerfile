@@ -38,6 +38,6 @@ COPY --from=builder /app/apps/api-gateway/prisma.config.ts ./apps/api-gateway/pr
 
 WORKDIR /app/apps/api-gateway
 
-EXPOSE 4000
+EXPOSE 4000 4001
 
 CMD ["node", "dist/src/main"]

@@ -1,0 +1,54 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// Référence cross-service par ID (developerId/recruiterId → users-svc), pas de
+// FK : la cohérence est gérée par événements (cf. CLAUDE.md §10/§28).
+//
+// jobOfferId utilise "" (et non null) comme valeur "pas d'offre liée" : Prisma
+// ne permet pas de cibler une valeur NULL dans une contrainte @@unique
+// composite via upsert/findUnique (NULL est toujours distinct en SQL, donc le
+// type généré pour ce where refuse `null`). La chaîne vide contourne le
+// problème tout en restant falsy côté usage (if (jobOfferId) {...}).
+model Conversation {
+  id          String   @id @default(cuid())
+  developerId String
+  recruiterId String
+  jobOfferId  String   @default("")
+  createdAt   DateTime @default(now())
+
+  messages Message[]
+
+  @@unique([developerId, recruiterId, jobOfferId])
+  @@index([developerId])
+  @@index([recruiterId])
+}
+
+model Message {
+  id             String   @id @default(cuid())
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  senderId       String
+  content        String
+  readAt         DateTime?
+  createdAt      DateTime @default(now())
+
+  @@index([conversationId, createdAt])
+}
+
+model OutboxEvent {
+  id        String    @id @default(cuid())
+  type      String
+  payload   Json
+  status    String    @default("PENDING")
+  attempts  Int       @default(0)
+  createdAt DateTime  @default(now())
+  sentAt    DateTime?
+
+  @@index([status, attempts, createdAt])
+}

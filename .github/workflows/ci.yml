@@ -33,6 +33,9 @@ jobs:
           pnpm --filter jobs-svc exec prisma generate
           pnpm --filter applications-svc exec prisma generate
           pnpm --filter payment-svc exec prisma generate
+          pnpm --filter messaging-svc exec prisma generate
+          pnpm --filter notifications-svc exec prisma generate
+          pnpm --filter email-svc exec prisma generate
           pnpm --filter api-gateway exec prisma generate
           pnpm --filter web exec prisma generate
 
