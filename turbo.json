@@ -48,6 +48,7 @@
     "SEED_ADMIN_PASSWORD",
     "SEED_ADMIN_NAME"
   ],
+  "concurrency": "20",
   "tasks": {
     "build": {
       "dependsOn": ["^build"],
