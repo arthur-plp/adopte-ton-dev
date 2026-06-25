@@ -4,6 +4,7 @@ import {
   Get,
   HttpException,
   Inject,
+  Logger,
   Query,
   UseGuards,
 } from '@nestjs/common';
@@ -21,7 +22,12 @@ import { Roles } from '../auth/roles.decorator';
 import { Role } from '@repo/types';
 import { MatchingSearchFiltersSchema } from '@repo/contracts';
 
+const logger = new Logger('MatchingController');
+
 function toHttpException(err: unknown): never {
+  logger.error(
+    `Appel MATCHING_SVC échoué : ${err instanceof Error ? err.stack : JSON.stringify(err)}`,
+  );
   if (typeof err === 'object' && err !== null) {
     const e = err as Record<string, unknown>;
     if (typeof e['statusCode'] === 'number') {
