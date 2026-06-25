@@ -16,6 +16,8 @@ import {
   ExternalLink,
   User,
   Clock,
+  Mail,
+  Phone,
 } from "lucide-react";
 
 type SkillLevel = "BEGINNER" | "INTERMEDIATE" | "ADVANCED";
@@ -56,6 +58,8 @@ type DeveloperProfileDetail = {
   portfolioUrl: string | null;
   linkedinUrl: string | null;
   avatarUrl: string | null;
+  phone: string | null;
+  email: string;
   skills: DeveloperSkillItem[];
   technologies: DeveloperTechnologyItem[];
   projects: ProjectItem[];
@@ -210,6 +214,20 @@ export default function DeveloperProfilePage({ params }: { params: Promise<{ id:
                   </span>
                 </div>
                 <div className="mt-3 flex flex-wrap gap-3">
+                  <a
+                    href={`mailto:${profile.email}`}
+                    className="flex items-center gap-1 text-xs text-primary hover:underline"
+                  >
+                    <Mail className="size-3.5" /> {profile.email}
+                  </a>
+                  {profile.phone && (
+                    <a
+                      href={`tel:${profile.phone}`}
+                      className="flex items-center gap-1 text-xs text-primary hover:underline"
+                    >
+                      <Phone className="size-3.5" /> {profile.phone}
+                    </a>
+                  )}
                   {profile.githubUrl && (
                     <a
                       href={profile.githubUrl}

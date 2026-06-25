@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { MapPin, Loader2 } from "lucide-react";
+import { MapPin, Loader2, X } from "lucide-react";
 
 export type Coordinates = { lat: number; lon: number };
 
@@ -34,17 +34,49 @@ type Props = {
   disabled?: boolean;
 };
 
+async function fetchSuggestions(value: string): Promise<Suggestion[]> {
+  const url = `https://photon.komoot.io/api/?q=${encodeURIComponent(value)}&limit=6&lang=fr`;
+  const res = await fetch(url);
+  const data = (await res.json()) as { features: PhotonFeature[] };
+  const seen = new Set<string>();
+  const results: Suggestion[] = [];
+  for (const f of data.features) {
+    const p = f.properties;
+    const cityName = p.city ?? p.name ?? "";
+    const countryName = p.country ?? "";
+    if (!cityName || !countryName) continue;
+    const key = `${cityName}|${countryName}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    const [lon, lat] = f.geometry?.coordinates ?? [];
+    results.push({
+      city: cityName,
+      country: countryName,
+      label: `${cityName}, ${countryName}`,
+      coords: lat !== undefined && lon !== undefined ? { lat, lon } : undefined,
+    });
+    if (results.length >= 5) break;
+  }
+  return results;
+}
+
 export function CityAutocomplete({ city, country, onChange, placeholder = "Paris, Lyon…", disabled }: Props) {
-  const [query, setQuery] = useState(city ? (country ? `${city}, ${country}` : city) : "");
+  const initialQuery = city ? (country ? `${city}, ${country}` : city) : "";
+  const [query, setQuery] = useState(initialQuery);
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [loading, setLoading] = useState(false);
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Dernière valeur effectivement transmise au parent via onChange — permet
+  // de détecter, au blur, un texte tapé mais jamais confirmé par un clic.
+  const confirmedQueryRef = useRef(initialQuery);
 
   // Sync external value changes
   useEffect(() => {
-    setQuery(city ? (country ? `${city}, ${country}` : city) : "");
+    const next = city ? (country ? `${city}, ${country}` : city) : "";
+    setQuery(next);
+    confirmedQueryRef.current = next;
   }, [city, country]);
 
   // Close on outside click
@@ -69,28 +101,7 @@ export function CityAutocomplete({ city, country, onChange, placeholder = "Paris
     debounceRef.current = setTimeout(async () => {
       setLoading(true);
       try {
-        const url = `https://photon.komoot.io/api/?q=${encodeURIComponent(value)}&limit=6&lang=fr`;
-        const res = await fetch(url);
-        const data = (await res.json()) as { features: PhotonFeature[] };
-        const seen = new Set<string>();
-        const results: Suggestion[] = [];
-        for (const f of data.features) {
-          const p = f.properties;
-          const cityName = p.city ?? p.name ?? "";
-          const countryName = p.country ?? "";
-          if (!cityName || !countryName) continue;
-          const key = `${cityName}|${countryName}`;
-          if (seen.has(key)) continue;
-          seen.add(key);
-          const [lon, lat] = f.geometry?.coordinates ?? [];
-          results.push({
-            city: cityName,
-            country: countryName,
-            label: `${cityName}, ${countryName}`,
-            coords: lat !== undefined && lon !== undefined ? { lat, lon } : undefined,
-          });
-          if (results.length >= 5) break;
-        }
+        const results = await fetchSuggestions(value);
         setSuggestions(results);
         setOpen(results.length > 0);
       } catch {
@@ -103,17 +114,47 @@ export function CityAutocomplete({ city, country, onChange, placeholder = "Paris
 
   function select(s: Suggestion) {
     setQuery(s.label);
+    confirmedQueryRef.current = s.label;
     setSuggestions([]);
     setOpen(false);
     onChange(s.city, s.country, s.coords);
   }
 
-  function handleBlur() {
-    // If no suggestion was selected, keep what was typed as city
-    setTimeout(() => {
-      if (!open) return;
-      setOpen(false);
-    }, 150);
+  function clear() {
+    setQuery("");
+    confirmedQueryRef.current = "";
+    setSuggestions([]);
+    setOpen(false);
+    onChange("", "", undefined);
+  }
+
+  async function handleBlur() {
+    setTimeout(() => setOpen(false), 150);
+
+    // Texte tapé mais jamais confirmé par un clic sur une suggestion : sans
+    // ça, la ville part sans coordonnées et la recherche par proximité (et
+    // les villes limitrophes) ne fonctionne plus pour ce profil. On tente un
+    // géocodage direct sur ce qui a été tapé, comme si l'utilisateur avait
+    // cliqué le premier résultat.
+    const typed = query.trim();
+    if (!typed || typed === confirmedQueryRef.current) return;
+
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    setLoading(true);
+    try {
+      const results = await fetchSuggestions(typed);
+      if (results[0]) {
+        select(results[0]);
+      } else {
+        confirmedQueryRef.current = typed;
+        onChange(typed, "", undefined);
+      }
+    } catch {
+      confirmedQueryRef.current = typed;
+      onChange(typed, "", undefined);
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
@@ -123,8 +164,18 @@ export function CityAutocomplete({ city, country, onChange, placeholder = "Paris
         {loading && (
           <Loader2 className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 animate-spin text-muted-foreground" />
         )}
+        {!loading && query && !disabled && (
+          <button
+            type="button"
+            onMouseDown={(e) => { e.preventDefault(); clear(); }}
+            aria-label="Effacer la localisation"
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+          >
+            <X className="size-4" />
+          </button>
+        )}
         <input
-          className="input-base pl-9"
+          className="input-base pl-9 pr-9"
           value={query}
           onChange={(e) => handleInput(e.target.value)}
           onFocus={() => suggestions.length > 0 && setOpen(true)}

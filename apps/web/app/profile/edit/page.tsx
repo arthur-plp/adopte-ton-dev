@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { useSession, unlinkAccount, updateUser } from "@/lib/auth-client";
+import { useSession, unlinkAccount, updateUser, signOut } from "@/lib/auth-client";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -28,10 +28,23 @@ import {
   Building2,
   Globe,
   Layers,
+  Download,
 } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { Navbar } from "@/components/navbar";
 import { TechnologiesSection, type Technology } from "./technologies-section";
 import { CityAutocomplete } from "@/components/city-autocomplete";
+import { PhoneInput } from "@/components/phone-input";
 import { SkillsSection, type DeveloperSkillEntry, type SkillCatalogEntry } from "./skills-section";
 import { ProjectForm, type ProjectFormData } from "./project-form";
 import { Wrench, BookOpen } from "lucide-react";
@@ -166,7 +179,45 @@ export default function ProfileEditPage() {
   const [linkedProviders, setLinkedProviders] = useState<string[]>([]);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [unlinkingProvider, setUnlinkingProvider] = useState<string | null>(null);
+  const [exporting, setExporting] = useState(false);
+  const [deletingAccount, setDeletingAccount] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // ── RGPD : export et suppression de compte ────────────────────────────────
+
+  async function handleExportData() {
+    setExporting(true);
+    try {
+      const res = await fetch(`${apiUrl}/users/me/export`, { credentials: "include" });
+      if (!res.ok) throw new Error("export failed");
+      const data = await res.json();
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `adopte-ton-dev-mes-donnees-${new Date().toISOString().slice(0, 10)}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      toast.error("Impossible d'exporter tes données pour le moment.");
+    } finally {
+      setExporting(false);
+    }
+  }
+
+  async function handleDeleteAccount() {
+    setDeletingAccount(true);
+    try {
+      const res = await fetch(`${apiUrl}/users/me`, { method: "DELETE", credentials: "include" });
+      if (!res.ok) throw new Error("delete failed");
+      await signOut();
+      toast.success("Ton compte a été supprimé.");
+      router.replace("/");
+    } catch {
+      toast.error("Impossible de supprimer ton compte pour le moment.");
+      setDeletingAccount(false);
+    }
+  }
 
   // ── State développeur ─────────────────────────────────────────────────────
   const [devForm, setDevForm] = useState<DeveloperProfileData>(emptyDevForm);
@@ -923,17 +974,11 @@ export default function ProfileEditPage() {
 
             <Section title="Contact" icon={<Phone className="size-4" />}>
               <Field label="Téléphone">
-                <div className="relative">
-                  <Phone className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-                  <input
-                    type="tel"
-                    className="input-base pl-9"
-                    value={recruiterForm.phone}
-                    onChange={(e) => setRecruiterForm((prev) => ({ ...prev, phone: e.target.value }))}
-                    placeholder="+33 6 12 34 56 78"
-                    maxLength={30}
-                  />
-                </div>
+                <PhoneInput
+                  value={recruiterForm.phone}
+                  onChange={(value) => setRecruiterForm((prev) => ({ ...prev, phone: value }))}
+                  placeholder="6 12 34 56 78"
+                />
               </Field>
             </Section>
 
@@ -1062,6 +1107,50 @@ export default function ProfileEditPage() {
               </Button>
             </div>
           </form>
+
+          <div className="mt-8 rounded-2xl border border-destructive/30 bg-destructive/5 p-6">
+            <h2 className="text-sm font-semibold uppercase tracking-wide text-destructive">
+              Zone dangereuse
+            </h2>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Conformément au RGPD, vous pouvez exporter l&apos;ensemble de vos
+              données personnelles ou supprimer définitivement votre compte.
+            </p>
+            <div className="mt-4 flex flex-wrap items-center gap-3">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => void handleExportData()}
+                disabled={exporting}
+              >
+                <Download className="size-4" />
+                {exporting ? "Export…" : "Exporter mes données"}
+              </Button>
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button type="button" variant="destructive" disabled={deletingAccount}>
+                    <Trash2 className="size-4" />
+                    Supprimer mon compte
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Supprimer définitivement ce compte ?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      Cette action est irréversible : votre profil sera supprimé et
+                      vos offres encore actives seront archivées.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Annuler</AlertDialogCancel>
+                    <AlertDialogAction onClick={() => void handleDeleteAccount()}>
+                      Supprimer définitivement
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            </div>
+          </div>
         </main>
       </div>
     );
@@ -1338,17 +1427,11 @@ export default function ProfileEditPage() {
 
           <Section title="Liens & contact" icon={<Link2 className="size-4" />}>
             <Field label="Téléphone">
-              <div className="relative">
-                <Phone className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-                <input
-                  type="tel"
-                  className="input-base pl-9"
-                  value={devForm.phone}
-                  onChange={(e) => setDevForm((prev) => ({ ...prev, phone: e.target.value }))}
-                  placeholder="+33 6 12 34 56 78"
-                  maxLength={30}
-                />
-              </div>
+              <PhoneInput
+                value={devForm.phone}
+                onChange={(value) => setDevForm((prev) => ({ ...prev, phone: value }))}
+                placeholder="6 12 34 56 78"
+              />
               <p className="mt-1 text-xs text-muted-foreground">
                 Visible uniquement par les recruteurs qui t&apos;ont contacté.
               </p>
@@ -1406,6 +1489,50 @@ export default function ProfileEditPage() {
             </Button>
           </div>
         </form>
+
+        <div className="mt-8 rounded-2xl border border-destructive/30 bg-destructive/5 p-6">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-destructive">
+            Zone dangereuse
+          </h2>
+          <p className="mt-2 text-sm text-muted-foreground">
+            Conformément au RGPD, tu peux exporter l&apos;ensemble de tes données
+            personnelles ou supprimer définitivement ton compte.
+          </p>
+          <div className="mt-4 flex flex-wrap items-center gap-3">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => void handleExportData()}
+              disabled={exporting}
+            >
+              <Download className="size-4" />
+              {exporting ? "Export…" : "Exporter mes données"}
+            </Button>
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button type="button" variant="destructive" disabled={deletingAccount}>
+                  <Trash2 className="size-4" />
+                  Supprimer mon compte
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Supprimer définitivement ton compte ?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Cette action est irréversible : ton profil et toutes tes
+                    candidatures seront supprimés.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Annuler</AlertDialogCancel>
+                  <AlertDialogAction onClick={() => void handleDeleteAccount()}>
+                    Supprimer définitivement
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </div>
+        </div>
       </main>
     </div>
   );
