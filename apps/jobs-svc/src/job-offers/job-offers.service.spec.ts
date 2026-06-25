@@ -21,6 +21,7 @@ const mockPrisma = {
     findMany: jest.fn(),
     findUnique: jest.fn(),
     update: jest.fn(),
+    updateMany: jest.fn(),
     count: jest.fn(),
     delete: jest.fn(),
     groupBy: jest.fn(),
@@ -28,6 +29,7 @@ const mockPrisma = {
   jobOfferEvent: {
     create: jest.fn(),
     findMany: jest.fn(),
+    createMany: jest.fn(),
   },
   outboxEvent: { create: jest.fn() },
   $transaction: jest.fn(),
@@ -765,6 +767,48 @@ describe("JobOffersService", () => {
         rejected: 0,
         archived: 0,
       });
+    });
+  });
+
+  // ── archiveAllForDeletedRecruiter (consumer user.deleted) ───────────────────
+
+  describe("archiveAllForDeletedRecruiter", () => {
+    it("archive toutes les offres non archivées du recruteur et trace l'événement SYSTEM", async () => {
+      mockPrisma.jobOffer.findMany.mockResolvedValueOnce([
+        { id: "job-1", companyId: "company-1" },
+        { id: "job-2", companyId: "company-1" },
+      ]);
+      mockPrisma.$transaction.mockResolvedValueOnce(undefined);
+
+      const result = await service.archiveAllForDeletedRecruiter("recruiter-1");
+
+      expect(mockPrisma.jobOffer.findMany).toHaveBeenCalledWith({
+        where: {
+          recruiterId: "recruiter-1",
+          status: { not: JobStatus.ARCHIVED },
+        },
+        select: { id: true, companyId: true },
+      });
+      expect(mockPrisma.jobOffer.updateMany).toHaveBeenCalledWith({
+        where: { id: { in: ["job-1", "job-2"] } },
+        data: { status: JobStatus.ARCHIVED },
+      });
+      expect(mockPrisma.jobOfferEvent.createMany).toHaveBeenCalledWith({
+        data: [
+          expect.objectContaining({ jobOfferId: "job-1", actorRole: "SYSTEM" }),
+          expect.objectContaining({ jobOfferId: "job-2", actorRole: "SYSTEM" }),
+        ],
+      });
+      expect(result).toEqual({ archived: 2 });
+    });
+
+    it("ne fait rien si le recruteur n'a aucune offre active", async () => {
+      mockPrisma.jobOffer.findMany.mockResolvedValueOnce([]);
+
+      const result = await service.archiveAllForDeletedRecruiter("recruiter-1");
+
+      expect(mockPrisma.$transaction).not.toHaveBeenCalled();
+      expect(result).toEqual({ archived: 0 });
     });
   });
 });

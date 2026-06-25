@@ -1,4 +1,8 @@
-import { ConflictException, NotFoundException } from '@nestjs/common';
+import {
+  ConflictException,
+  ForbiddenException,
+  NotFoundException,
+} from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { UsersService } from './users.service';
 import { PrismaService } from '../prisma/prisma.service';
@@ -29,6 +33,9 @@ const mockPrisma = {
   },
   account: {
     findMany: jest.fn(),
+  },
+  outboxEvent: {
+    create: jest.fn(),
   },
   $transaction: jest.fn(),
 };
@@ -290,14 +297,34 @@ describe('UsersService', () => {
   // ─── adminDeleteUser ──────────────────────────────────────────────────────
 
   describe('adminDeleteUser', () => {
-    it('supprime un utilisateur non-admin', async () => {
+    beforeEach(() => {
+      // deleteUserAndEmitEvent utilise $transaction([...]) (forme tableau),
+      // pas la forme callback utilisée par setRole — on adapte le mock ici.
+      mockPrisma.$transaction.mockImplementation((arr: unknown[]) =>
+        Promise.all(arr),
+      );
+    });
+
+    it('supprime un utilisateur non-admin et émet user.deleted', async () => {
       mockPrisma.user.findUnique.mockResolvedValue({
         id: 'u1',
         role: Role.DEVELOPER,
       });
       mockPrisma.user.delete.mockResolvedValue({});
+      mockPrisma.outboxEvent.create.mockResolvedValue({});
+
       const result = await service.adminDeleteUser('u1');
+
       expect(result).toEqual({ ok: true });
+      expect(mockPrisma.user.delete).toHaveBeenCalledWith({
+        where: { id: 'u1' },
+      });
+      expect(mockPrisma.outboxEvent.create).toHaveBeenCalledWith({
+        data: {
+          type: 'user.deleted',
+          payload: { userId: 'u1', role: Role.DEVELOPER },
+        },
+      });
     });
 
     it('lance NotFoundException si introuvable', async () => {
@@ -305,6 +332,93 @@ describe('UsersService', () => {
       await expect(service.adminDeleteUser('x')).rejects.toThrow(
         NotFoundException,
       );
+    });
+  });
+
+  // ─── deleteOwnAccount ─────────────────────────────────────────────────────
+
+  describe('deleteOwnAccount', () => {
+    beforeEach(() => {
+      mockPrisma.$transaction.mockImplementation((arr: unknown[]) =>
+        Promise.all(arr),
+      );
+    });
+
+    it('supprime son propre compte développeur et émet user.deleted', async () => {
+      mockPrisma.user.findUnique.mockResolvedValue({
+        id: 'dev-1',
+        role: Role.DEVELOPER,
+      });
+      mockPrisma.user.delete.mockResolvedValue({});
+      mockPrisma.outboxEvent.create.mockResolvedValue({});
+
+      const result = await service.deleteOwnAccount('dev-1');
+
+      expect(result).toEqual({ ok: true });
+      expect(mockPrisma.outboxEvent.create).toHaveBeenCalledWith({
+        data: {
+          type: 'user.deleted',
+          payload: { userId: 'dev-1', role: Role.DEVELOPER },
+        },
+      });
+    });
+
+    it('lance NotFoundException si introuvable', async () => {
+      mockPrisma.user.findUnique.mockResolvedValue(null);
+      await expect(service.deleteOwnAccount('x')).rejects.toThrow(
+        NotFoundException,
+      );
+    });
+
+    it('refuse la suppression auto-service pour un compte admin', async () => {
+      mockPrisma.user.findUnique.mockResolvedValue({
+        id: 'admin-1',
+        role: Role.ADMIN,
+      });
+      await expect(service.deleteOwnAccount('admin-1')).rejects.toThrow(
+        ForbiddenException,
+      );
+      expect(mockPrisma.user.delete).not.toHaveBeenCalled();
+    });
+  });
+
+  // ─── exportData ───────────────────────────────────────────────────────────
+
+  describe('exportData', () => {
+    it("exporte l'identité et le profil développeur", async () => {
+      mockPrisma.user.findUnique.mockResolvedValue({
+        id: 'dev-1',
+        name: 'Ada Lovelace',
+        email: 'ada@example.com',
+        role: Role.DEVELOPER,
+        createdAt: new Date('2026-01-01'),
+      });
+      mockPrisma.developerProfile.findUnique.mockResolvedValue({
+        id: 'profile-1',
+        firstName: 'Ada',
+        lastName: 'Lovelace',
+      });
+
+      const result = await service.exportData('dev-1');
+
+      expect(result.user).toEqual({
+        id: 'dev-1',
+        name: 'Ada Lovelace',
+        email: 'ada@example.com',
+        role: Role.DEVELOPER,
+        createdAt: new Date('2026-01-01'),
+      });
+      expect(result.profile).toEqual({
+        id: 'profile-1',
+        firstName: 'Ada',
+        lastName: 'Lovelace',
+      });
+      expect(typeof result.exportedAt).toBe('string');
+    });
+
+    it('lance NotFoundException si introuvable', async () => {
+      mockPrisma.user.findUnique.mockResolvedValue(null);
+      await expect(service.exportData('x')).rejects.toThrow(NotFoundException);
     });
   });
 

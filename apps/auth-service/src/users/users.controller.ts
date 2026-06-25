@@ -35,6 +35,16 @@ export class UsersController {
     return this.usersService.getAvatarOptions(payload.userId);
   }
 
+  @MessagePattern({ cmd: 'users.exportData' })
+  exportData(@Payload() payload: { userId: string }) {
+    return this.usersService.exportData(payload.userId);
+  }
+
+  @MessagePattern({ cmd: 'users.deleteOwnAccount' })
+  deleteOwnAccount(@Payload() payload: { userId: string }) {
+    return this.usersService.deleteOwnAccount(payload.userId);
+  }
+
   // ── Admin ────────────────────────────────────────────────────────────────
 
   @MessagePattern({ cmd: 'admin.listUsers' })

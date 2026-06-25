@@ -468,4 +468,35 @@ export class JobOffersService {
     ]);
     return draft;
   }
+
+  /**
+   * Consumer de l'event user.deleted (RGPD, CLAUDE.md §25/§28) : un recruteur
+   * a supprimé son compte (chez auth-service) — on dépublie ses offres encore
+   * actives plutôt que de les supprimer, pour préserver l'historique des
+   * candidatures déjà reçues côté applications-svc.
+   */
+  async archiveAllForDeletedRecruiter(recruiterId: string) {
+    const offers = await this.prisma.jobOffer.findMany({
+      where: { recruiterId, status: { not: JobStatus.ARCHIVED } },
+      select: { id: true, companyId: true },
+    });
+    if (offers.length === 0) return { archived: 0 };
+
+    await this.prisma.$transaction([
+      this.prisma.jobOffer.updateMany({
+        where: { id: { in: offers.map((o) => o.id) } },
+        data: { status: JobStatus.ARCHIVED },
+      }),
+      this.prisma.jobOfferEvent.createMany({
+        data: offers.map((o) => ({
+          jobOfferId: o.id,
+          status: JobStatus.ARCHIVED,
+          actorRole: "SYSTEM",
+          actorId: null,
+          note: "Archivée automatiquement : le compte du recruteur a été supprimé.",
+        })),
+      }),
+    ]);
+    return { archived: offers.length };
+  }
 }

@@ -13,6 +13,7 @@ const mockPrisma = {
     findUnique: jest.fn(),
     update: jest.fn(),
     updateMany: jest.fn(),
+    deleteMany: jest.fn(),
     count: jest.fn(),
     groupBy: jest.fn(),
   },
@@ -1247,6 +1248,21 @@ describe("ApplicationsService", () => {
       const result = await service.getStats();
 
       expect(result.acceptanceRate).toBe(0);
+    });
+  });
+
+  // ── deleteAllForDeletedDeveloper (consumer user.deleted) ─────────────────
+
+  describe("deleteAllForDeletedDeveloper", () => {
+    it("supprime toutes les candidatures du développeur supprimé", async () => {
+      mockPrisma.application.deleteMany.mockResolvedValueOnce({ count: 3 });
+
+      const result = await service.deleteAllForDeletedDeveloper("dev-1");
+
+      expect(mockPrisma.application.deleteMany).toHaveBeenCalledWith({
+        where: { developerId: "dev-1" },
+      });
+      expect(result).toEqual({ deleted: 3 });
     });
   });
 });

@@ -2,6 +2,7 @@ import { Module } from "@nestjs/common";
 import { ClientsModule, Transport } from "@nestjs/microservices";
 import { JobOffersController } from "./job-offers.controller";
 import { JobOffersService } from "./job-offers.service";
+import { RabbitConsumerService } from "../rabbit/rabbit-consumer.service";
 
 @Module({
   imports: [
@@ -25,6 +26,6 @@ import { JobOffersService } from "./job-offers.service";
     ]),
   ],
   controllers: [JobOffersController],
-  providers: [JobOffersService],
+  providers: [JobOffersService, RabbitConsumerService],
 })
 export class JobOffersModule {}
