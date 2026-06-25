@@ -7,6 +7,7 @@ import { Role } from '@repo/types';
 const mockUsersService = {
   setRole: jest.fn(),
   getProfile: jest.fn(),
+  getParticipantInfo: jest.fn(),
 };
 
 describe('UsersController', () => {
@@ -117,6 +118,28 @@ describe('UsersController', () => {
       await expect(
         controller.getProfile({ userId: 'user-inconnu' }),
       ).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  // ─── getParticipantInfo ───────────────────────────────────────────────────
+
+  describe('getParticipantInfo', () => {
+    it('délègue au service et retourne le résultat', async () => {
+      const info = {
+        firstName: 'Carole',
+        lastName: 'Admin',
+        avatarUrl: null,
+        companyName: null,
+        role: Role.ADMIN,
+      };
+      mockUsersService.getParticipantInfo.mockResolvedValue(info);
+
+      const result = await controller.getParticipantInfo({ userId: 'admin-1' });
+
+      expect(result).toEqual(info);
+      expect(mockUsersService.getParticipantInfo).toHaveBeenCalledWith(
+        'admin-1',
+      );
     });
   });
 });

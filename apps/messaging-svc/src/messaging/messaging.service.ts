@@ -138,4 +138,13 @@ export class MessagingService {
     });
     return { updated: count };
   }
+
+  // Suppression définitive (pas de "soft delete" par participant : le modèle
+  // actuel est une conversation à 2 participants, donc l'un comme l'autre la
+  // supprime pour les deux — les messages sont supprimés en cascade (Prisma)).
+  async deleteConversation(conversationId: string, requesterId: string) {
+    await this.requireParticipant(conversationId, requesterId);
+    await this.prisma.conversation.delete({ where: { id: conversationId } });
+    return { deleted: true };
+  }
 }

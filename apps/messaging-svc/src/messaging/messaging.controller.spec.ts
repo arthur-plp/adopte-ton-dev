@@ -8,6 +8,7 @@ const mockService = {
   getMessages: jest.fn(),
   sendMessage: jest.fn(),
   markRead: jest.fn(),
+  deleteConversation: jest.fn(),
 };
 
 describe("MessagingController", () => {
@@ -65,5 +66,16 @@ describe("MessagingController", () => {
   it("markRead → délègue au service", () => {
     controller.markRead({ conversationId: "conv-1", requesterId: "dev-1" });
     expect(mockService.markRead).toHaveBeenCalledWith("conv-1", "dev-1");
+  });
+
+  it("deleteConversation → délègue au service", () => {
+    controller.deleteConversation({
+      conversationId: "conv-1",
+      requesterId: "dev-1",
+    });
+    expect(mockService.deleteConversation).toHaveBeenCalledWith(
+      "conv-1",
+      "dev-1",
+    );
   });
 });

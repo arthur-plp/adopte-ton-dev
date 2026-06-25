@@ -63,4 +63,14 @@ export class MessagingController {
   markRead(@Payload() data: { conversationId: string; requesterId: string }) {
     return this.service.markRead(data.conversationId, data.requesterId);
   }
+
+  @MessagePattern({ cmd: "messaging.deleteConversation" })
+  deleteConversation(
+    @Payload() data: { conversationId: string; requesterId: string },
+  ) {
+    return this.service.deleteConversation(
+      data.conversationId,
+      data.requesterId,
+    );
+  }
 }

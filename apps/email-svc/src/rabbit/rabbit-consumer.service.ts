@@ -27,6 +27,18 @@ type JobOfferLike = { id: string; title: string };
 
 const WEB_URL = process.env["WEB_URL"] ?? "http://localhost:3000";
 
+// Les erreurs RPC NestJS (microservices) sont souvent de simples objets
+// ({statusCode, message}), pas des Error — String(err) donnerait "[object
+// Object]", inutilisable pour diagnostiquer un échec en prod.
+function describeError(err: unknown): string {
+  if (err instanceof Error) return err.message;
+  try {
+    return JSON.stringify(err);
+  } catch {
+    return String(err);
+  }
+}
+
 @Injectable()
 export class RabbitConsumerService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(RabbitConsumerService.name);
@@ -58,13 +70,20 @@ export class RabbitConsumerService implements OnModuleInit, OnModuleDestroy {
         `Consumer RabbitMQ prêt (queue "${QUEUE}", routing keys: ${ROUTING_KEYS.join(", ")})`,
       );
     } catch (err) {
-      this.logger.error(`Connexion RabbitMQ échouée : ${String(err)}`);
+      this.logger.error(`Connexion RabbitMQ échouée : ${describeError(err)}`);
     }
   }
 
-  private async getProfile(userId: string, kind: "developer" | "recruiter") {
+  // Identité normalisée (développeur, recruteur ou admin) — un admin n'a ni
+  // DeveloperProfile ni RecruiterProfile, users.getParticipantInfo gère ce
+  // repli côté auth-service (cf. apps/api-gateway/.../messaging.controller.ts
+  // qui utilise la même commande pour la messagerie).
+  private async getParticipant(userId: string) {
     return lastValueFrom(
-      this.authClient.send<Profile>({ cmd: `${kind}.getProfile` }, { userId }),
+      this.authClient.send<Profile>(
+        { cmd: "users.getParticipantInfo" },
+        { userId },
+      ),
     );
   }
 
@@ -116,7 +135,7 @@ export class RabbitConsumerService implements OnModuleInit, OnModuleDestroy {
       }
       this.channel.ack(msg);
     } catch (err) {
-      this.logger.error(`Échec traitement event : ${String(err)}`);
+      this.logger.error(`Échec traitement event : ${describeError(err)}`);
       this.channel.nack(msg, false, true);
     }
   }
@@ -127,8 +146,8 @@ export class RabbitConsumerService implements OnModuleInit, OnModuleDestroy {
     const recruiterId = payload["recruiterId"] as string;
 
     const [recruiter, developer, offer] = await Promise.all([
-      this.getProfile(recruiterId, "recruiter"),
-      this.getProfile(developerId, "developer"),
+      this.getParticipant(recruiterId),
+      this.getParticipant(developerId),
       this.getJobOffer(jobOfferId),
     ]);
 
@@ -158,7 +177,7 @@ export class RabbitConsumerService implements OnModuleInit, OnModuleDestroy {
     const status = payload["status"] as string;
 
     const [developer, offer] = await Promise.all([
-      this.getProfile(developerId, "developer"),
+      this.getParticipant(developerId),
       this.getJobOffer(jobOfferId),
     ]);
 
@@ -181,8 +200,8 @@ export class RabbitConsumerService implements OnModuleInit, OnModuleDestroy {
     const conversationId = payload["conversationId"] as string;
 
     const [sender, recipient] = await Promise.all([
-      this.resolveAnyProfile(senderId),
-      this.resolveAnyProfile(recipientId),
+      this.getParticipant(senderId),
+      this.getParticipant(recipientId),
     ]);
 
     await this.mailer.send(
@@ -196,16 +215,6 @@ export class RabbitConsumerService implements OnModuleInit, OnModuleDestroy {
         conversationUrl: `${WEB_URL}/messages?c=${conversationId}`,
       }),
     );
-  }
-
-  // Le sender/recipient d'une conversation peut être un dev ou un recruteur ;
-  // on tente les deux car le payload n'indique pas le rôle.
-  private async resolveAnyProfile(userId: string): Promise<Profile> {
-    try {
-      return await this.getProfile(userId, "developer");
-    } catch {
-      return this.getProfile(userId, "recruiter");
-    }
   }
 
   async onModuleDestroy() {

@@ -23,6 +23,14 @@ import { RealtimeModule } from '../realtime/realtime.module';
           port: parseInt(process.env['USERS_SVC_PORT'] ?? '3001', 10),
         },
       },
+      {
+        name: 'JOBS_SVC',
+        transport: Transport.TCP,
+        options: {
+          host: process.env['JOBS_SVC_HOST'] ?? 'localhost',
+          port: parseInt(process.env['JOBS_SVC_PORT'] ?? '3002', 10),
+        },
+      },
     ]),
   ],
   controllers: [MessagingController],

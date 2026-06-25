@@ -282,6 +282,62 @@ export class UsersService {
     return { role: user.role, profile };
   }
 
+  // Identité normalisée pour un participant de conversation (messaging-svc),
+  // quel que soit son rôle — y compris ADMIN, qui n'a ni DeveloperProfile ni
+  // RecruiterProfile : on retombe alors sur le nom BetterAuth (User.name).
+  async getParticipantInfo(userId: string) {
+    const user = await retry(() =>
+      this.prisma.user.findUnique({
+        where: { id: userId },
+        select: { name: true, role: true, email: true },
+      }),
+    );
+    if (!user) throw new NotFoundException('Utilisateur introuvable');
+
+    if (user.role === Role.RECRUITER) {
+      const profile = await retry(() =>
+        this.prisma.recruiterProfile.findUnique({
+          where: { userId },
+          include: { company: true },
+        }),
+      );
+      if (profile) {
+        return {
+          firstName: profile.firstName,
+          lastName: profile.lastName,
+          avatarUrl: profile.avatarUrl ?? null,
+          companyName: profile.company?.name ?? null,
+          role: user.role,
+          email: user.email,
+        };
+      }
+    } else if (user.role === Role.DEVELOPER) {
+      const profile = await retry(() =>
+        this.prisma.developerProfile.findUnique({ where: { userId } }),
+      );
+      if (profile) {
+        return {
+          firstName: profile.firstName,
+          lastName: profile.lastName,
+          avatarUrl: profile.avatarUrl ?? null,
+          companyName: null,
+          role: user.role,
+          email: user.email,
+        };
+      }
+    }
+
+    const [firstName, ...rest] = user.name.split(' ');
+    return {
+      firstName: firstName ?? user.name,
+      lastName: rest.join(' '),
+      avatarUrl: null,
+      companyName: null,
+      role: user.role,
+      email: user.email,
+    };
+  }
+
   // Profil manquant (edge case : rôle changé sans créer le profil) → retourner null
   private async fetchProfileForRole(userId: string, role: string) {
     if (role === Role.ADMIN) return null;

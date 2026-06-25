@@ -118,11 +118,11 @@ describe("RabbitConsumerService (email-svc)", () => {
     await onMessage(msg);
 
     expect(mockAuthClient.send).toHaveBeenCalledWith(
-      { cmd: "recruiter.getProfile" },
+      { cmd: "users.getParticipantInfo" },
       { userId: "recruiter-1" },
     );
     expect(mockAuthClient.send).toHaveBeenCalledWith(
-      { cmd: "developer.getProfile" },
+      { cmd: "users.getParticipantInfo" },
       { userId: "dev-1" },
     );
     expect(mockMailer.send).toHaveBeenCalledWith(
@@ -157,7 +157,7 @@ describe("RabbitConsumerService (email-svc)", () => {
     await onMessage(msg);
 
     expect(mockAuthClient.send).toHaveBeenCalledWith(
-      { cmd: "developer.getProfile" },
+      { cmd: "users.getParticipantInfo" },
       { userId: "dev-1" },
     );
     expect(mockMailer.send).toHaveBeenCalledWith(
@@ -184,18 +184,11 @@ describe("RabbitConsumerService (email-svc)", () => {
     expect(mockChannel.ack).toHaveBeenCalledWith(msg);
   });
 
-  it("message.sent → envoie l'email au destinataire (résolution dev/recruteur par essai)", async () => {
+  it("message.sent → envoie l'email au destinataire (dev → recruteur)", async () => {
     (mockAuthClient.send as jest.Mock).mockImplementation(
       (pattern: { cmd: string }, data: { userId: string }) => {
-        if (pattern.cmd === "developer.getProfile" && data.userId === "dev-1") {
-          return of(developer);
-        }
-        if (
-          pattern.cmd === "recruiter.getProfile" &&
-          data.userId === "recruiter-1"
-        ) {
-          return of(recruiter);
-        }
+        if (data.userId === "dev-1") return of(developer);
+        if (data.userId === "recruiter-1") return of(recruiter);
         return throwError(() => new Error("not found"));
       },
     );
@@ -217,11 +210,59 @@ describe("RabbitConsumerService (email-svc)", () => {
     );
     await onMessage(msg);
 
+    expect(mockAuthClient.send).toHaveBeenCalledWith(
+      { cmd: "users.getParticipantInfo" },
+      { userId: "dev-1" },
+    );
+    expect(mockAuthClient.send).toHaveBeenCalledWith(
+      { cmd: "users.getParticipantInfo" },
+      { userId: "recruiter-1" },
+    );
     expect(mockMailer.send).toHaveBeenCalledWith(
       "recruiter@test.com",
       expect.any(String),
       expect.anything(),
     );
+  });
+
+  it("message.sent → résout aussi un participant ADMIN (sans DeveloperProfile/RecruiterProfile)", async () => {
+    const admin = {
+      firstName: "Carole",
+      lastName: "Admin",
+      email: "admin@test.com",
+    };
+    (mockAuthClient.send as jest.Mock).mockImplementation(
+      (_pattern: { cmd: string }, data: { userId: string }) => {
+        if (data.userId === "admin-1") return of(admin);
+        if (data.userId === "dev-1") return of(developer);
+        return throwError(() => new Error("not found"));
+      },
+    );
+    await service.onModuleInit();
+    const onMessage = mockChannel.consume.mock.calls[0][1] as (
+      msg: unknown,
+    ) => Promise<void>;
+
+    const msg = buildMsg(
+      "message.sent",
+      {
+        conversationId: "conv-1",
+        messageId: "m2",
+        senderId: "admin-1",
+        recipientId: "dev-1",
+        content: "Bonjour, ceci est un message du support.",
+      },
+      "evt-3b",
+    );
+    await onMessage(msg);
+
+    expect(mockMailer.send).toHaveBeenCalledWith(
+      "dev@test.com",
+      expect.stringContaining("Carole Admin"),
+      expect.anything(),
+    );
+    expect(mockChannel.ack).toHaveBeenCalledWith(msg);
+    expect(mockChannel.nack).not.toHaveBeenCalled();
   });
 
   it("nack le message (avec requeue) si le traitement échoue", async () => {

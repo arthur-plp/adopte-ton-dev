@@ -228,6 +228,111 @@ describe('UsersService', () => {
     });
   });
 
+  // ─── getParticipantInfo ───────────────────────────────────────────────────
+  // Identité normalisée pour un participant de conversation (messaging-svc),
+  // quel que soit son rôle — y compris ADMIN qui n'a ni DeveloperProfile ni
+  // RecruiterProfile et retombe donc sur le nom BetterAuth.
+
+  describe('getParticipantInfo', () => {
+    it('retourne le profil développeur (firstName/lastName/avatarUrl/email)', async () => {
+      mockPrisma.user.findUnique.mockResolvedValue({
+        name: 'Alice Dev',
+        role: Role.DEVELOPER,
+        email: 'alice@test.com',
+      });
+      mockPrisma.developerProfile.findUnique.mockResolvedValue({
+        firstName: 'Alice',
+        lastName: 'Dev',
+        avatarUrl: 'https://avatars.example/alice.png',
+      });
+
+      const result = await service.getParticipantInfo('user-1');
+
+      expect(result).toEqual({
+        firstName: 'Alice',
+        lastName: 'Dev',
+        avatarUrl: 'https://avatars.example/alice.png',
+        companyName: null,
+        role: Role.DEVELOPER,
+        email: 'alice@test.com',
+      });
+    });
+
+    it("retourne le profil recruteur avec le nom de l'entreprise", async () => {
+      mockPrisma.user.findUnique.mockResolvedValue({
+        name: 'Bob Rec',
+        role: Role.RECRUITER,
+        email: 'bob@test.com',
+      });
+      mockPrisma.recruiterProfile.findUnique.mockResolvedValue({
+        firstName: 'Bob',
+        lastName: 'Rec',
+        avatarUrl: null,
+        company: { name: 'Acme Corp' },
+      });
+
+      const result = await service.getParticipantInfo('user-2');
+
+      expect(result).toEqual({
+        firstName: 'Bob',
+        lastName: 'Rec',
+        avatarUrl: null,
+        companyName: 'Acme Corp',
+        role: Role.RECRUITER,
+        email: 'bob@test.com',
+      });
+    });
+
+    it('retombe sur le nom BetterAuth pour un ADMIN (pas de profil dédié)', async () => {
+      mockPrisma.user.findUnique.mockResolvedValue({
+        name: 'Carole Admin',
+        role: Role.ADMIN,
+        email: 'carole@test.com',
+      });
+
+      const result = await service.getParticipantInfo('admin-1');
+
+      expect(result).toEqual({
+        firstName: 'Carole',
+        lastName: 'Admin',
+        avatarUrl: null,
+        companyName: null,
+        role: Role.ADMIN,
+        email: 'carole@test.com',
+      });
+      expect(mockPrisma.developerProfile.findUnique).not.toHaveBeenCalled();
+      expect(mockPrisma.recruiterProfile.findUnique).not.toHaveBeenCalled();
+    });
+
+    it('retombe sur le nom BetterAuth si le profil développeur est absent (rôle changé)', async () => {
+      mockPrisma.user.findUnique.mockResolvedValue({
+        name: 'Dan Sansprofil',
+        role: Role.DEVELOPER,
+        email: 'dan@test.com',
+      });
+      mockPrisma.developerProfile.findUnique.mockResolvedValue(null);
+
+      const result = await service.getParticipantInfo('user-3');
+
+      expect(result).toEqual({
+        firstName: 'Dan',
+        lastName: 'Sansprofil',
+        avatarUrl: null,
+        companyName: null,
+        role: Role.DEVELOPER,
+        email: 'dan@test.com',
+      });
+    });
+
+    it("lance NotFoundException si l'utilisateur n'existe pas", async () => {
+      mockPrisma.user.findUnique.mockResolvedValue(null);
+
+      await expect(service.getParticipantInfo('user-unknown')).rejects.toThrow(
+        NotFoundException,
+      );
+    });
+  });
+
   // ─── getStats ─────────────────────────────────────────────────────────────
 
   describe('getStats', () => {

@@ -30,6 +30,11 @@ export class UsersController {
     return this.usersService.getProfile(payload.userId);
   }
 
+  @MessagePattern({ cmd: 'users.getParticipantInfo' })
+  getParticipantInfo(@Payload() payload: { userId: string }) {
+    return this.usersService.getParticipantInfo(payload.userId);
+  }
+
   @MessagePattern({ cmd: 'users.getAvatarOptions' })
   getAvatarOptions(@Payload() payload: { userId: string }) {
     return this.usersService.getAvatarOptions(payload.userId);

@@ -50,6 +50,7 @@ function mockReq(user: AuthenticatedUser): AuthRequest {
 
 const mockMessagingClient = { send: jest.fn() };
 const mockUsersClient = { send: jest.fn() };
+const mockJobsClient = { send: jest.fn() };
 const mockRealtimeGateway = { pushToUser: jest.fn() };
 
 const VALID_CUID = 'clxxxxxxxxxxxxxxxxxxxxxxxx';
@@ -70,6 +71,7 @@ describe('MessagingController (api-gateway)', () => {
       providers: [
         { provide: 'MESSAGING_SVC', useValue: mockMessagingClient },
         { provide: 'USERS_SVC', useValue: mockUsersClient },
+        { provide: 'JOBS_SVC', useValue: mockJobsClient },
         { provide: RealtimeGateway, useValue: mockRealtimeGateway },
       ],
     })
@@ -110,13 +112,19 @@ describe('MessagingController (api-gateway)', () => {
     it("enrichit chaque conversation avec le profil de l'autre participant", async () => {
       mockMessagingClient.send.mockReturnValueOnce(of([conversation]));
       mockUsersClient.send.mockReturnValueOnce(
-        of({ firstName: 'Bob', lastName: 'Recruteur', avatarUrl: null }),
+        of({
+          firstName: 'Bob',
+          lastName: 'Recruteur',
+          avatarUrl: null,
+          companyName: 'Acme Corp',
+          role: Role.RECRUITER,
+        }),
       );
 
       const result = await controller.listConversations(mockReq(mockDeveloper));
 
       expect(mockUsersClient.send).toHaveBeenCalledWith(
-        { cmd: 'recruiter.getProfile' },
+        { cmd: 'users.getParticipantInfo' },
         { userId: 'recruiter-1' },
       );
       expect(result).toEqual([
@@ -127,7 +135,10 @@ describe('MessagingController (api-gateway)', () => {
             firstName: 'Bob',
             lastName: 'Recruteur',
             avatarUrl: null,
+            companyName: 'Acme Corp',
+            role: Role.RECRUITER,
           },
+          jobOfferTitle: null,
         },
       ]);
     });
@@ -140,7 +151,60 @@ describe('MessagingController (api-gateway)', () => {
 
       const result = await controller.listConversations(mockReq(mockDeveloper));
 
-      expect(result).toEqual([{ ...conversation, otherParticipant: null }]);
+      expect(result).toEqual([
+        { ...conversation, otherParticipant: null, jobOfferTitle: null },
+      ]);
+    });
+
+    it("ajoute le titre de l'offre liée quand jobOfferId est renseigné", async () => {
+      const conversationWithJob = { ...conversation, jobOfferId: 'job-1' };
+      mockMessagingClient.send.mockReturnValueOnce(of([conversationWithJob]));
+      mockUsersClient.send.mockReturnValueOnce(
+        of({
+          firstName: 'Bob',
+          lastName: 'Recruteur',
+          avatarUrl: null,
+          companyName: null,
+          role: Role.RECRUITER,
+        }),
+      );
+      mockJobsClient.send.mockReturnValueOnce(
+        of({ title: 'Développeur Fullstack' }),
+      );
+
+      const result = await controller.listConversations(mockReq(mockDeveloper));
+
+      expect(mockJobsClient.send).toHaveBeenCalledWith(
+        { cmd: 'job.findOne' },
+        { id: 'job-1', publicOnly: false },
+      );
+      expect(result[0]).toMatchObject({
+        jobOfferTitle: 'Développeur Fullstack',
+      });
+    });
+
+    it("met jobOfferTitle à null si l'offre n'existe plus", async () => {
+      const conversationWithJob = {
+        ...conversation,
+        jobOfferId: 'job-deleted',
+      };
+      mockMessagingClient.send.mockReturnValueOnce(of([conversationWithJob]));
+      mockUsersClient.send.mockReturnValueOnce(
+        of({
+          firstName: 'Bob',
+          lastName: 'Recruteur',
+          avatarUrl: null,
+          companyName: null,
+          role: Role.RECRUITER,
+        }),
+      );
+      mockJobsClient.send.mockReturnValueOnce(
+        throwError(() => new Error('introuvable')),
+      );
+
+      const result = await controller.listConversations(mockReq(mockDeveloper));
+
+      expect(result[0]).toMatchObject({ jobOfferTitle: null });
     });
   });
 
@@ -213,6 +277,23 @@ describe('MessagingController (api-gateway)', () => {
         { cmd: 'messaging.markRead' },
         { conversationId: 'conv-1', requesterId: 'dev-1' },
       );
+    });
+  });
+
+  describe('deleteConversation', () => {
+    it('transmet conversationId/requesterId au messaging-svc', async () => {
+      mockMessagingClient.send.mockReturnValueOnce(of({ deleted: true }));
+
+      const result = await controller.deleteConversation(
+        mockReq(mockDeveloper),
+        'conv-1',
+      );
+
+      expect(mockMessagingClient.send).toHaveBeenCalledWith(
+        { cmd: 'messaging.deleteConversation' },
+        { conversationId: 'conv-1', requesterId: 'dev-1' },
+      );
+      expect(result).toEqual({ deleted: true });
     });
   });
 });

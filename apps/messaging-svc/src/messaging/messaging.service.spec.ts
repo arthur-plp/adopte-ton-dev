@@ -8,6 +8,7 @@ const mockPrisma = {
     upsert: jest.fn(),
     findUnique: jest.fn(),
     findMany: jest.fn(),
+    delete: jest.fn(),
   },
   message: {
     create: jest.fn(),
@@ -218,6 +219,29 @@ describe("MessagingService", () => {
         data: { readAt: expect.any(Date) },
       });
       expect(result).toEqual({ updated: 2 });
+    });
+  });
+
+  describe("deleteConversation", () => {
+    it("rejette si le requester n'est pas participant (403)", async () => {
+      mockPrisma.conversation.findUnique.mockResolvedValue(conversation);
+
+      await expect(
+        service.deleteConversation("conv-1", "un-tiers"),
+      ).rejects.toThrow(ForbiddenException);
+      expect(mockPrisma.conversation.delete).not.toHaveBeenCalled();
+    });
+
+    it("supprime la conversation (et ses messages, cascade Prisma) si le requester est participant", async () => {
+      mockPrisma.conversation.findUnique.mockResolvedValue(conversation);
+      mockPrisma.conversation.delete.mockResolvedValue(conversation);
+
+      const result = await service.deleteConversation("conv-1", "dev-1");
+
+      expect(mockPrisma.conversation.delete).toHaveBeenCalledWith({
+        where: { id: "conv-1" },
+      });
+      expect(result).toEqual({ deleted: true });
     });
   });
 });

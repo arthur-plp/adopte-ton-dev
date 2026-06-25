@@ -2,6 +2,7 @@ import {
   BadRequestException,
   Body,
   Controller,
+  Delete,
   Get,
   HttpException,
   Inject,
@@ -61,11 +62,12 @@ function toHttpException(err: unknown): never {
 @ApiCookieAuth('better-auth.session_token')
 @Controller('messaging')
 @UseGuards(AuthGuard, RolesGuard)
-@Roles(Role.DEVELOPER, Role.RECRUITER)
+@Roles(Role.DEVELOPER, Role.RECRUITER, Role.ADMIN)
 export class MessagingController {
   constructor(
     @Inject('MESSAGING_SVC') private readonly messagingClient: ClientProxy,
     @Inject('USERS_SVC') private readonly usersClient: ClientProxy,
+    @Inject('JOBS_SVC') private readonly jobsClient: ClientProxy,
     private readonly realtimeGateway: RealtimeGateway,
   ) {}
 
@@ -89,34 +91,53 @@ export class MessagingController {
     return result.data.content;
   }
 
+  // L'identité de l'autre participant est résolue via users.getParticipantInfo
+  // (auth-service), qui normalise développeur/recruteur/admin en une seule
+  // forme — un admin n'a ni DeveloperProfile ni RecruiterProfile mais peut
+  // tout de même initier une conversation (cf. messaging-svc.controller.ts).
   private async enrichWithOtherParticipant<T extends ConversationSummary>(
     conversation: T,
     userId: string,
   ) {
-    const isDeveloper = conversation.developerId === userId;
-    const otherId = isDeveloper
-      ? conversation.recruiterId
-      : conversation.developerId;
-    const cmd = isDeveloper ? 'recruiter.getProfile' : 'developer.getProfile';
+    const otherId =
+      conversation.developerId === userId
+        ? conversation.recruiterId
+        : conversation.developerId;
     try {
       const profile = await lastValueFrom(
         this.usersClient.send<{
           firstName: string;
           lastName: string;
-          avatarUrl?: string | null;
-        }>({ cmd }, { userId: otherId }),
+          avatarUrl: string | null;
+          companyName: string | null;
+          role: string;
+        }>({ cmd: 'users.getParticipantInfo' }, { userId: otherId }),
       );
       return {
         ...conversation,
-        otherParticipant: {
-          id: otherId,
-          firstName: profile.firstName,
-          lastName: profile.lastName,
-          avatarUrl: profile.avatarUrl ?? null,
-        },
+        otherParticipant: { id: otherId, ...profile },
       };
     } catch {
       return { ...conversation, otherParticipant: null };
+    }
+  }
+
+  private async enrichWithJobOfferTitle<T extends ConversationSummary>(
+    conversation: T,
+  ) {
+    if (!conversation.jobOfferId) {
+      return { ...conversation, jobOfferTitle: null };
+    }
+    try {
+      const offer = await lastValueFrom(
+        this.jobsClient.send<{ title: string }>(
+          { cmd: 'job.findOne' },
+          { id: conversation.jobOfferId, publicOnly: false },
+        ),
+      );
+      return { ...conversation, jobOfferTitle: offer.title };
+    } catch {
+      return { ...conversation, jobOfferTitle: null };
     }
   }
 
@@ -135,7 +156,13 @@ export class MessagingController {
       { userId: req.user.id },
     );
     return Promise.all(
-      conversations.map((c) => this.enrichWithOtherParticipant(c, req.user.id)),
+      conversations.map(async (c) => {
+        const withParticipant = await this.enrichWithOtherParticipant(
+          c,
+          req.user.id,
+        );
+        return this.enrichWithJobOfferTitle(withParticipant);
+      }),
     );
   }
 
@@ -184,6 +211,16 @@ export class MessagingController {
   async markRead(@Req() req: AuthRequest, @Param('id') id: string) {
     return this.send(
       { cmd: 'messaging.markRead' },
+      { conversationId: id, requesterId: req.user.id },
+    );
+  }
+
+  @Delete('conversations/:id')
+  @ApiOperation({ summary: 'Supprimer une conversation (et ses messages)' })
+  @ApiParam({ name: 'id' })
+  async deleteConversation(@Req() req: AuthRequest, @Param('id') id: string) {
+    return this.send(
+      { cmd: 'messaging.deleteConversation' },
       { conversationId: id, requesterId: req.user.id },
     );
   }
