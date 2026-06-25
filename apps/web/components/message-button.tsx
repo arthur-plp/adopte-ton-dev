@@ -50,8 +50,15 @@ export function MessageButton({
   }
 
   return (
-    <Button variant={variant} size={size} onClick={handleClick} disabled={loading}>
-      <MessageCircle className="size-4" /> {label}
+    <Button
+      variant={variant}
+      size={size}
+      onClick={handleClick}
+      disabled={loading}
+      title={label || "Envoyer un message"}
+    >
+      <MessageCircle className="size-4" />
+      {label && <span>{label}</span>}
     </Button>
   );
 }

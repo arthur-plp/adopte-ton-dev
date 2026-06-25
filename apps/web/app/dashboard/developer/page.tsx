@@ -509,7 +509,7 @@ export default function DeveloperDashboard() {
         <JobAlertCard />
 
         {/* Mes candidatures */}
-        <div className="card p-6 md:col-span-2">
+        <div className="card p-6">
           <SectionHeader
             title="Mes candidatures"
             action={<Link href="/applications" className="text-xs text-primary hover:underline">Voir tout</Link>}

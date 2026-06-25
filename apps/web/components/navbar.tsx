@@ -6,7 +6,7 @@ import { useSession, signOut } from "@/lib/auth-client";
 import { Button } from "@/components/ui/button";
 import {
   Code2, LogOut, LayoutDashboard, ChevronDown, UserCircle,
-  Briefcase, ShieldAlert, Plus, Menu, X, MessageCircle,
+  Briefcase, ShieldAlert, Plus, Menu, X, MessageCircle, CreditCard,
 } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
 import { NotificationBell } from "@/components/notification-bell";
@@ -76,7 +76,10 @@ export function Navbar() {
               <NavLink href="/contact">Contact</NavLink>
             </>
           ) : role === "ADMIN" ? (
-            <NavLink href="/dashboard/admin">Administration</NavLink>
+            <>
+              <NavLink href="/dashboard/admin">Administration</NavLink>
+              <NavLink href="/messages">Messages</NavLink>
+            </>
           ) : (
             <>
               <NavLink href="/offres">Offres</NavLink>
@@ -85,6 +88,9 @@ export function Navbar() {
               )}
               <NavLink href={dashboardUrl}>Tableau de bord</NavLink>
               <NavLink href="/messages">Messages</NavLink>
+              {role === "RECRUITER" && (
+                <NavLink href="/plans">Abonnement</NavLink>
+              )}
               <NavLink href="/contact">Contact</NavLink>
             </>
           )}
@@ -135,7 +141,10 @@ export function Navbar() {
                 </div>
               </>
             ) : role === "ADMIN" ? (
-              <MobileNavLink href="/dashboard/admin" onClick={closeMobile}>Administration</MobileNavLink>
+              <>
+                <MobileNavLink href="/dashboard/admin" onClick={closeMobile}>Administration</MobileNavLink>
+                <MobileNavLink href="/messages" onClick={closeMobile}>Messages</MobileNavLink>
+              </>
             ) : (
               <>
                 <MobileNavLink href="/offres" onClick={closeMobile}>Offres</MobileNavLink>
@@ -147,6 +156,9 @@ export function Navbar() {
                 <MobileNavLink href="/profile/edit" onClick={closeMobile}>Mon profil</MobileNavLink>
                 {role === "RECRUITER" && (
                   <MobileNavLink href="/jobs/new" onClick={closeMobile}>Créer une offre</MobileNavLink>
+                )}
+                {role === "RECRUITER" && (
+                  <MobileNavLink href="/plans" onClick={closeMobile}>Abonnement</MobileNavLink>
                 )}
                 <MobileNavLink href="/contact" onClick={closeMobile}>Contact</MobileNavLink>
               </>
@@ -275,9 +287,14 @@ function AuthedMenu({ user }: { user: UserLike }) {
           <div className="my-1 border-t border-border" />
 
           {role === "ADMIN" ? (
-            <DropdownItem href="/dashboard/admin" icon={<ShieldAlert className="size-4" />}>
-              Administration
-            </DropdownItem>
+            <>
+              <DropdownItem href="/dashboard/admin" icon={<ShieldAlert className="size-4" />}>
+                Administration
+              </DropdownItem>
+              <DropdownItem href="/messages" icon={<MessageCircle className="size-4" />}>
+                Messages
+              </DropdownItem>
+            </>
           ) : (
             <>
               <DropdownItem href={dashboardUrl} icon={<LayoutDashboard className="size-4" />}>
@@ -292,6 +309,11 @@ function AuthedMenu({ user }: { user: UserLike }) {
               {role === "RECRUITER" && (
                 <DropdownItem href="/jobs/new" icon={<Plus className="size-4" />}>
                   Créer une offre
+                </DropdownItem>
+              )}
+              {role === "RECRUITER" && (
+                <DropdownItem href="/plans" icon={<CreditCard className="size-4" />}>
+                  Abonnement
                 </DropdownItem>
               )}
               {role === "DEVELOPER" && (
