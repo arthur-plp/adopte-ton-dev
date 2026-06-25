@@ -4,10 +4,13 @@
 // Google) sont explicitement autorisés. Le reste (object-src, base-uri,
 // frame-ancestors) reste strict pour limiter l'injection/le clickjacking.
 //
-// En prod, la Gateway est servie sous le même domaine via Nginx (/api/v1 →
-// proxy_pass), donc 'self' suffit. En dev, web (localhost:3000) et la
-// Gateway (localhost:4000) sont deux origines distinctes : sans cette
-// exception, le CSP bloque silencieusement tous les appels API du front.
+// En prod, la Gateway (HTTP et WebSocket) est servie sous le même domaine via
+// Nginx (/api/v1 et /socket.io/ → proxy_pass), donc 'self' suffit : la
+// directive connect-src applique l'équivalence ws↔http/wss↔https à 'self'
+// (CSP3), mais PAS à une origine explicite — d'où le besoin d'ajouter
+// explicitement ws://localhost:4000 en dev (web et Gateway sont deux origines
+// distinctes : localhost:3000 vs localhost:4000), en plus de http://localhost:4000
+// déjà nécessaire pour les appels REST.
 const isDev = process.env.NODE_ENV !== "production";
 const CSP = [
   "default-src 'self'",
@@ -15,7 +18,7 @@ const CSP = [
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: https:",
   "font-src 'self' data:",
-  `connect-src 'self' https://api.stripe.com https://photon.komoot.io${isDev ? " http://localhost:4000" : ""}`,
+  `connect-src 'self' https://api.stripe.com https://photon.komoot.io${isDev ? " http://localhost:4000 ws://localhost:4000" : ""}`,
   "frame-src 'self' https://js.stripe.com https://hooks.stripe.com",
   "object-src 'none'",
   "base-uri 'self'",
