@@ -1,13 +1,14 @@
 import { z } from "zod";
 import { JobStatus, JobType } from "@repo/types";
 import { stringArrayQueryParam } from "./query-helpers";
+import { sanitizeFreeText } from "./sanitize.schema";
 
 export const TechLevelEnum = z.enum(["BEGINNER", "INTERMEDIATE", "ADVANCED"]);
 export type TechLevel = z.infer<typeof TechLevelEnum>;
 
 const JobOfferBaseSchema = z.object({
   title: z.string().min(1).max(200),
-  description: z.string().min(10).max(10000),
+  description: z.string().min(10).max(10000).transform(sanitizeFreeText),
   type: z.nativeEnum(JobType),
   location: z.string().max(200).optional(),
   country: z.string().max(100).optional(),

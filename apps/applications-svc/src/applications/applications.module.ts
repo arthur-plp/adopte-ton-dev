@@ -3,6 +3,7 @@ import { ClientsModule, Transport } from "@nestjs/microservices";
 import { ApplicationsController } from "./applications.controller";
 import { ApplicationsService } from "./applications.service";
 import { S3Service } from "../documents/s3.service";
+import { RabbitConsumerService } from "../rabbit/rabbit-consumer.service";
 
 @Module({
   imports: [
@@ -18,6 +19,6 @@ import { S3Service } from "../documents/s3.service";
     ]),
   ],
   controllers: [ApplicationsController],
-  providers: [ApplicationsService, S3Service],
+  providers: [ApplicationsService, S3Service, RabbitConsumerService],
 })
 export class ApplicationsModule {}

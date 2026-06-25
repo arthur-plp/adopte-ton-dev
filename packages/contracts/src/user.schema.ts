@@ -5,6 +5,7 @@ import {
 } from "@repo/types";
 
 import { cuidLike } from "./id.schema";
+import { httpUrl, sanitizeFreeText } from "./sanitize.schema";
 
 export const CreateUserSchema = z.object({
   email: z.string().email(),
@@ -37,9 +38,9 @@ export type SkillDto = z.infer<typeof SkillSchema>;
 
 export const ProjectSchema = z.object({
   title: z.string().min(1).max(200),
-  description: z.string().min(1).max(2000),
-  repoUrl: z.string().url().optional(),
-  liveUrl: z.string().url().optional(),
+  description: z.string().min(1).max(2000).transform(sanitizeFreeText),
+  repoUrl: httpUrl.optional(),
+  liveUrl: httpUrl.optional(),
   technologies: z.array(z.string().min(1)).default([]),
 });
 
@@ -61,15 +62,16 @@ export const CreateDeveloperProfileSchema = z.object({
   firstName: z.string().min(1).max(100),
   lastName: z.string().min(1).max(100),
   title: z.string().max(200).optional(),
-  bio: z.string().max(2000).optional(),
+  bio: z.string().max(2000).transform(sanitizeFreeText).optional(),
   location: z.string().max(200).optional(),
   remoteOk: z.boolean().default(false),
   availability: z.string().max(200).default("Disponible immédiatement"),
   phone: z.string().max(30).optional(),
-  githubUrl: z.string().url().optional(),
-  portfolioUrl: z.string().url().optional(),
-  linkedinUrl: z.string().url().optional(),
-  avatarUrl: z.string().url().optional(),
+  githubUrl: httpUrl.optional(),
+  portfolioUrl: httpUrl.optional(),
+  linkedinUrl: httpUrl.optional(),
+  // Avatar encodé en base64 (data:image/...), pas une URL http(s) — cf. UpdateRecruiterProfileSchema.avatarUrl.
+  avatarUrl: z.string().max(500000).optional(),
 });
 
 export type CreateDeveloperProfileDto = z.infer<typeof CreateDeveloperProfileSchema>;
@@ -79,7 +81,7 @@ export const UpdateDeveloperProfileSchema = z.object({
   firstName: z.string().min(1).max(100),
   lastName: z.string().min(1).max(100),
   title: z.string().max(200),
-  bio: z.string().max(2000),
+  bio: z.string().max(2000).transform(sanitizeFreeText),
   location: z.string().max(200),
   country: z.string().max(100),
   latitude: z.number().min(-90).max(90),
@@ -87,10 +89,11 @@ export const UpdateDeveloperProfileSchema = z.object({
   remoteOk: z.boolean(),
   availability: z.string().max(200),
   phone: z.string().max(30),
-  githubUrl: z.string().url(),
-  portfolioUrl: z.string().url(),
-  linkedinUrl: z.string().url(),
-  avatarUrl: z.string().url(),
+  githubUrl: httpUrl,
+  portfolioUrl: httpUrl,
+  linkedinUrl: httpUrl,
+  // Avatar encodé en base64 (data:image/...), pas une URL http(s) — cf. UpdateRecruiterProfileSchema.avatarUrl.
+  avatarUrl: z.string().max(500000),
 }).partial();
 
 export type UpdateDeveloperProfileDto = z.infer<typeof UpdateDeveloperProfileSchema>;
@@ -98,8 +101,8 @@ export type UpdateDeveloperProfileDto = z.infer<typeof UpdateDeveloperProfileSch
 export const CreateCompanySchema = z.object({
   name: z.string().min(1).max(200),
   siret: z.string().regex(/^\d{14}$/, "SIRET invalide (14 chiffres requis)").optional(),
-  website: z.string().url().optional(),
-  description: z.string().max(2000).optional(),
+  website: httpUrl.optional(),
+  description: z.string().max(2000).transform(sanitizeFreeText).optional(),
 });
 
 export type CreateCompanyDto = z.infer<typeof CreateCompanySchema>;
@@ -120,8 +123,8 @@ export const UpdateRecruiterProfileSchema = z.object({
   // Company fields
   companyName: z.string().min(1).max(200).optional(),
   companySiret: z.string().regex(/^\d{14}$/, "SIRET invalide (14 chiffres requis)").optional(),
-  companyWebsite: z.string().url().max(300).optional().or(z.literal("")),
-  companyDescription: z.string().max(2000).optional(),
+  companyWebsite: httpUrl.max(300).optional().or(z.literal("")),
+  companyDescription: z.string().max(2000).transform(sanitizeFreeText).optional(),
   companyLocation: z.string().max(200).optional(),
   companySector: z.string().max(100).optional(),
   companySize: z.string().max(20).optional(),

@@ -66,6 +66,7 @@ export class DeveloperProfilesService {
     const profile = await this.prisma.developerProfile.findUnique({
       where: { userId },
       include: {
+        user: { select: { email: true } },
         skills: { include: { skill: true } },
         technologies: { orderBy: { name: 'asc' } },
         projects: {
@@ -74,7 +75,8 @@ export class DeveloperProfilesService {
       },
     });
     if (!profile) throw new NotFoundException('Profil développeur introuvable');
-    return profile;
+    const { user, ...rest } = profile;
+    return { ...rest, email: user.email };
   }
 
   async update(

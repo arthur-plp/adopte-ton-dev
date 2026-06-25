@@ -1,27 +1,12 @@
-"use client";
-
 import Link from "next/link";
-import { useState, useEffect } from "react";
 import { Code2 } from "lucide-react";
-import { useSession } from "@/lib/auth-client";
 
 export function Footer() {
-  const { data: session } = useSession();
-
-  // Même précaution que dans Navbar : éviter un mismatch d'hydratation entre
-  // le rendu serveur (pas de session) et le client (session déjà résolue).
-  const [hasMounted, setHasMounted] = useState(false);
-  useEffect(() => { setHasMounted(true); }, []);
-
-  const role = hasMounted ? (session?.user as { role?: string } | undefined)?.role : undefined;
-  const isRecruiterOrAdmin = role === "RECRUITER" || role === "ADMIN";
-
   const LINKS = [
     {
       heading: "Plateforme",
       items: [
         { label: "Offres d'emploi", href: "/offres" },
-        ...(isRecruiterOrAdmin ? [{ label: "Profils développeurs", href: "/developpeurs" }] : []),
         { label: "Accès recruteur", href: "/recruteurs" },
       ],
     },

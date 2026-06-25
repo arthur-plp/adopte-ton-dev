@@ -1,5 +1,6 @@
 import { NestFactory } from '@nestjs/core';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
+import helmet from 'helmet';
 import { AppModule } from './app.module';
 
 async function bootstrap() {
@@ -7,6 +8,12 @@ async function bootstrap() {
   // pour vérifier la signature des webhooks Stripe (payment-svc) sur l'octet exact
   // reçu — un body re-sérialisé en JSON casserait la vérification HMAC.
   const app = await NestFactory.create(AppModule, { rawBody: true });
+
+  // contentSecurityPolicy désactivée : cette gateway sert une API JSON + Swagger
+  // UI (scripts/styles inline), pas du contenu utilisateur rendu — la CSP qui
+  // protège vraiment les utilisateurs est celle du front Next.js. Le reste des
+  // protections Helmet (X-Content-Type-Options, X-Frame-Options…) reste actif.
+  app.use(helmet({ contentSecurityPolicy: false }));
 
   app.setGlobalPrefix('api/v1');
   app.enableCors({

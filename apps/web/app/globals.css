@@ -139,6 +139,34 @@
            transition-colors;
   }
 
+  /* ── PhoneInput (react-phone-number-input) ───────────────────────────────── */
+  /* Surcharge du style par défaut de la lib pour matcher .input-base. */
+  .PhoneInput {
+    @apply flex w-full items-center gap-2 rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground
+           transition-colors;
+  }
+  .PhoneInput:focus-within {
+    @apply outline-none ring-2 ring-ring/30 border-ring;
+  }
+  .PhoneInputCountry {
+    @apply flex items-center gap-1.5;
+  }
+  .PhoneInputCountryIcon {
+    @apply overflow-hidden rounded-sm shadow-none;
+    width: 1.25rem;
+  }
+  .PhoneInputCountryIcon--border {
+    box-shadow: none;
+    background-color: transparent;
+  }
+  .PhoneInputCountrySelectArrow {
+    @apply opacity-60;
+    color: var(--muted-foreground);
+  }
+  .PhoneInputInput {
+    @apply border-0 bg-transparent p-0 text-sm text-foreground outline-none placeholder:text-muted-foreground;
+  }
+
   /* ── Carte ───────────────────────────────────────────────────────────────── */
   /* Usage : <div className="card p-6"> ou <div className="card p-5"> */
   .card {

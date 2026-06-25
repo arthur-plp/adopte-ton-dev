@@ -93,7 +93,7 @@ describe('DeveloperProfilesService', () => {
   // ─── findByUserId ──────────────────────────────────────────────────────────
 
   describe('findByUserId', () => {
-    it('retourne le profil complet avec ses relations', async () => {
+    it("retourne le profil complet avec ses relations et l'email du compte", async () => {
       const fullProfile = {
         ...profile,
         firstName: 'Alice',
@@ -101,11 +101,21 @@ describe('DeveloperProfilesService', () => {
         skills: [],
         technologies: [],
         projects: [],
+        user: { email: 'alice@test.com' },
       };
       mockPrisma.developerProfile.findUnique.mockResolvedValue(fullProfile);
 
       const result = await service.findByUserId('user-1');
-      expect(result).toEqual(fullProfile);
+      expect(result).toEqual({
+        id: 'dev-1',
+        userId: 'user-1',
+        firstName: 'Alice',
+        lastName: 'Dev',
+        skills: [],
+        technologies: [],
+        projects: [],
+        email: 'alice@test.com',
+      });
     });
 
     it('lance NotFoundException si profil introuvable', async () => {

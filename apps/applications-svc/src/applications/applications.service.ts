@@ -609,4 +609,17 @@ export class ApplicationsService {
       acceptanceRate: decided > 0 ? Math.round((accepted / decided) * 100) : 0,
     };
   }
+
+  /**
+   * Consumer de l'event user.deleted (RGPD, CLAUDE.md §25/§28) : un
+   * développeur a supprimé son compte — ses candidatures (et leur historique/
+   * pièces justificatives, cascade Prisma) sont supprimées, il n'a plus
+   * vocation à suivre leur statut.
+   */
+  async deleteAllForDeletedDeveloper(developerId: string) {
+    const { count } = await this.prisma.application.deleteMany({
+      where: { developerId },
+    });
+    return { deleted: count };
+  }
 }

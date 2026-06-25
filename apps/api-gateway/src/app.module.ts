@@ -8,6 +8,7 @@ import { ApplicationsModule } from './applications/applications.module';
 import { PaymentModule } from './payment/payment.module';
 import { MatchingModule } from './matching/matching.module';
 import { ReportsModule } from './reports/reports.module';
+import { PrivacyModule } from './privacy/privacy.module';
 import { RedisRateLimitGuard } from './rate-limit/redis-rate-limit.guard';
 
 @Module({
@@ -20,6 +21,7 @@ import { RedisRateLimitGuard } from './rate-limit/redis-rate-limit.guard';
     PaymentModule,
     MatchingModule,
     ReportsModule,
+    PrivacyModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: RedisRateLimitGuard }],
 })

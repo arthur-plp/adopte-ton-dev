@@ -99,8 +99,10 @@ describe('CreateDeveloperProfileSchema', () => {
 
   it('rejette une portfolioUrl invalide', () => {
     expect(() =>
+      // Seuls http(s) sont autorisés (cf. httpUrl, CLAUDE.md §31.4) : un autre
+      // schéma d'URI (ftp:, javascript:…) est une porte ouverte au XSS stocké.
       CreateDeveloperProfileSchema.parse({ ...valid, portfolioUrl: 'ftp://mauvais' }),
-    ).not.toThrow(); // ftp:// est une URL valide selon Zod
+    ).toThrow();
     expect(() =>
       CreateDeveloperProfileSchema.parse({ ...valid, portfolioUrl: 'pas-une-url' }),
     ).toThrow();

@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { Role } from '@repo/types';
+import { Events } from '@repo/contracts';
 
 async function retry<T>(fn: () => Promise<T>, attempts = 3): Promise<T> {
   for (let i = 0; i < attempts; i++) {
@@ -169,8 +170,36 @@ export class UsersService {
     if (!user) throw new NotFoundException('Utilisateur introuvable');
     if (user.role === Role.ADMIN)
       throw new ForbiddenException('Impossible de supprimer un compte admin');
-    await this.prisma.user.delete({ where: { id: userId } });
+    await this.deleteUserAndEmitEvent(userId, user.role);
     return { ok: true };
+  }
+
+  // RGPD (CLAUDE.md §25) : droit à l'effacement, déclenché par l'utilisateur
+  // lui-même plutôt que par un admin. Même opération de suppression que
+  // adminDeleteUser, mais sans passer par le back-office.
+  async deleteOwnAccount(userId: string) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) throw new NotFoundException('Utilisateur introuvable');
+    if (user.role === Role.ADMIN)
+      throw new ForbiddenException(
+        'Un compte admin ne peut pas être supprimé depuis cette action',
+      );
+    await this.deleteUserAndEmitEvent(userId, user.role);
+    return { ok: true };
+  }
+
+  // Le cascade Prisma/Postgres (onDelete: Cascade) supprime au passage les
+  // sessions/comptes OAuth BetterAuth (mêmes tables, cf. en-tête du schema)
+  // et le profil dev/recruteur. L'event user.deleted permet aux autres
+  // services (jobs-svc, applications-svc…) de nettoyer leurs propres données
+  // référencées par userId (pas de FK cross-service, cf. CLAUDE.md §10/§28).
+  private async deleteUserAndEmitEvent(userId: string, role: string) {
+    await this.prisma.$transaction([
+      this.prisma.user.delete({ where: { id: userId } }),
+      this.prisma.outboxEvent.create({
+        data: { type: Events.USER_DELETED, payload: { userId, role } },
+      }),
+    ]);
   }
 
   async getStats() {
@@ -249,21 +278,25 @@ export class UsersService {
     );
     if (!user) throw new NotFoundException('Utilisateur introuvable');
 
-    if (user.role === Role.ADMIN) return { role: Role.ADMIN, profile: null };
+    const profile = await this.fetchProfileForRole(userId, user.role);
+    return { role: user.role, profile };
+  }
 
-    if (user.role === Role.RECRUITER) {
-      const rec = await retry(() =>
+  // Profil manquant (edge case : rôle changé sans créer le profil) → retourner null
+  private async fetchProfileForRole(userId: string, role: string) {
+    if (role === Role.ADMIN) return null;
+
+    if (role === Role.RECRUITER) {
+      return retry(() =>
         this.prisma.recruiterProfile.findUnique({
           where: { userId },
           include: { company: true },
         }),
       );
-      // Profil manquant (edge case : rôle changé sans créer le profil) → retourner null
-      return { role: Role.RECRUITER, profile: rec ?? null };
     }
 
     // DEVELOPER (ou rôle inconnu traité comme developer)
-    const dev = await retry(() =>
+    return retry(() =>
       this.prisma.developerProfile.findUnique({
         where: { userId },
         include: {
@@ -273,6 +306,28 @@ export class UsersService {
         },
       }),
     );
-    return { role: Role.DEVELOPER, profile: dev ?? null };
+  }
+
+  // RGPD (CLAUDE.md §25) : export des données personnelles détenues par
+  // auth-service (identité + profil complet). Les données détenues par
+  // jobs-svc/applications-svc sont agrégées séparément par la Gateway, qui
+  // appelle déjà ces services (job.findMine / application.findMine).
+  async exportData(userId: string) {
+    const user = await retry(() =>
+      this.prisma.user.findUnique({
+        where: { id: userId },
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          role: true,
+          createdAt: true,
+        },
+      }),
+    );
+    if (!user) throw new NotFoundException('Utilisateur introuvable');
+
+    const profile = await this.fetchProfileForRole(userId, user.role);
+    return { user, profile, exportedAt: new Date().toISOString() };
   }
 }
