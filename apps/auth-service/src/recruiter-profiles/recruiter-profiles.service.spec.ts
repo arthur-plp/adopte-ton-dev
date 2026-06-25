@@ -86,22 +86,24 @@ describe('RecruiterProfilesService', () => {
   // ─── findByUserId ──────────────────────────────────────────────────────────
 
   describe('findByUserId', () => {
-    it('retourne le profil recruteur avec sa company', async () => {
+    it("retourne le profil recruteur avec sa company et l'email de son compte", async () => {
       const profile = {
         id: 'rec-1',
         userId: 'user-1',
         firstName: 'Bob',
         lastName: 'Rec',
         company: { id: 'co-1', name: 'Acme Corp' },
+        user: { email: 'bob@acme.test' },
       };
       mockPrisma.recruiterProfile.findUnique.mockResolvedValue(profile);
 
       const result = await service.findByUserId('user-1');
 
-      expect(result).toEqual(profile);
+      const { user, ...rest } = profile;
+      expect(result).toEqual({ ...rest, email: user.email });
       expect(mockPrisma.recruiterProfile.findUnique).toHaveBeenCalledWith({
         where: { userId: 'user-1' },
-        include: { company: true },
+        include: { company: true, user: { select: { email: true } } },
       });
     });
 

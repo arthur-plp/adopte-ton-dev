@@ -191,6 +191,7 @@ export class ApplicationsService {
       ),
       this.emitEvent(Events.APPLICATION_STATUS_CHANGED, {
         applicationId,
+        jobOfferId: application.jobOfferId,
         developerId: application.developerId,
         status: ApplicationStatus.WITHDRAWN,
       }),
@@ -231,6 +232,7 @@ export class ApplicationsService {
       ),
       this.emitEvent(Events.APPLICATION_STATUS_CHANGED, {
         applicationId,
+        jobOfferId: application.jobOfferId,
         developerId: application.developerId,
         status: ApplicationStatus.SENT,
       }),
@@ -327,6 +329,7 @@ export class ApplicationsService {
       ),
       this.emitEvent(Events.APPLICATION_STATUS_CHANGED, {
         applicationId,
+        jobOfferId: application.jobOfferId,
         developerId: application.developerId,
         status: dto.status,
       }),

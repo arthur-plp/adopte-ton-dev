@@ -302,6 +302,7 @@ describe("ApplicationsService", () => {
           type: "application.status.changed",
           payload: {
             applicationId: "app-1",
+            jobOfferId: "job-1",
             developerId: "dev-1",
             status: ApplicationStatus.INTERVIEW,
           },

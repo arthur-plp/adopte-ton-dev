@@ -31,6 +31,9 @@ jobs:
             docker compose -f infra/docker-compose.prod.yml run --rm jobs-svc npx prisma migrate deploy
             docker compose -f infra/docker-compose.prod.yml run --rm applications-svc npx prisma migrate deploy
             docker compose -f infra/docker-compose.prod.yml run --rm payment-svc npx prisma migrate deploy
+            docker compose -f infra/docker-compose.prod.yml run --rm messaging-svc npx prisma migrate deploy
+            docker compose -f infra/docker-compose.prod.yml run --rm notifications-svc npx prisma migrate deploy
+            docker compose -f infra/docker-compose.prod.yml run --rm email-svc npx prisma migrate deploy
 
             echo "── Redémarrage des services ──────────────"
             docker compose -f infra/docker-compose.prod.yml up -d --remove-orphans

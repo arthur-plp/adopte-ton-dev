@@ -40,11 +40,12 @@ export class RecruiterProfilesService {
     const profile = await retry(() =>
       this.prisma.recruiterProfile.findUnique({
         where: { userId },
-        include: { company: true },
+        include: { company: true, user: { select: { email: true } } },
       }),
     );
     if (!profile) throw new NotFoundException('Profil recruteur introuvable');
-    return profile;
+    const { user, ...rest } = profile;
+    return { ...rest, email: user.email };
   }
 
   async update(
