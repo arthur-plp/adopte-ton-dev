@@ -3,10 +3,12 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
+import { useSession } from "@/lib/auth-client";
 import { Navbar } from "@/components/navbar";
 import { Footer } from "@/components/footer";
 import { Button } from "@/components/ui/button";
 import { SectionHeader } from "@/components/section-header";
+import { MessageButton } from "@/components/message-button";
 import {
   ApplicationEventTimeline,
   APPLICATION_STATUS_COLORS,
@@ -44,12 +46,15 @@ type JobOfferSummary = {
   id: string;
   title: string;
   companyName: string | null;
+  recruiterId: string;
 };
 
 const TERMINAL_STATUSES: ApplicationStatus[] = ["ACCEPTED", "REJECTED", "WITHDRAWN"];
 
 export default function MyApplicationsPage() {
   const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000/api/v1";
+  const { data: session } = useSession();
+  const developerId = (session?.user as { id?: string } | undefined)?.id;
   const [applications, setApplications] = useState<Application[] | null>(null);
   const [offers, setOffers] = useState<Record<string, JobOfferSummary>>({});
 
@@ -117,6 +122,7 @@ export default function MyApplicationsPage() {
                   offer={offers[application.jobOfferId]}
                   apiUrl={apiUrl}
                   onUpdate={handleUpdate}
+                  developerId={developerId}
                 />
               ))}
             </div>
@@ -134,11 +140,13 @@ function ApplicationCard({
   offer,
   apiUrl,
   onUpdate,
+  developerId,
 }: {
   application: Application;
   offer: JobOfferSummary | undefined;
   apiUrl: string;
   onUpdate: (updated: Application) => void;
+  developerId: string | undefined;
 }) {
   const [expanded, setExpanded] = useState(false);
   const [events, setEvents] = useState<ApplicationEvent[] | undefined>(undefined);
@@ -251,6 +259,13 @@ function ApplicationCard({
           <ChevronDown className={`size-3.5 transition-transform ${expanded ? "rotate-180" : ""}`} />
           {expanded ? "Masquer l'historique" : "Voir l'historique"}
         </button>
+        {developerId && offer?.recruiterId && (
+          <MessageButton
+            developerId={developerId}
+            recruiterId={offer.recruiterId}
+            jobOfferId={application.jobOfferId}
+          />
+        )}
         {!isTerminal && (
           <AlertDialog>
             <AlertDialogTrigger asChild>

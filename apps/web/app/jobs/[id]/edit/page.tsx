@@ -20,6 +20,7 @@ import {
   type InterviewMode,
 } from "@/components/application-event-timeline";
 import { DocumentRequestsPanel } from "@/components/document-requests";
+import { MessageButton } from "@/components/message-button";
 
 type JobOffer = {
   id: string;
@@ -341,6 +342,7 @@ export default function EditJobOfferPage({ params }: { params: Promise<{ id: str
             jobOfferId={id}
             apiUrl={apiUrl}
             highlightApplicationId={highlightApplicationId}
+            recruiterId={(session?.user as { id?: string } | undefined)?.id}
           />
         )}
       </main>
@@ -392,10 +394,12 @@ function ApplicationsTab({
   jobOfferId,
   apiUrl,
   highlightApplicationId,
+  recruiterId,
 }: {
   jobOfferId: string;
   apiUrl: string;
   highlightApplicationId: string | null;
+  recruiterId: string | undefined;
 }) {
   const [applications, setApplications] = useState<CandidateApplication[] | null>(null);
   const [developers, setDevelopers] = useState<Record<string, DeveloperSummary>>({});
@@ -460,6 +464,8 @@ function ApplicationsTab({
           apiUrl={apiUrl}
           onUpdate={handleUpdate}
           highlighted={application.id === highlightApplicationId}
+          recruiterId={recruiterId}
+          jobOfferId={jobOfferId}
         />
       ))}
     </div>
@@ -472,12 +478,16 @@ function CandidateCard({
   apiUrl,
   onUpdate,
   highlighted = false,
+  recruiterId,
+  jobOfferId,
 }: {
   application: CandidateApplication;
   developer: DeveloperSummary | undefined;
   apiUrl: string;
   onUpdate: (updated: CandidateApplication) => void;
   highlighted?: boolean;
+  recruiterId: string | undefined;
+  jobOfferId: string;
 }) {
   const cardRef = useRef<HTMLDivElement>(null);
   const [cardExpanded, setCardExpanded] = useState(highlighted);
@@ -613,12 +623,22 @@ function CandidateCard({
 
       {cardExpanded && (
         <div className="mt-4 border-t border-border pt-4">
-          <Link
-            href={`/developpeurs/${application.developerId}`}
-            className="text-xs font-medium text-primary hover:underline"
-          >
-            Voir le profil complet
-          </Link>
+          <div className="flex items-center gap-3">
+            <Link
+              href={`/developpeurs/${application.developerId}`}
+              className="text-xs font-medium text-primary hover:underline"
+            >
+              Voir le profil complet
+            </Link>
+            {recruiterId && (
+              <MessageButton
+                developerId={application.developerId}
+                recruiterId={recruiterId}
+                jobOfferId={jobOfferId}
+                size="sm"
+              />
+            )}
+          </div>
 
           {application.coverLetter && (
             <p className="mt-3 rounded-lg bg-muted/50 px-3 py-2 text-sm text-foreground/90">
