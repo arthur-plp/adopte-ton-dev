@@ -11,6 +11,7 @@ import { ReportsModule } from './reports/reports.module';
 import { PrivacyModule } from './privacy/privacy.module';
 import { MessagingModule } from './messaging/messaging.module';
 import { NotificationsModule } from './notifications/notifications.module';
+import { RealtimeModule } from './realtime/realtime.module';
 import { RedisRateLimitGuard } from './rate-limit/redis-rate-limit.guard';
 
 @Module({
@@ -26,6 +27,7 @@ import { RedisRateLimitGuard } from './rate-limit/redis-rate-limit.guard';
     PrivacyModule,
     MessagingModule,
     NotificationsModule,
+    RealtimeModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: RedisRateLimitGuard }],
 })

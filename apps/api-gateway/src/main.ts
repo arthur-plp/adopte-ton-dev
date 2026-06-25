@@ -1,4 +1,5 @@
 import { NestFactory } from '@nestjs/core';
+import { Transport } from '@nestjs/microservices';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import helmet from 'helmet';
 import { AppModule } from './app.module';
@@ -36,6 +37,19 @@ async function bootstrap() {
   SwaggerModule.setup('api/docs', app, document, {
     swaggerOptions: { persistAuthorization: true },
   });
+
+  // App hybride : écoute TCP en plus du HTTP, pour que notifications-svc
+  // puisse appeler `realtime.pushToUser` (cf. RealtimeModule) sans exposer
+  // de nouveau port public — le WebSocket (Socket.IO) partage lui le serveur
+  // HTTP existant, donc pas de port supplémentaire non plus côté navigateur.
+  app.connectMicroservice({
+    transport: Transport.TCP,
+    options: {
+      host: process.env['GATEWAY_TCP_HOST'] ?? '0.0.0.0',
+      port: parseInt(process.env['GATEWAY_TCP_PORT'] ?? '4001', 10),
+    },
+  });
+  await app.startAllMicroservices();
 
   const port = process.env['PORT'] ?? 4000;
   await app.listen(port);
