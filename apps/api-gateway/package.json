@@ -35,6 +35,7 @@
     "@repo/types": "workspace:*",
     "@types/pg": "^8.20.0",
     "better-auth": "^1.6.14",
+    "helmet": "^8.2.0",
     "ioredis": "^5.4.2",
     "pg": "^8.21.0",
     "reflect-metadata": "^0.2.2",

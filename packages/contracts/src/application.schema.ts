@@ -2,17 +2,18 @@ import { z } from "zod";
 import { ApplicationStatus, InterviewMode } from "@repo/types";
 
 import { cuidLike } from "./id.schema";
+import { sanitizeFreeText } from "./sanitize.schema";
 
 export const CreateApplicationSchema = z.object({
   jobOfferId: cuidLike,
-  coverLetter: z.string().max(5000).optional(),
+  coverLetter: z.string().max(5000).transform(sanitizeFreeText).optional(),
 });
 
 export type CreateApplicationDto = z.infer<typeof CreateApplicationSchema>;
 
 export const UpdateApplicationStatusSchema = z.object({
   status: z.nativeEnum(ApplicationStatus),
-  note: z.string().max(1000).optional(),
+  note: z.string().max(1000).transform(sanitizeFreeText).optional(),
   interviewMode: z.nativeEnum(InterviewMode).optional(),
   interviewLocation: z.string().max(500).optional(),
 });

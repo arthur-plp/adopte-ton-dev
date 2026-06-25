@@ -1,0 +1,24 @@
+version: 2
+updates:
+  # Monorepo pnpm (apps/* + packages/*) — un seul point d'entrée à la racine,
+  # Dependabot résout les workspaces via pnpm-workspace.yaml.
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 10
+    groups:
+      dev-dependencies:
+        dependency-type: "development"
+
+  # Images de base des Dockerfiles (infra/docker/*.Dockerfile)
+  - package-ecosystem: "docker"
+    directory: "/infra/docker"
+    schedule:
+      interval: "weekly"
+
+  # Actions utilisées dans les workflows CI/CD
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
