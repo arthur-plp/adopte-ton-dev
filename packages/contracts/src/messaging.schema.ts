@@ -3,9 +3,12 @@ import { z } from "zod";
 import { cuidLike } from "./id.schema";
 import { sanitizeFreeText } from "./sanitize.schema";
 
+// recruiterId/developerId référencent l'id BetterAuth de l'utilisateur (pas
+// un cuid Prisma — format propre à BetterAuth), donc une simple chaîne non
+// vide ; jobOfferId est un vrai cuid Prisma émis par jobs-svc.
 export const CreateConversationSchema = z.object({
-  recruiterId: cuidLike,
-  developerId: cuidLike,
+  recruiterId: z.string().min(1),
+  developerId: z.string().min(1),
   jobOfferId: cuidLike.optional(),
 });
 
