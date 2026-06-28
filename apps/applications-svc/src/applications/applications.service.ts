@@ -93,6 +93,18 @@ export class ApplicationsService {
     return offer;
   }
 
+  // Un admin peut agir sur n'importe quelle candidature (CLAUDE.md §13.6
+  // back-office) ; les autres règles métier (transitions de statut, WITHDRAWN
+  // réservé au développeur…) s'appliquent identiquement, qu'on soit admin ou
+  // recruteur propriétaire — même philosophie que jobs-svc.
+  private async requireRecruiterOwnsOfferUnlessAdmin(
+    jobOfferId: string,
+    recruiterId: string,
+    isAdmin: boolean,
+  ) {
+    if (!isAdmin) await this.requireRecruiterOwnsOffer(jobOfferId, recruiterId);
+  }
+
   private emitEvent(type: string, payload: object) {
     return this.prisma.outboxEvent.create({ data: { type, payload } });
   }
@@ -100,7 +112,7 @@ export class ApplicationsService {
   private writeHistoryEvent(
     applicationId: string,
     status: ApplicationStatus,
-    actorRole: "DEVELOPER" | "RECRUITER",
+    actorRole: "DEVELOPER" | "RECRUITER" | "ADMIN",
     actorId: string,
     note: string | null = null,
   ) {
@@ -281,9 +293,14 @@ export class ApplicationsService {
     applicationId: string,
     recruiterId: string,
     dto: UpdateApplicationStatusDto,
+    isAdmin = false,
   ) {
     const application = await this.requireApplication(applicationId);
-    await this.requireRecruiterOwnsOffer(application.jobOfferId, recruiterId);
+    await this.requireRecruiterOwnsOfferUnlessAdmin(
+      application.jobOfferId,
+      recruiterId,
+      isAdmin,
+    );
 
     if (TERMINAL_STATUSES.includes(application.status as ApplicationStatus))
       throw new RpcException({
@@ -323,7 +340,7 @@ export class ApplicationsService {
       this.writeHistoryEvent(
         applicationId,
         dto.status,
-        "RECRUITER",
+        isAdmin ? "ADMIN" : "RECRUITER",
         recruiterId,
         this.buildStatusNote(dto),
       ),
@@ -335,6 +352,50 @@ export class ApplicationsService {
       }),
     ]);
     return updated;
+  }
+
+  // Liste en lecture pure pour l'admin (CLAUDE.md §13.6 back-office) : pas
+  // d'ownership (un admin voit n'importe quelle offre/candidature) et pas
+  // d'effet de bord SENT→VIEWED (réservé à la consultation recruteur, cf.
+  // findByJobOffer). Paginée, filtrable par offre et/ou statut — alimente
+  // l'onglet admin « Candidatures » et le lien depuis le compteur affiché
+  // avant archivage/suppression d'une offre.
+  async findAllForAdmin({
+    page = 1,
+    pageSize = 20,
+    status,
+    jobOfferId,
+  }: {
+    page?: number;
+    pageSize?: number;
+    status?: string;
+    jobOfferId?: string;
+  }) {
+    const safePage = Math.max(1, page);
+    const safePageSize = Math.min(100, Math.max(1, pageSize));
+    const where: { jobOfferId?: string; status?: ApplicationStatus } = {};
+
+    if (jobOfferId) where.jobOfferId = jobOfferId;
+    if (
+      status &&
+      Object.values(ApplicationStatus).includes(status as ApplicationStatus)
+    ) {
+      where.status = status as ApplicationStatus;
+    }
+
+    const [total, data] = await Promise.all([
+      retry(() => this.prisma.application.count({ where })),
+      retry(() =>
+        this.prisma.application.findMany({
+          where,
+          orderBy: { createdAt: "desc" },
+          skip: (safePage - 1) * safePageSize,
+          take: safePageSize,
+        }),
+      ),
+    ]);
+
+    return { data, total, page: safePage, pageSize: safePageSize };
   }
 
   private buildStatusNote(dto: UpdateApplicationStatusDto): string | null {
@@ -391,6 +452,22 @@ export class ApplicationsService {
       }),
     );
     return { hasActive: count > 0 };
+  }
+
+  // Affiché par l'admin avant d'archiver/supprimer une offre (CLAUDE.md §13.6) :
+  // permet de donner le contexte à l'admin avant confirmation, sans pour
+  // autant contourner le blocage métier ci-dessus (qui s'applique identiquement
+  // à l'admin, cf. job-offers.service.ts#requireOwnerUnlessAdmin).
+  async countApplicationsForJobOffer(jobOfferId: string) {
+    const [total, active] = await Promise.all([
+      retry(() => this.prisma.application.count({ where: { jobOfferId } })),
+      retry(() =>
+        this.prisma.application.count({
+          where: { jobOfferId, status: { notIn: TERMINAL_STATUSES } },
+        }),
+      ),
+    ]);
+    return { total, active };
   }
 
   // ── Pièces justificatives ────────────────────────────────────────────────

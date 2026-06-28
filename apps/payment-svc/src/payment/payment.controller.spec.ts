@@ -4,6 +4,7 @@ import { PaymentService } from "./payment.service";
 
 const mockService = {
   getSubscription: jest.fn(),
+  adminSetPlan: jest.fn(),
   createCheckoutSession: jest.fn(),
   createBillingPortalSession: jest.fn(),
   handleWebhook: jest.fn(),
@@ -26,6 +27,16 @@ describe("PaymentController", () => {
     const result = controller.getSubscription({ companyId: "company-1" });
     expect(mockService.getSubscription).toHaveBeenCalledWith("company-1");
     expect(result).toEqual({ plan: "FREE" });
+  });
+
+  it("adminSetPlan délègue au service", () => {
+    mockService.adminSetPlan.mockReturnValueOnce({ plan: "PRO" });
+    const result = controller.adminSetPlan({
+      companyId: "company-1",
+      plan: "PRO",
+    });
+    expect(mockService.adminSetPlan).toHaveBeenCalledWith("company-1", "PRO");
+    expect(result).toEqual({ plan: "PRO" });
   });
 
   it("createCheckoutSession délègue au service", () => {

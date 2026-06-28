@@ -45,6 +45,27 @@ export class PaymentService {
     };
   }
 
+  // Override administratif (back-office) : déroge sciemment au principe
+  // "source de vérité = webhook Stripe" (CLAUDE.md §16) pour un usage support
+  // explicite (ex. plan offert, correction manuelle) — jamais déclenché par le
+  // client, toujours par une action ADMIN authentifiée et tracée côté Gateway.
+  // Les identifiants Stripe existants (stripeCustomerId/stripeSubscriptionId)
+  // ne sont jamais touchés ici : seul le plan/statut applicatif change.
+  async adminSetPlan(companyId: string, plan: "FREE" | "PRO") {
+    await this.prisma.subscription.upsert({
+      where: { companyId },
+      create: { companyId, plan, status: "active" },
+      update: { plan, status: "active" },
+    });
+    await this.prisma.outboxEvent.create({
+      data: {
+        type: Events.PAYMENT_SUBSCRIPTION_UPDATED,
+        payload: { companyId, plan, status: "active" },
+      },
+    });
+    return this.getSubscription(companyId);
+  }
+
   async createCheckoutSession(
     companyId: string,
     customerEmail: string,

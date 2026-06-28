@@ -448,6 +448,141 @@ describe("ApplicationsService", () => {
         data: { status: ApplicationStatus.REJECTED },
       });
     });
+
+    it("un admin peut changer le statut sans être propriétaire de l'offre (bypass ownership)", async () => {
+      mockPrisma.application.findUnique.mockResolvedValueOnce(baseApplication);
+      const updated = {
+        ...baseApplication,
+        status: ApplicationStatus.REJECTED,
+      };
+      mockPrisma.$transaction.mockResolvedValueOnce([updated]);
+
+      const result = await service.updateStatus(
+        "app-1",
+        "admin-1",
+        { status: ApplicationStatus.REJECTED },
+        true,
+      );
+
+      expect(mockJobsClient.send).not.toHaveBeenCalled();
+      expect(result.status).toBe(ApplicationStatus.REJECTED);
+    });
+
+    it("écrit un ApplicationEvent avec actorRole ADMIN quand isAdmin=true", async () => {
+      mockPrisma.application.findUnique.mockResolvedValueOnce(baseApplication);
+      mockPrisma.$transaction.mockImplementationOnce((ops: unknown) =>
+        Promise.all(ops as Promise<unknown>[]),
+      );
+
+      await service.updateStatus(
+        "app-1",
+        "admin-1",
+        { status: ApplicationStatus.REJECTED, note: "Offre archivée" },
+        true,
+      );
+
+      expect(mockPrisma.applicationEvent.create).toHaveBeenCalledWith({
+        data: {
+          applicationId: "app-1",
+          status: ApplicationStatus.REJECTED,
+          actorRole: "ADMIN",
+          actorId: "admin-1",
+          note: "Offre archivée",
+        },
+      });
+    });
+
+    it("bloque même un admin si la candidature est déjà dans un état terminal (règle métier identique)", async () => {
+      mockPrisma.application.findUnique.mockResolvedValueOnce({
+        ...baseApplication,
+        status: ApplicationStatus.ACCEPTED,
+      });
+      await expect(
+        service.updateStatus(
+          "app-1",
+          "admin-1",
+          { status: ApplicationStatus.REJECTED },
+          true,
+        ),
+      ).rejects.toThrow(RpcException);
+    });
+  });
+
+  // ── findAllForAdmin ──────────────────────────────────────────────────────
+
+  describe("findAllForAdmin", () => {
+    it("liste toutes les candidatures sans filtre, sans ownership ni effet de bord", async () => {
+      const applications = [
+        baseApplication,
+        { ...baseApplication, id: "app-2", status: ApplicationStatus.SENT },
+      ];
+      mockPrisma.application.count.mockResolvedValueOnce(2);
+      mockPrisma.application.findMany.mockResolvedValueOnce(applications);
+
+      const result = await service.findAllForAdmin({});
+
+      expect(mockPrisma.application.count).toHaveBeenCalledWith({ where: {} });
+      expect(mockPrisma.application.findMany).toHaveBeenCalledWith({
+        where: {},
+        orderBy: { createdAt: "desc" },
+        skip: 0,
+        take: 20,
+      });
+      expect(mockPrisma.application.update).not.toHaveBeenCalled();
+      expect(result).toEqual({
+        data: applications,
+        total: 2,
+        page: 1,
+        pageSize: 20,
+      });
+    });
+
+    it("filtre par jobOfferId", async () => {
+      mockPrisma.application.count.mockResolvedValueOnce(1);
+      mockPrisma.application.findMany.mockResolvedValueOnce([baseApplication]);
+
+      await service.findAllForAdmin({ jobOfferId: "job-1" });
+
+      expect(mockPrisma.application.count).toHaveBeenCalledWith({
+        where: { jobOfferId: "job-1" },
+      });
+      expect(mockPrisma.application.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { jobOfferId: "job-1" } }),
+      );
+    });
+
+    it("filtre par statut valide", async () => {
+      mockPrisma.application.count.mockResolvedValueOnce(1);
+      mockPrisma.application.findMany.mockResolvedValueOnce([baseApplication]);
+
+      await service.findAllForAdmin({ status: ApplicationStatus.REJECTED });
+
+      expect(mockPrisma.application.count).toHaveBeenCalledWith({
+        where: { status: ApplicationStatus.REJECTED },
+      });
+    });
+
+    it("ignore un statut invalide plutôt que de planter", async () => {
+      mockPrisma.application.count.mockResolvedValueOnce(0);
+      mockPrisma.application.findMany.mockResolvedValueOnce([]);
+
+      await service.findAllForAdmin({ status: "NOT_A_STATUS" });
+
+      expect(mockPrisma.application.count).toHaveBeenCalledWith({ where: {} });
+    });
+
+    it("applique la pagination demandée et plafonne pageSize à 100", async () => {
+      mockPrisma.application.count.mockResolvedValueOnce(0);
+      mockPrisma.application.findMany.mockResolvedValueOnce([]);
+
+      const result = await service.findAllForAdmin({ page: 3, pageSize: 500 });
+
+      expect(mockPrisma.application.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ skip: 200, take: 100 }),
+      );
+      expect(result.page).toBe(3);
+      expect(result.pageSize).toBe(100);
+    });
   });
 
   // ── withdraw ─────────────────────────────────────────────────────────────
@@ -698,6 +833,41 @@ describe("ApplicationsService", () => {
       mockPrisma.application.count.mockResolvedValueOnce(0);
       const result = await service.hasActiveApplicationsForJobOffer("job-1");
       expect(result).toEqual({ hasActive: false });
+    });
+  });
+
+  // ── countApplicationsForJobOffer (affiché à l'admin avant archivage/suppression) ──
+
+  describe("countApplicationsForJobOffer", () => {
+    it("retourne le total et le nombre de candidatures actives", async () => {
+      mockPrisma.application.count
+        .mockResolvedValueOnce(5)
+        .mockResolvedValueOnce(2);
+      const result = await service.countApplicationsForJobOffer("job-1");
+      expect(result).toEqual({ total: 5, active: 2 });
+      expect(mockPrisma.application.count).toHaveBeenNthCalledWith(1, {
+        where: { jobOfferId: "job-1" },
+      });
+      expect(mockPrisma.application.count).toHaveBeenNthCalledWith(2, {
+        where: {
+          jobOfferId: "job-1",
+          status: {
+            notIn: [
+              ApplicationStatus.ACCEPTED,
+              ApplicationStatus.REJECTED,
+              ApplicationStatus.WITHDRAWN,
+            ],
+          },
+        },
+      });
+    });
+
+    it("retourne 0/0 si l'offre n'a aucune candidature", async () => {
+      mockPrisma.application.count
+        .mockResolvedValueOnce(0)
+        .mockResolvedValueOnce(0);
+      const result = await service.countApplicationsForJobOffer("job-1");
+      expect(result).toEqual({ total: 0, active: 0 });
     });
   });
 

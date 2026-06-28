@@ -15,6 +15,7 @@ import { RolesGuard } from '../auth/roles.guard';
 const mockUsersClient = { send: jest.fn() };
 const mockJobsClient = { send: jest.fn() };
 const mockApplicationsClient = { send: jest.fn() };
+const mockPaymentClient = { send: jest.fn() };
 
 describe('AdminController', () => {
   let controller: AdminController;
@@ -26,6 +27,7 @@ describe('AdminController', () => {
         { provide: 'USERS_SVC', useValue: mockUsersClient },
         { provide: 'JOBS_SVC', useValue: mockJobsClient },
         { provide: 'APPLICATIONS_SVC', useValue: mockApplicationsClient },
+        { provide: 'PAYMENT_SVC', useValue: mockPaymentClient },
       ],
     })
       .overrideGuard(AuthGuard)
@@ -158,6 +160,235 @@ describe('AdminController', () => {
       { cmd: 'job.getHistory' },
       { id: 'job-1', requesterId: 'admin-1', isAdmin: true },
     );
+  });
+
+  // ── Gestion des offres ────────────────────────────────────────────────────
+
+  it('listAllOffers → appelle job.findAllForAdmin avec pagination, statut et recherche', async () => {
+    const paginated = { data: [], total: 0, page: 1, pageSize: 20 };
+    mockJobsClient.send.mockReturnValueOnce(of(paginated));
+    const result = await controller.listAllOffers('1', '20', 'DRAFT', 'Acme');
+    expect(mockJobsClient.send).toHaveBeenCalledWith(
+      { cmd: 'job.findAllForAdmin' },
+      { page: 1, pageSize: 20, status: 'DRAFT', search: 'Acme' },
+    );
+    expect(result).toEqual(paginated);
+  });
+
+  it('createOffer → appelle job.create avec recruiterId/companyId choisis et actor ADMIN', async () => {
+    const offer = { id: 'job-1', status: 'DRAFT' };
+    mockJobsClient.send.mockReturnValueOnce(of(offer));
+    const result = await controller.createOffer(mockAdminReq, {
+      recruiterId: 'recruiter-1',
+      companyId: 'company-1',
+      companyName: 'Acme',
+      title: 'Dev TS',
+      description: 'Description du poste qui fait bien 10 caractères',
+      type: 'INTERNSHIP',
+      remoteOk: false,
+      requiredTechnologies: [],
+      isPublic: true,
+    });
+    expect(mockJobsClient.send).toHaveBeenCalledWith(
+      { cmd: 'job.create' },
+      expect.objectContaining({
+        recruiterId: 'recruiter-1',
+        companyId: 'company-1',
+        companyName: 'Acme',
+        actor: { role: 'ADMIN', id: 'admin-1' },
+      }),
+    );
+    expect(result).toEqual(offer);
+  });
+
+  it('createOffer → lance BadRequestException si recruiterId est absent', async () => {
+    await expect(
+      controller.createOffer(mockAdminReq, {
+        companyId: 'company-1',
+        title: 'Dev TS',
+        description: 'Description du poste qui fait bien 10 caractères',
+        type: 'INTERNSHIP',
+      }),
+    ).rejects.toThrow();
+  });
+
+  it("updateOffer → appelle job.update avec isAdmin=true et l'id de l'admin", async () => {
+    const offer = { id: 'job-1', title: 'Corrigé' };
+    mockJobsClient.send.mockReturnValueOnce(of(offer));
+    const result = await controller.updateOffer(mockAdminReq, 'job-1', {
+      title: 'Corrigé',
+    });
+    expect(mockJobsClient.send).toHaveBeenCalledWith(
+      { cmd: 'job.update' },
+      expect.objectContaining({
+        id: 'job-1',
+        recruiterId: 'admin-1',
+        dto: expect.objectContaining({ title: 'Corrigé' }),
+        isAdmin: true,
+      }),
+    );
+    expect(result).toEqual(offer);
+  });
+
+  it("deleteOffer → appelle job.delete avec isAdmin=true et l'id de l'admin", async () => {
+    mockJobsClient.send.mockReturnValueOnce(of({ ok: true }));
+    const result = await controller.deleteOffer(mockAdminReq, 'job-1');
+    expect(mockJobsClient.send).toHaveBeenCalledWith(
+      { cmd: 'job.delete' },
+      { id: 'job-1', recruiterId: 'admin-1', isAdmin: true },
+    );
+    expect(result).toEqual({ ok: true });
+  });
+
+  it("archiveOffer → appelle job.archive avec isAdmin=true et l'id de l'admin", async () => {
+    mockJobsClient.send.mockReturnValueOnce(
+      of({ id: 'job-1', status: 'ARCHIVED' }),
+    );
+    const result = await controller.archiveOffer(mockAdminReq, 'job-1');
+    expect(mockJobsClient.send).toHaveBeenCalledWith(
+      { cmd: 'job.archive' },
+      { id: 'job-1', recruiterId: 'admin-1', isAdmin: true },
+    );
+    expect(result).toEqual({ id: 'job-1', status: 'ARCHIVED' });
+  });
+
+  it('getOfferApplicationsCount → appelle application.countByJobOffer', async () => {
+    mockApplicationsClient.send.mockReturnValueOnce(
+      of({ total: 5, active: 2 }),
+    );
+    const result = await controller.getOfferApplicationsCount('job-1');
+    expect(mockApplicationsClient.send).toHaveBeenCalledWith(
+      { cmd: 'application.countByJobOffer' },
+      { jobOfferId: 'job-1' },
+    );
+    expect(result).toEqual({ total: 5, active: 2 });
+  });
+
+  it('listApplications → appelle application.findAllForAdmin avec pagination et filtres', async () => {
+    const paginated = {
+      data: [{ id: 'app-1', status: 'SENT' }],
+      total: 1,
+      page: 1,
+      pageSize: 20,
+    };
+    mockApplicationsClient.send.mockReturnValueOnce(of(paginated));
+    const result = await controller.listApplications(
+      '1',
+      '20',
+      'SENT',
+      'job-1',
+    );
+    expect(mockApplicationsClient.send).toHaveBeenCalledWith(
+      { cmd: 'application.findAllForAdmin' },
+      { page: 1, pageSize: 20, status: 'SENT', jobOfferId: 'job-1' },
+    );
+    expect(result).toEqual(paginated);
+  });
+
+  it('listApplications → utilise des valeurs par défaut sans filtre', async () => {
+    const paginated = { data: [], total: 0, page: 1, pageSize: 20 };
+    mockApplicationsClient.send.mockReturnValueOnce(of(paginated));
+    await controller.listApplications('1', '20');
+    expect(mockApplicationsClient.send).toHaveBeenCalledWith(
+      { cmd: 'application.findAllForAdmin' },
+      { page: 1, pageSize: 20, status: undefined, jobOfferId: undefined },
+    );
+  });
+
+  it('updateApplicationStatus → appelle application.updateStatus avec isAdmin=true', async () => {
+    mockApplicationsClient.send.mockReturnValueOnce(
+      of({ id: 'app-1', status: 'REJECTED' }),
+    );
+    const result = await controller.updateApplicationStatus(
+      mockAdminReq,
+      'app-1',
+      { status: 'REJECTED' },
+    );
+    expect(mockApplicationsClient.send).toHaveBeenCalledWith(
+      { cmd: 'application.updateStatus' },
+      {
+        id: 'app-1',
+        recruiterId: 'admin-1',
+        dto: { status: 'REJECTED' },
+        isAdmin: true,
+      },
+    );
+    expect(result).toEqual({ id: 'app-1', status: 'REJECTED' });
+  });
+
+  it('updateApplicationStatus → lance BadRequestException si le statut est invalide', async () => {
+    await expect(
+      controller.updateApplicationStatus(mockAdminReq, 'app-1', {
+        status: 'NOT_A_STATUS',
+      }),
+    ).rejects.toThrow();
+  });
+
+  // ── Abonnements ───────────────────────────────────────────────────────────
+
+  it('listCompanies → enrichit chaque entreprise avec son abonnement', async () => {
+    const companies = {
+      data: [{ id: 'company-1', name: 'Acme', siret: null }],
+      total: 1,
+      page: 1,
+      pageSize: 20,
+    };
+    mockUsersClient.send.mockReturnValueOnce(of(companies));
+    mockPaymentClient.send.mockReturnValueOnce(
+      of({ plan: 'PRO', status: 'active', currentPeriodEnd: null }),
+    );
+
+    const result = await controller.listCompanies('1', '20');
+
+    expect(mockUsersClient.send).toHaveBeenCalledWith(
+      { cmd: 'admin.listCompanies' },
+      { page: 1, pageSize: 20, search: undefined },
+    );
+    expect(mockPaymentClient.send).toHaveBeenCalledWith(
+      { cmd: 'payment.getSubscription' },
+      { companyId: 'company-1' },
+    );
+    expect(result.data[0]).toEqual({
+      id: 'company-1',
+      name: 'Acme',
+      siret: null,
+      subscription: { plan: 'PRO', status: 'active', currentPeriodEnd: null },
+    });
+  });
+
+  it('listCompanies → subscription: null si payment-svc est injoignable pour une entreprise', async () => {
+    const companies = {
+      data: [{ id: 'company-1', name: 'Acme', siret: null }],
+      total: 1,
+      page: 1,
+      pageSize: 20,
+    };
+    mockUsersClient.send.mockReturnValueOnce(of(companies));
+    mockPaymentClient.send.mockImplementationOnce(() => {
+      throw new Error('payment-svc down');
+    });
+
+    const result = await controller.listCompanies('1', '20');
+
+    expect(result.data[0]).toMatchObject({ subscription: null });
+  });
+
+  it('setCompanyPlan → appelle payment.adminSetPlan avec le plan validé', async () => {
+    mockPaymentClient.send.mockReturnValueOnce(of({ plan: 'PRO' }));
+    const result = await controller.setCompanyPlan('company-1', {
+      plan: 'PRO',
+    });
+    expect(mockPaymentClient.send).toHaveBeenCalledWith(
+      { cmd: 'payment.adminSetPlan' },
+      { companyId: 'company-1', plan: 'PRO' },
+    );
+    expect(result).toEqual({ plan: 'PRO' });
+  });
+
+  it('setCompanyPlan → lance BadRequestException si le plan est invalide', async () => {
+    await expect(
+      controller.setCompanyPlan('company-1', { plan: 'GOLD' }),
+    ).rejects.toThrow();
   });
 
   it('listReports → appelle report.list avec le filtre statut et la pagination', async () => {

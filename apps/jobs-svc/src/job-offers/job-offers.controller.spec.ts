@@ -17,8 +17,10 @@ const mockService = {
   reject: jest.fn(),
   resetToDraft: jest.fn(),
   findPendingReview: jest.fn(),
+  findAllForAdmin: jest.fn(),
   getHistory: jest.fn(),
   getStats: jest.fn(),
+  delete: jest.fn(),
 };
 
 const baseOffer = {
@@ -72,6 +74,32 @@ describe("JobOffersController", () => {
       "company-1",
       expect.any(Object),
       undefined,
+      undefined,
+    );
+  });
+
+  it("create → transmet l'actor ADMIN s'il est fourni (création pour le compte d'un recruteur)", async () => {
+    mockService.create.mockResolvedValueOnce(baseOffer);
+    await controller.create({
+      recruiterId: "recruiter-1",
+      companyId: "company-1",
+      companyName: "Acme",
+      dto: {
+        title: "Dev TS",
+        description: "Description du poste",
+        type: JobType.INTERNSHIP,
+        remoteOk: false,
+        requiredTechnologies: [],
+        isPublic: true,
+      },
+      actor: { role: "ADMIN", id: "admin-1" },
+    });
+    expect(mockService.create).toHaveBeenCalledWith(
+      "recruiter-1",
+      "company-1",
+      expect.any(Object),
+      "Acme",
+      { role: "ADMIN", id: "admin-1" },
     );
   });
 
@@ -109,6 +137,52 @@ describe("JobOffersController", () => {
       dto: { title: "Nouveau" },
     });
     expect(result.title).toBe("Nouveau");
+    expect(mockService.update).toHaveBeenCalledWith(
+      "job-1",
+      "recruiter-1",
+      { title: "Nouveau" },
+      false,
+    );
+  });
+
+  it("update → transmet isAdmin true (modification par le back-office)", async () => {
+    mockService.update.mockResolvedValueOnce({ ...baseOffer, title: "X" });
+    await controller.update({
+      id: "job-1",
+      recruiterId: "admin-1",
+      dto: { title: "X" },
+      isAdmin: true,
+    });
+    expect(mockService.update).toHaveBeenCalledWith(
+      "job-1",
+      "admin-1",
+      { title: "X" },
+      true,
+    );
+  });
+
+  it("delete → délègue au service (isAdmin false par défaut)", async () => {
+    mockService.delete.mockResolvedValueOnce({ ok: true });
+    const result = await controller.delete({
+      id: "job-1",
+      recruiterId: "recruiter-1",
+    });
+    expect(result).toEqual({ ok: true });
+    expect(mockService.delete).toHaveBeenCalledWith(
+      "job-1",
+      "recruiter-1",
+      false,
+    );
+  });
+
+  it("delete → transmet isAdmin true (suppression par le back-office)", async () => {
+    mockService.delete.mockResolvedValueOnce({ ok: true });
+    await controller.delete({
+      id: "job-1",
+      recruiterId: "admin-1",
+      isAdmin: true,
+    });
+    expect(mockService.delete).toHaveBeenCalledWith("job-1", "admin-1", true);
   });
 
   it("publish → délègue au service", async () => {
@@ -132,7 +206,25 @@ describe("JobOffersController", () => {
       id: "job-1",
       recruiterId: "recruiter-1",
     });
+    expect(mockService.archive).toHaveBeenCalledWith(
+      "job-1",
+      "recruiter-1",
+      false,
+    );
     expect(result.status).toBe(JobStatus.ARCHIVED);
+  });
+
+  it("archive → transmet isAdmin=true au service quand fourni", async () => {
+    mockService.archive.mockResolvedValueOnce({
+      ...baseOffer,
+      status: JobStatus.ARCHIVED,
+    });
+    await controller.archive({
+      id: "job-1",
+      recruiterId: "admin-1",
+      isAdmin: true,
+    });
+    expect(mockService.archive).toHaveBeenCalledWith("job-1", "admin-1", true);
   });
 
   it("unarchive → délègue au service", async () => {
@@ -225,6 +317,24 @@ describe("JobOffersController", () => {
       "job-1",
       "admin-1",
       true,
+    );
+  });
+
+  it("findAllForAdmin → délègue page, pageSize, status et search au service", async () => {
+    const paginated = { data: [baseOffer], total: 1, page: 1, pageSize: 20 };
+    mockService.findAllForAdmin.mockResolvedValueOnce(paginated);
+    const result = await controller.findAllForAdmin({
+      page: 1,
+      pageSize: 20,
+      status: JobStatus.DRAFT,
+      search: "Dev",
+    });
+    expect(result.total).toBe(1);
+    expect(mockService.findAllForAdmin).toHaveBeenCalledWith(
+      1,
+      20,
+      JobStatus.DRAFT,
+      "Dev",
     );
   });
 

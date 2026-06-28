@@ -45,9 +45,28 @@ export class ApplicationsController {
       id: string;
       recruiterId: string;
       dto: UpdateApplicationStatusDto;
+      isAdmin?: boolean;
     },
   ) {
-    return this.service.updateStatus(data.id, data.recruiterId, data.dto);
+    return this.service.updateStatus(
+      data.id,
+      data.recruiterId,
+      data.dto,
+      data.isAdmin ?? false,
+    );
+  }
+
+  @MessagePattern({ cmd: "application.findAllForAdmin" })
+  findAllForAdmin(
+    @Payload()
+    data: {
+      page?: number;
+      pageSize?: number;
+      status?: string;
+      jobOfferId?: string;
+    },
+  ) {
+    return this.service.findAllForAdmin(data);
   }
 
   @MessagePattern({ cmd: "application.getHistory" })
@@ -71,6 +90,11 @@ export class ApplicationsController {
   @MessagePattern({ cmd: "application.hasActiveForJobOffer" })
   hasActiveForJobOffer(@Payload() data: { jobOfferId: string }) {
     return this.service.hasActiveApplicationsForJobOffer(data.jobOfferId);
+  }
+
+  @MessagePattern({ cmd: "application.countByJobOffer" })
+  countByJobOffer(@Payload() data: { jobOfferId: string }) {
+    return this.service.countApplicationsForJobOffer(data.jobOfferId);
   }
 
   // ── Pièces justificatives ────────────────────────────────────────────────

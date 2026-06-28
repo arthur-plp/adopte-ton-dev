@@ -1,6 +1,7 @@
 import { Controller } from "@nestjs/common";
 import { MessagePattern, Payload } from "@nestjs/microservices";
 import { JobOffersService } from "./job-offers.service";
+import type { JobStatus } from "@repo/types";
 import type {
   CreateJobOfferDto,
   UpdateJobOfferDto,
@@ -19,6 +20,7 @@ export class JobOffersController {
       companyId: string;
       companyName?: string;
       dto: CreateJobOfferDto;
+      actor?: { role: "RECRUITER" | "ADMIN"; id: string };
     },
   ) {
     return this.service.create(
@@ -26,6 +28,7 @@ export class JobOffersController {
       data.companyId,
       data.dto,
       data.companyName,
+      data.actor,
     );
   }
 
@@ -58,9 +61,15 @@ export class JobOffersController {
       id: string;
       recruiterId: string;
       dto: UpdateJobOfferDto;
+      isAdmin?: boolean;
     },
   ) {
-    return this.service.update(data.id, data.recruiterId, data.dto);
+    return this.service.update(
+      data.id,
+      data.recruiterId,
+      data.dto,
+      data.isAdmin ?? false,
+    );
   }
 
   @MessagePattern({ cmd: "job.publish" })
@@ -69,8 +78,14 @@ export class JobOffersController {
   }
 
   @MessagePattern({ cmd: "job.archive" })
-  archive(@Payload() data: { id: string; recruiterId: string }) {
-    return this.service.archive(data.id, data.recruiterId);
+  archive(
+    @Payload() data: { id: string; recruiterId: string; isAdmin?: boolean },
+  ) {
+    return this.service.archive(
+      data.id,
+      data.recruiterId,
+      data.isAdmin ?? false,
+    );
   }
 
   @MessagePattern({ cmd: "job.unarchive" })
@@ -84,8 +99,14 @@ export class JobOffersController {
   }
 
   @MessagePattern({ cmd: "job.delete" })
-  delete(@Payload() data: { id: string; recruiterId: string }) {
-    return this.service.delete(data.id, data.recruiterId);
+  delete(
+    @Payload() data: { id: string; recruiterId: string; isAdmin?: boolean },
+  ) {
+    return this.service.delete(
+      data.id,
+      data.recruiterId,
+      data.isAdmin ?? false,
+    );
   }
 
   @MessagePattern({ cmd: "job.approve" })
@@ -106,6 +127,24 @@ export class JobOffersController {
   @MessagePattern({ cmd: "job.findPendingReview" })
   findPendingReview(@Payload() data: { page: number; pageSize: number }) {
     return this.service.findPendingReview(data.page, data.pageSize);
+  }
+
+  @MessagePattern({ cmd: "job.findAllForAdmin" })
+  findAllForAdmin(
+    @Payload()
+    data: {
+      page: number;
+      pageSize: number;
+      status?: JobStatus;
+      search?: string;
+    },
+  ) {
+    return this.service.findAllForAdmin(
+      data.page,
+      data.pageSize,
+      data.status,
+      data.search,
+    );
   }
 
   @MessagePattern({ cmd: "job.getHistory" })

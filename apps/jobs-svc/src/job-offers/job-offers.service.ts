@@ -84,6 +84,17 @@ export class JobOffersService {
       throw new RpcException({ statusCode: 403, message: "Accès refusé" });
   }
 
+  // Un admin peut agir sur n'importe quelle offre (CLAUDE.md §13.6 back-office) ;
+  // les autres règles métier (offre PUBLISHED figée, candidatures actives…)
+  // s'appliquent identiquement, qu'on soit admin ou propriétaire.
+  private requireOwnerUnlessAdmin(
+    offer: { recruiterId: string },
+    requesterId: string,
+    isAdmin: boolean,
+  ) {
+    if (!isAdmin) this.requireOwner(offer, requesterId);
+  }
+
   private emitEvent(type: string, payload: object) {
     return this.prisma.outboxEvent.create({ data: { type, payload } });
   }
@@ -107,6 +118,7 @@ export class JobOffersService {
     companyId: string,
     dto: CreateJobOfferDto,
     companyName?: string,
+    actor?: { role: "RECRUITER" | "ADMIN"; id: string },
   ) {
     return this.prisma.$transaction(async (tx) => {
       const offer = await tx.jobOffer.create({
@@ -121,8 +133,8 @@ export class JobOffersService {
         data: {
           jobOfferId: offer.id,
           status: offer.status,
-          actorRole: "RECRUITER",
-          actorId: recruiterId,
+          actorRole: actor?.role ?? "RECRUITER",
+          actorId: actor?.id ?? recruiterId,
           note: null,
         },
       });
@@ -186,9 +198,14 @@ export class JobOffersService {
     return { data, total, page, pageSize };
   }
 
-  async update(id: string, recruiterId: string, dto: UpdateJobOfferDto) {
+  async update(
+    id: string,
+    recruiterId: string,
+    dto: UpdateJobOfferDto,
+    isAdmin = false,
+  ) {
     const offer = await this.requireOffer(id);
-    this.requireOwner(offer, recruiterId);
+    this.requireOwnerUnlessAdmin(offer, recruiterId, isAdmin);
 
     if (offer.status === JobStatus.PUBLISHED)
       throw new RpcException({
@@ -352,6 +369,37 @@ export class JobOffersService {
     );
   }
 
+  // Vue admin complète (toutes offres, tous statuts) — distincte de
+  // findPendingReview qui ne sert que l'onglet "Modération".
+  async findAllForAdmin(
+    page: number,
+    pageSize: number,
+    status?: JobStatus,
+    search?: string,
+  ) {
+    const where: Record<string, unknown> = {};
+    if (status) where["status"] = status;
+    if (search) {
+      where["OR"] = [
+        { title: { contains: search, mode: "insensitive" } },
+        { companyName: { contains: search, mode: "insensitive" } },
+      ];
+    }
+    const skip = (page - 1) * pageSize;
+    const [data, total] = await Promise.all([
+      retry(() =>
+        this.prisma.jobOffer.findMany({
+          where,
+          orderBy: { createdAt: "desc" },
+          skip,
+          take: pageSize,
+        }),
+      ),
+      retry(() => this.prisma.jobOffer.count({ where })),
+    ]);
+    return { data, total, page, pageSize };
+  }
+
   async findPendingReview(page: number, pageSize: number) {
     const skip = (page - 1) * pageSize;
     const [data, total] = await Promise.all([
@@ -396,9 +444,9 @@ export class JobOffersService {
     };
   }
 
-  async delete(id: string, recruiterId: string) {
+  async delete(id: string, recruiterId: string, isAdmin = false) {
     const offer = await this.requireOffer(id);
-    this.requireOwner(offer, recruiterId);
+    this.requireOwnerUnlessAdmin(offer, recruiterId, isAdmin);
     if (offer.status === "PUBLISHED") {
       throw new RpcException({
         statusCode: 400,
@@ -416,9 +464,9 @@ export class JobOffersService {
     return { ok: true };
   }
 
-  async archive(id: string, recruiterId: string) {
+  async archive(id: string, recruiterId: string, isAdmin = false) {
     const offer = await this.requireOffer(id);
-    this.requireOwner(offer, recruiterId);
+    this.requireOwnerUnlessAdmin(offer, recruiterId, isAdmin);
 
     if (offer.status === JobStatus.ARCHIVED)
       throw new RpcException({
@@ -443,7 +491,12 @@ export class JobOffersService {
         recruiterId,
         companyId: offer.companyId,
       }),
-      this.writeHistoryEvent(id, JobStatus.ARCHIVED, "RECRUITER", recruiterId),
+      this.writeHistoryEvent(
+        id,
+        JobStatus.ARCHIVED,
+        isAdmin ? "ADMIN" : "RECRUITER",
+        recruiterId,
+      ),
     ]);
     return archived;
   }

@@ -4,6 +4,7 @@ import {
   JobOfferFiltersSchema,
   JobOfferResponseSchema,
   PaginatedJobOffersSchema,
+  AdminCreateJobOfferSchema,
 } from './job.schema';
 import { JobType, JobStatus } from '@repo/types';
 
@@ -83,6 +84,45 @@ describe('CreateJobOfferSchema', () => {
   it('applique requiredTechnologies=[] par défaut', () => {
     const result = CreateJobOfferSchema.parse(validBase);
     expect(result.requiredTechnologies).toEqual([]);
+  });
+});
+
+// ─── AdminCreateJobOfferSchema ────────────────────────────────────────────────
+
+describe('AdminCreateJobOfferSchema', () => {
+  it('valide une offre avec recruiterId/companyId explicites', () => {
+    const result = AdminCreateJobOfferSchema.parse({
+      ...validBase,
+      recruiterId: 'recruiter-1',
+      companyId: 'company-1',
+      companyName: 'Acme',
+    });
+    expect(result.recruiterId).toBe('recruiter-1');
+    expect(result.companyId).toBe('company-1');
+  });
+
+  it('rejette si recruiterId est absent', () => {
+    expect(() =>
+      AdminCreateJobOfferSchema.parse({ ...validBase, companyId: 'company-1' }),
+    ).toThrow();
+  });
+
+  it('rejette si companyId est absent', () => {
+    expect(() =>
+      AdminCreateJobOfferSchema.parse({ ...validBase, recruiterId: 'recruiter-1' }),
+    ).toThrow();
+  });
+
+  it('rejette si salaryMin > salaryMax (même règle que CreateJobOfferSchema)', () => {
+    expect(() =>
+      AdminCreateJobOfferSchema.parse({
+        ...validBase,
+        recruiterId: 'recruiter-1',
+        companyId: 'company-1',
+        salaryMin: 2000,
+        salaryMax: 1000,
+      }),
+    ).toThrow();
   });
 });
 

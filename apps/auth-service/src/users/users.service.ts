@@ -132,12 +132,33 @@ export class UsersService {
             select: {
               firstName: true,
               lastName: true,
+              companyId: true,
               company: { select: { name: true, siret: true } },
             },
           },
         },
       }),
       this.prisma.user.count({ where }),
+    ]);
+    return { data, total, page, pageSize };
+  }
+
+  // Pour l'onglet admin "Abonnements" : payment-svc ne connaît que des
+  // companyId opaques, c'est auth-service qui détient les noms d'entreprise.
+  async listCompanies(page: number, pageSize: number, search?: string) {
+    const where: Record<string, unknown> = search
+      ? { name: { contains: search, mode: 'insensitive' } }
+      : {};
+    const skip = (page - 1) * pageSize;
+    const [data, total] = await Promise.all([
+      this.prisma.company.findMany({
+        where,
+        skip,
+        take: pageSize,
+        orderBy: { name: 'asc' },
+        select: { id: true, name: true, siret: true },
+      }),
+      this.prisma.company.count({ where }),
     ]);
     return { data, total, page, pageSize };
   }

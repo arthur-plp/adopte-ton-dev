@@ -75,6 +75,17 @@ export class UsersController {
     return this.usersService.getStats();
   }
 
+  @MessagePattern({ cmd: 'admin.listCompanies' })
+  listCompanies(
+    @Payload() payload: { page: number; pageSize: number; search?: string },
+  ) {
+    return this.usersService.listCompanies(
+      payload.page,
+      payload.pageSize,
+      payload.search,
+    );
+  }
+
   @MessagePattern({ cmd: 'admin.promoteToRecruiter' })
   promoteToRecruiter(
     @Payload()

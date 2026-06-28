@@ -68,6 +68,37 @@ describe("PaymentService", () => {
     });
   });
 
+  // ── adminSetPlan ─────────────────────────────────────────────────────────
+
+  describe("adminSetPlan", () => {
+    it("upsert le plan sans toucher aux identifiants Stripe existants", async () => {
+      mockPrisma.subscription.upsert.mockResolvedValueOnce(undefined);
+      mockPrisma.subscription.findUnique.mockResolvedValueOnce({
+        ...baseSubscription,
+        plan: "PRO",
+      });
+      const result = await service.adminSetPlan("company-1", "PRO");
+      expect(mockPrisma.subscription.upsert).toHaveBeenCalledWith({
+        where: { companyId: "company-1" },
+        create: { companyId: "company-1", plan: "PRO", status: "active" },
+        update: { plan: "PRO", status: "active" },
+      });
+      expect(result.plan).toBe("PRO");
+    });
+
+    it("émet un événement payment.subscription.updated", async () => {
+      mockPrisma.subscription.upsert.mockResolvedValueOnce(undefined);
+      mockPrisma.subscription.findUnique.mockResolvedValueOnce(null);
+      await service.adminSetPlan("company-1", "FREE");
+      expect(mockPrisma.outboxEvent.create).toHaveBeenCalledWith({
+        data: {
+          type: expect.stringContaining("subscription"),
+          payload: { companyId: "company-1", plan: "FREE", status: "active" },
+        },
+      });
+    });
+  });
+
   // ── createCheckoutSession ────────────────────────────────────────────────
 
   describe("createCheckoutSession", () => {

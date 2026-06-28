@@ -30,6 +30,8 @@ const mockPrisma = {
   company: {
     upsert: jest.fn(),
     findUnique: jest.fn(),
+    findMany: jest.fn(),
+    count: jest.fn(),
   },
   account: {
     findMany: jest.fn(),
@@ -360,6 +362,50 @@ describe('UsersService', () => {
       mockPrisma.user.count.mockResolvedValue(0);
       const result = await service.listUsers(1, 10);
       expect(result).toEqual({ data: [], total: 0, page: 1, pageSize: 10 });
+    });
+
+    it('sélectionne companyId pour le profil recruteur (admin "créer une offre pour")', async () => {
+      mockPrisma.user.findMany.mockResolvedValue([]);
+      mockPrisma.user.count.mockResolvedValue(0);
+      await service.listUsers(1, 10);
+      expect(mockPrisma.user.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          select: expect.objectContaining({
+            recruiterProfile: expect.objectContaining({
+              select: expect.objectContaining({ companyId: true }),
+            }),
+          }),
+        }),
+      );
+    });
+  });
+
+  // ─── listCompanies ────────────────────────────────────────────────────────
+
+  describe('listCompanies', () => {
+    it("retourne une liste paginée d'entreprises", async () => {
+      mockPrisma.company.findMany.mockResolvedValue([
+        { id: 'co-1', name: 'Acme', siret: null },
+      ]);
+      mockPrisma.company.count.mockResolvedValue(1);
+      const result = await service.listCompanies(1, 20);
+      expect(result).toEqual({
+        data: [{ id: 'co-1', name: 'Acme', siret: null }],
+        total: 1,
+        page: 1,
+        pageSize: 20,
+      });
+    });
+
+    it('filtre par recherche sur le nom si fournie', async () => {
+      mockPrisma.company.findMany.mockResolvedValue([]);
+      mockPrisma.company.count.mockResolvedValue(0);
+      await service.listCompanies(1, 20, 'Acme');
+      expect(mockPrisma.company.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { name: { contains: 'Acme', mode: 'insensitive' } },
+        }),
+      );
     });
   });
 

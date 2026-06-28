@@ -20,22 +20,41 @@ const JobOfferBaseSchema = z.object({
   isPublic: z.boolean().default(true),
 });
 
-export const CreateJobOfferSchema = JobOfferBaseSchema.refine(
-  (data) =>
+function checkSalaryRange(data: { salaryMin?: number; salaryMax?: number }) {
+  return (
     data.salaryMin == null ||
     data.salaryMax == null ||
-    data.salaryMin <= data.salaryMax,
-  { message: "salaryMin doit être inférieur ou égal à salaryMax", path: ["salaryMin"] },
+    data.salaryMin <= data.salaryMax
+  );
+}
+
+const salaryRangeRefinement = {
+  message: "salaryMin doit être inférieur ou égal à salaryMax",
+  path: ["salaryMin"],
+};
+
+export const CreateJobOfferSchema = JobOfferBaseSchema.refine(
+  checkSalaryRange,
+  salaryRangeRefinement,
 );
 
 export type CreateJobOfferDto = z.infer<typeof CreateJobOfferSchema>;
 
+// Création d'offre par un admin (back-office, CLAUDE.md §13.6) pour le compte
+// d'un recruteur existant — recruiterId/companyId sont choisis explicitement
+// par l'admin (pas dérivés de sa propre session), contrairement à la création
+// recruteur normale.
+export const AdminCreateJobOfferSchema = JobOfferBaseSchema.extend({
+  recruiterId: z.string().min(1),
+  companyId: z.string().min(1),
+  companyName: z.string().max(200).optional(),
+}).refine(checkSalaryRange, salaryRangeRefinement);
+
+export type AdminCreateJobOfferDto = z.infer<typeof AdminCreateJobOfferSchema>;
+
 export const UpdateJobOfferSchema = JobOfferBaseSchema.partial().refine(
-  (data) =>
-    data.salaryMin == null ||
-    data.salaryMax == null ||
-    data.salaryMin <= data.salaryMax,
-  { message: "salaryMin doit être inférieur ou égal à salaryMax", path: ["salaryMin"] },
+  checkSalaryRange,
+  salaryRangeRefinement,
 );
 
 export type UpdateJobOfferDto = z.infer<typeof UpdateJobOfferSchema>;
