@@ -1,6 +1,7 @@
 import {
   CreateCheckoutSessionSchema,
   CreateBillingPortalSessionSchema,
+  AdminSetPlanSchema,
 } from './payment.schema';
 
 describe('CreateCheckoutSessionSchema', () => {
@@ -42,5 +43,16 @@ describe('CreateBillingPortalSessionSchema', () => {
     expect(() =>
       CreateBillingPortalSessionSchema.parse({ returnUrl: 'pas-une-url' }),
     ).toThrow();
+  });
+});
+
+describe('AdminSetPlanSchema', () => {
+  it('valide FREE et PRO', () => {
+    expect(AdminSetPlanSchema.parse({ plan: 'FREE' }).plan).toBe('FREE');
+    expect(AdminSetPlanSchema.parse({ plan: 'PRO' }).plan).toBe('PRO');
+  });
+
+  it('rejette une valeur de plan invalide', () => {
+    expect(() => AdminSetPlanSchema.parse({ plan: 'GOLD' })).toThrow();
   });
 });

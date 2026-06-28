@@ -8,6 +8,7 @@ const mockUsersService = {
   setRole: jest.fn(),
   getProfile: jest.fn(),
   getParticipantInfo: jest.fn(),
+  listCompanies: jest.fn(),
 };
 
 describe('UsersController', () => {
@@ -139,6 +140,28 @@ describe('UsersController', () => {
       expect(result).toEqual(info);
       expect(mockUsersService.getParticipantInfo).toHaveBeenCalledWith(
         'admin-1',
+      );
+    });
+  });
+
+  // ─── listCompanies ────────────────────────────────────────────────────────
+
+  describe('listCompanies', () => {
+    it('délègue page, pageSize et search au service', async () => {
+      const paginated = { data: [], total: 0, page: 1, pageSize: 20 };
+      mockUsersService.listCompanies.mockResolvedValue(paginated);
+
+      const result = await controller.listCompanies({
+        page: 1,
+        pageSize: 20,
+        search: 'Acme',
+      });
+
+      expect(result).toEqual(paginated);
+      expect(mockUsersService.listCompanies).toHaveBeenCalledWith(
+        1,
+        20,
+        'Acme',
       );
     });
   });

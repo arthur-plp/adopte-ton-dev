@@ -122,6 +122,36 @@ describe("JobOffersService", () => {
         },
       });
     });
+
+    it("écrit un JobOfferEvent avec actorRole ADMIN quand un admin crée l'offre pour un recruteur", async () => {
+      mockPrisma.jobOffer.create.mockResolvedValueOnce({
+        ...baseOffer,
+        id: "new-job",
+      });
+      await service.create(
+        "recruiter-1",
+        "company-1",
+        {
+          title: "Développeur TS",
+          description: "Description du poste de développeur",
+          type: JobType.INTERNSHIP,
+          remoteOk: false,
+          requiredTechnologies: [],
+          isPublic: true,
+        },
+        "Acme",
+        { role: "ADMIN", id: "admin-1" },
+      );
+      expect(mockPrisma.jobOfferEvent.create).toHaveBeenCalledWith({
+        data: {
+          jobOfferId: "new-job",
+          status: JobStatus.DRAFT,
+          actorRole: "ADMIN",
+          actorId: "admin-1",
+          note: null,
+        },
+      });
+    });
   });
 
   // ── findMine ───────────────────────────────────────────────────────────────
@@ -215,6 +245,19 @@ describe("JobOffersService", () => {
       await expect(
         service.update("job-1", "recruiter-1", { title: "x" }),
       ).rejects.toThrow(RpcException);
+    });
+
+    it("un admin peut modifier une offre dont il n'est pas propriétaire", async () => {
+      mockPrisma.jobOffer.findUnique.mockResolvedValueOnce(baseOffer);
+      const updated = { ...baseOffer, title: "Corrigé par l'admin" };
+      mockPrisma.$transaction.mockResolvedValueOnce([updated]);
+      const result = await service.update(
+        "job-1",
+        "admin-1",
+        { title: "Corrigé par l'admin" },
+        true,
+      );
+      expect(result.title).toBe("Corrigé par l'admin");
     });
   });
 
@@ -464,6 +507,23 @@ describe("JobOffersService", () => {
       const result = await service.delete("job-1", "recruiter-1");
       expect(result).toEqual({ ok: true });
     });
+
+    it("un admin peut supprimer une offre dont il n'est pas propriétaire", async () => {
+      mockPrisma.jobOffer.findUnique.mockResolvedValueOnce(baseOffer);
+      mockPrisma.jobOffer.delete.mockResolvedValueOnce(baseOffer);
+      const result = await service.delete("job-1", "admin-1", true);
+      expect(result).toEqual({ ok: true });
+    });
+
+    it("la règle PUBLISHED s'applique aussi à l'admin (échec fermé)", async () => {
+      mockPrisma.jobOffer.findUnique.mockResolvedValueOnce({
+        ...baseOffer,
+        status: JobStatus.PUBLISHED,
+      });
+      await expect(service.delete("job-1", "admin-1", true)).rejects.toThrow(
+        RpcException,
+      );
+    });
   });
 
   // ── archive ────────────────────────────────────────────────────────────────
@@ -539,6 +599,43 @@ describe("JobOffersService", () => {
       mockPrisma.$transaction.mockResolvedValueOnce([archived]);
       const result = await service.archive("job-1", "recruiter-1");
       expect(result.status).toBe(JobStatus.ARCHIVED);
+    });
+
+    it("un admin peut archiver l'offre d'un autre recruteur (bypass ownership)", async () => {
+      const publishedOffer = { ...baseOffer, status: JobStatus.PUBLISHED };
+      mockPrisma.jobOffer.findUnique.mockResolvedValueOnce(publishedOffer);
+      const archived = { ...publishedOffer, status: JobStatus.ARCHIVED };
+      mockPrisma.$transaction.mockResolvedValueOnce([archived]);
+      const result = await service.archive("job-1", "admin-1", true);
+      expect(result.status).toBe(JobStatus.ARCHIVED);
+    });
+
+    it("écrit un JobOfferEvent ARCHIVED avec actorRole ADMIN quand isAdmin=true", async () => {
+      const publishedOffer = { ...baseOffer, status: JobStatus.PUBLISHED };
+      mockPrisma.jobOffer.findUnique.mockResolvedValueOnce(publishedOffer);
+      mockPrisma.$transaction.mockImplementationOnce((ops: unknown) =>
+        Promise.all(ops as Promise<unknown>[]),
+      );
+      await service.archive("job-1", "admin-1", true);
+      expect(mockPrisma.jobOfferEvent.create).toHaveBeenCalledWith({
+        data: {
+          jobOfferId: "job-1",
+          status: JobStatus.ARCHIVED,
+          actorRole: "ADMIN",
+          actorId: "admin-1",
+          note: null,
+        },
+      });
+    });
+
+    it("bloque même un admin si des candidatures actives existent (règle métier identique)", async () => {
+      const publishedOffer = { ...baseOffer, status: JobStatus.PUBLISHED };
+      mockPrisma.jobOffer.findUnique.mockResolvedValueOnce(publishedOffer);
+      mockApplicationsClient.send.mockReturnValueOnce(of({ hasActive: true }));
+      await expect(service.archive("job-1", "admin-1", true)).rejects.toThrow(
+        RpcException,
+      );
+      expect(mockPrisma.$transaction).not.toHaveBeenCalled();
     });
   });
 
@@ -695,6 +792,47 @@ describe("JobOffersService", () => {
       const result = await service.findPendingReview(1, 10);
       expect(result.data).toHaveLength(1);
       expect(result.total).toBe(1);
+    });
+  });
+
+  // ── findAllForAdmin ───────────────────────────────────────────────────────
+
+  describe("findAllForAdmin", () => {
+    it("retourne toutes les offres paginées sans filtre", async () => {
+      mockPrisma.jobOffer.findMany.mockResolvedValueOnce([baseOffer]);
+      mockPrisma.jobOffer.count.mockResolvedValueOnce(1);
+      const result = await service.findAllForAdmin(1, 20);
+      expect(result.data).toHaveLength(1);
+      expect(mockPrisma.jobOffer.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where: {} }),
+      );
+    });
+
+    it("filtre par statut si fourni", async () => {
+      mockPrisma.jobOffer.findMany.mockResolvedValueOnce([]);
+      mockPrisma.jobOffer.count.mockResolvedValueOnce(0);
+      await service.findAllForAdmin(1, 20, JobStatus.ARCHIVED);
+      expect(mockPrisma.jobOffer.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { status: JobStatus.ARCHIVED },
+        }),
+      );
+    });
+
+    it("filtre par recherche sur titre/companyName si fournie", async () => {
+      mockPrisma.jobOffer.findMany.mockResolvedValueOnce([]);
+      mockPrisma.jobOffer.count.mockResolvedValueOnce(0);
+      await service.findAllForAdmin(1, 20, undefined, "Acme");
+      expect(mockPrisma.jobOffer.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            OR: [
+              { title: { contains: "Acme", mode: "insensitive" } },
+              { companyName: { contains: "Acme", mode: "insensitive" } },
+            ],
+          },
+        }),
+      );
     });
   });
 

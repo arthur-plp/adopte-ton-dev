@@ -9,12 +9,21 @@ import {
   Plus, X, Eye, EyeOff, Pencil, Trash2, AlertTriangle,
   CheckCircle2, XCircle, Clock, MapPin, Wifi, Euro,
   History, MessageSquare, FileText, TrendingUp, Flag, BarChart3,
+  CreditCard, Building2, ListFilter, Archive, UserCircle2,
 } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { AdminStatsCharts } from "./admin-stats-charts";
 import { MessageButton } from "@/components/message-button";
+import { JobOfferForm, type JobOfferFormData } from "@/app/jobs/job-offer-form";
+import type { TechLevel } from "@/app/jobs/job-technologies-selector";
+import {
+  APPLICATION_STATUS_COLORS,
+  APPLICATION_STATUS_LABELS,
+  type ApplicationStatus,
+  type InterviewMode,
+} from "@/components/application-event-timeline";
 
 type Stats = {
   users: { total: number; developers: number; recruiters: number; admins: number };
@@ -72,7 +81,7 @@ type ReportRow = {
 
 type PaginatedReports = { data: ReportRow[]; total: number; page: number; pageSize: number };
 
-type ActiveTab = "stats" | "users" | "offers" | "reports";
+type ActiveTab = "stats" | "users" | "offers" | "manage-offers" | "applications" | "subscriptions" | "reports";
 
 type UserRow = {
   id: string;
@@ -84,9 +93,46 @@ type UserRow = {
   recruiterProfile: {
     firstName: string;
     lastName: string;
+    companyId?: string;
     company: { name: string; siret: string | null } | null;
   } | null;
 };
+
+// ── Gestion des offres (CRUD complet, indépendant de la modération) ──────────
+
+type ManagedOffer = PendingOffer & { status: string; isPublic: boolean };
+type PaginatedManagedOffers = { data: ManagedOffer[]; total: number; page: number; pageSize: number };
+
+const ALL_OFFER_STATUSES = ["DRAFT", "PENDING_REVIEW", "APPROVED", "PUBLISHED", "REJECTED", "ARCHIVED"] as const;
+
+type AdminApplication = {
+  id: string;
+  developerId: string;
+  jobOfferId: string;
+  status: ApplicationStatus;
+  coverLetter: string | null;
+  interviewMode: InterviewMode | null;
+  interviewLocation: string | null;
+  createdAt: string;
+};
+
+type DeveloperSummary = {
+  firstName: string;
+  lastName: string;
+  title: string | null;
+  avatarUrl: string | null;
+};
+
+type PaginatedApplications = { data: AdminApplication[]; total: number; page: number; pageSize: number };
+
+const APPLICATION_TERMINAL_STATUSES: ApplicationStatus[] = ["ACCEPTED", "REJECTED", "WITHDRAWN"];
+const ADMIN_APPLICATION_TARGET_STATUSES: ApplicationStatus[] = ["VIEWED", "INTERVIEW", "ACCEPTED", "REJECTED"];
+
+// ── Abonnements ────────────────────────────────────────────────────────────────
+
+type Subscription = { plan: "FREE" | "PRO"; status: string; currentPeriodEnd: string | null };
+type CompanyRow = { id: string; name: string; siret: string | null; subscription: Subscription | null };
+type PaginatedCompanies = { data: CompanyRow[]; total: number; page: number; pageSize: number };
 
 type Paginated = { data: UserRow[]; total: number; page: number; pageSize: number };
 
@@ -144,6 +190,34 @@ export default function AdminDashboard() {
   const [reportStatusFilter, setReportStatusFilter] = useState<"open" | "resolved" | "dismissed" | "ALL">("open");
   const [moderatingReport, setModeratingReport] = useState<string | null>(null);
   const [openReportsCount, setOpenReportsCount] = useState(0);
+
+  // Gestion des offres (CRUD admin)
+  const [allOffers, setAllOffers] = useState<PaginatedManagedOffers | null>(null);
+  const [allOffersLoading, setAllOffersLoading] = useState(false);
+  const [allOffersPage, setAllOffersPage] = useState(1);
+  const [allOffersStatus, setAllOffersStatus] = useState<string>("ALL");
+  const [allOffersSearch, setAllOffersSearch] = useState("");
+  const [creatingOffer, setCreatingOffer] = useState(false);
+  const [editingOffer, setEditingOffer] = useState<ManagedOffer | null>(null);
+  const [deletingOffer, setDeletingOffer] = useState<ManagedOffer | null>(null);
+  const [archivingOffer, setArchivingOffer] = useState<ManagedOffer | null>(null);
+  const [archivingOfferLoading, setArchivingOfferLoading] = useState(false);
+
+  // Candidatures
+  const [adminApplications, setAdminApplications] = useState<PaginatedApplications | null>(null);
+  const [adminApplicationsLoading, setAdminApplicationsLoading] = useState(false);
+  const [adminApplicationsPage, setAdminApplicationsPage] = useState(1);
+  const [adminApplicationsStatus, setAdminApplicationsStatus] = useState<string>("ALL");
+  const [adminApplicationsOfferFilter, setAdminApplicationsOfferFilter] = useState<{ id: string; title: string } | null>(null);
+  const [adminApplicationsDevelopers, setAdminApplicationsDevelopers] = useState<Record<string, DeveloperSummary>>({});
+  const [updatingApplicationId, setUpdatingApplicationId] = useState<string | null>(null);
+
+  // Abonnements
+  const [companies, setCompanies] = useState<PaginatedCompanies | null>(null);
+  const [companiesLoading, setCompaniesLoading] = useState(false);
+  const [companiesPage, setCompaniesPage] = useState(1);
+  const [companiesSearch, setCompaniesSearch] = useState("");
+  const [changingPlan, setChangingPlan] = useState<string | null>(null);
 
   const isAdmin = !isPending && !!session && (session.user as { role?: string }).role === "ADMIN";
 
@@ -318,6 +392,183 @@ export default function AdminDashboard() {
     } finally { setModeratingReport(null); }
   }
 
+  // Gestion des offres (CRUD admin)
+  const fetchAllOffers = useCallback(async (p: number, status: string, search: string) => {
+    setAllOffersLoading(true);
+    const params = new URLSearchParams({ page: p.toString(), pageSize: "10" });
+    if (status !== "ALL") params.set("status", status);
+    if (search.trim()) params.set("search", search.trim());
+    try {
+      const res = await fetch(`${apiUrl}/admin/job-offers/manage?${params}`, { credentials: "include" });
+      if (res.ok) setAllOffers(await res.json() as PaginatedManagedOffers);
+    } catch { /* ignore */ } finally {
+      setAllOffersLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!isAdmin) return;
+    const t = setTimeout(() => { setAllOffersPage(1); void fetchAllOffers(1, allOffersStatus, allOffersSearch); }, 300);
+    return () => clearTimeout(t);
+  }, [allOffersSearch, allOffersStatus, fetchAllOffers, isAdmin]);
+
+  useEffect(() => {
+    if (!isAdmin) return;
+    void fetchAllOffers(allOffersPage, allOffersStatus, allOffersSearch);
+  }, [allOffersPage, fetchAllOffers, allOffersStatus, allOffersSearch, isAdmin]);
+
+  function handleOfferSaved() {
+    setCreatingOffer(false);
+    setEditingOffer(null);
+    void fetchAllOffers(allOffersPage, allOffersStatus, allOffersSearch);
+    void fetchPendingOffers(offerPage);
+    void fetchStats();
+    toast.success("Offre enregistrée.");
+  }
+
+  async function handleDeleteOffer(offer: ManagedOffer) {
+    try {
+      const res = await fetch(`${apiUrl}/admin/job-offers/${offer.id}`, { method: "DELETE", credentials: "include" });
+      if (!res.ok) { toast.error(await extractApiErrorMessage(res)); return; }
+      setDeletingOffer(null);
+      setAllOffers((prev) => prev ? { ...prev, data: prev.data.filter((o) => o.id !== offer.id), total: prev.total - 1 } : prev);
+      void fetchStats();
+      toast.success("Offre supprimée.");
+    } catch {
+      toast.error("Erreur réseau.");
+    }
+  }
+
+  async function handleArchiveOffer(offer: ManagedOffer) {
+    setArchivingOfferLoading(true);
+    try {
+      const res = await fetch(`${apiUrl}/admin/job-offers/${offer.id}/archive`, { method: "POST", credentials: "include" });
+      if (!res.ok) { toast.error(await extractApiErrorMessage(res)); return; }
+      setArchivingOffer(null);
+      void fetchAllOffers(allOffersPage, allOffersStatus, allOffersSearch);
+      void fetchStats();
+      toast.success("Offre archivée.");
+    } catch {
+      toast.error("Erreur réseau.");
+    } finally {
+      setArchivingOfferLoading(false);
+    }
+  }
+
+  // Candidatures
+  const fetchAdminApplications = useCallback(async (page: number, status: string, offerId: string | null) => {
+    setAdminApplicationsLoading(true);
+    const params = new URLSearchParams({ page: page.toString(), pageSize: "10" });
+    if (status !== "ALL") params.set("status", status);
+    if (offerId) params.set("jobOfferId", offerId);
+    try {
+      const res = await fetch(`${apiUrl}/admin/applications?${params}`, { credentials: "include" });
+      if (!res.ok) { setAdminApplications(null); return; }
+      const data = await res.json() as PaginatedApplications;
+      setAdminApplications(data);
+      const ids = Array.from(new Set(data.data.map((a) => a.developerId)));
+      const fetched = await Promise.all(
+        ids.map((id) =>
+          fetch(`${apiUrl}/users/developer/${id}`, { credentials: "include" })
+            .then((r) => (r.ok ? (r.json() as Promise<DeveloperSummary>) : null))
+            .catch(() => null),
+        ),
+      );
+      const map: Record<string, DeveloperSummary> = {};
+      ids.forEach((id, i) => { const d = fetched[i]; if (d) map[id] = d; });
+      setAdminApplicationsDevelopers(map);
+    } catch {
+      setAdminApplications(null);
+    } finally {
+      setAdminApplicationsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!isAdmin) return;
+    void fetchAdminApplications(adminApplicationsPage, adminApplicationsStatus, adminApplicationsOfferFilter?.id ?? null);
+  }, [isAdmin, adminApplicationsPage, adminApplicationsStatus, adminApplicationsOfferFilter, fetchAdminApplications]);
+
+  async function handleAdminApplicationUpdate(
+    application: AdminApplication,
+    nextStatus: ApplicationStatus,
+    note: string,
+    interviewMode: InterviewMode,
+    interviewLocation: string,
+  ) {
+    setUpdatingApplicationId(application.id);
+    try {
+      const res = await fetch(`${apiUrl}/admin/applications/${application.id}/status`, {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          status: nextStatus,
+          note: note.trim() || undefined,
+          ...(nextStatus === "INTERVIEW" && {
+            interviewMode,
+            interviewLocation: interviewLocation.trim() || undefined,
+          }),
+        }),
+      });
+      if (!res.ok) { toast.error(await extractApiErrorMessage(res)); return; }
+      const updated = await res.json() as AdminApplication;
+      setAdminApplications((prev) => prev ? { ...prev, data: prev.data.map((a) => (a.id === updated.id ? updated : a)) } : prev);
+      toast.success("Candidature mise à jour.");
+      void fetchStats();
+    } catch {
+      toast.error("Erreur réseau.");
+    } finally {
+      setUpdatingApplicationId(null);
+    }
+  }
+
+  // Abonnements
+  const fetchCompanies = useCallback(async (p: number, search: string) => {
+    setCompaniesLoading(true);
+    const params = new URLSearchParams({ page: p.toString(), pageSize: "10" });
+    if (search.trim()) params.set("search", search.trim());
+    try {
+      const res = await fetch(`${apiUrl}/admin/companies?${params}`, { credentials: "include" });
+      if (res.ok) setCompanies(await res.json() as PaginatedCompanies);
+    } catch { /* ignore */ } finally {
+      setCompaniesLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!isAdmin) return;
+    const t = setTimeout(() => { setCompaniesPage(1); void fetchCompanies(1, companiesSearch); }, 300);
+    return () => clearTimeout(t);
+  }, [companiesSearch, fetchCompanies, isAdmin]);
+
+  useEffect(() => {
+    if (!isAdmin) return;
+    void fetchCompanies(companiesPage, companiesSearch);
+  }, [companiesPage, fetchCompanies, companiesSearch, isAdmin]);
+
+  async function handleSetPlan(companyId: string, plan: "FREE" | "PRO") {
+    setChangingPlan(companyId);
+    try {
+      const res = await fetch(`${apiUrl}/admin/companies/${companyId}/plan`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ plan }),
+      });
+      if (!res.ok) { toast.error("Erreur lors du changement de plan."); return; }
+      setCompanies((prev) => prev
+        ? { ...prev, data: prev.data.map((c) => c.id === companyId ? { ...c, subscription: { ...(c.subscription ?? { status: "active", currentPeriodEnd: null }), plan } } : c) }
+        : prev
+      );
+      toast.success(`Plan changé en ${plan === "PRO" ? "Pro" : "Free"}.`);
+    } catch {
+      toast.error("Erreur réseau.");
+    } finally {
+      setChangingPlan(null);
+    }
+  }
+
   if (isPending || !session) {
     return (
       <div className="flex min-h-[60vh] items-center justify-center">
@@ -346,6 +597,12 @@ export default function AdminDashboard() {
           <Button size="sm" onClick={() => setShowCreateForm(true)}>
             <Plus className="size-4" />
             Créer un recruteur
+          </Button>
+        )}
+        {activeTab === "manage-offers" && (
+          <Button size="sm" onClick={() => setCreatingOffer(true)}>
+            <Plus className="size-4" />
+            Créer une offre
           </Button>
         )}
       </div>
@@ -381,6 +638,27 @@ export default function AdminDashboard() {
         </button>
         <button
           type="button"
+          onClick={() => setActiveTab("manage-offers")}
+          className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors ${activeTab === "manage-offers" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+        >
+          <span className="flex items-center gap-2"><ListFilter className="size-4" />Offres</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab("applications")}
+          className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors ${activeTab === "applications" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+        >
+          <span className="flex items-center gap-2"><FileText className="size-4" />Candidatures</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab("subscriptions")}
+          className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors ${activeTab === "subscriptions" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+        >
+          <span className="flex items-center gap-2"><CreditCard className="size-4" />Abonnements</span>
+        </button>
+        <button
+          type="button"
           onClick={() => setActiveTab("reports")}
           className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors ${activeTab === "reports" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
         >
@@ -410,6 +688,43 @@ export default function AdminDashboard() {
           loading={moderatingOffer === rejectTarget.id}
           onClose={() => setRejectTarget(null)}
           onConfirm={(reason) => void handleReject(rejectTarget.id, reason)}
+        />
+      )}
+
+      {(creatingOffer || editingOffer) && (
+        <AdminOfferFormModal
+          offer={editingOffer}
+          onClose={() => { setCreatingOffer(false); setEditingOffer(null); }}
+          onSuccess={handleOfferSaved}
+        />
+      )}
+
+      {deletingOffer && (
+        <DeleteOfferModal
+          offer={deletingOffer}
+          onClose={() => setDeletingOffer(null)}
+          onConfirm={() => void handleDeleteOffer(deletingOffer)}
+          onViewApplications={() => {
+            setDeletingOffer(null);
+            setAdminApplicationsOfferFilter({ id: deletingOffer.id, title: deletingOffer.title });
+            setAdminApplicationsPage(1);
+            setActiveTab("applications");
+          }}
+        />
+      )}
+
+      {archivingOffer && (
+        <ArchiveOfferModal
+          offer={archivingOffer}
+          loading={archivingOfferLoading}
+          onClose={() => setArchivingOffer(null)}
+          onConfirm={() => void handleArchiveOffer(archivingOffer)}
+          onViewApplications={() => {
+            setArchivingOffer(null);
+            setAdminApplicationsOfferFilter({ id: archivingOffer.id, title: archivingOffer.title });
+            setAdminApplicationsPage(1);
+            setActiveTab("applications");
+          }}
         />
       )}
 
@@ -675,6 +990,293 @@ export default function AdminDashboard() {
                   <ChevronLeft className="size-4" />
                 </Button>
                 <Button size="icon-sm" variant="outline" disabled={offerPage >= Math.ceil(pendingOffers.total / 10)} onClick={() => setOfferPage((p) => p + 1)}>
+                  <ChevronRight className="size-4" />
+                </Button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── Onglet Gestion des offres ── */}
+      {activeTab === "manage-offers" && (
+        <div className="rounded-2xl border border-border bg-card">
+          <div className="flex flex-col gap-3 border-b border-border px-6 py-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex flex-wrap gap-1">
+              {([{ value: "ALL", label: "Tous" }, ...ALL_OFFER_STATUSES.map((s) => ({ value: s, label: OFFER_STATUS_LABELS[s] ?? s }))]).map((f) => (
+                <button
+                  key={f.value}
+                  type="button"
+                  onClick={() => setAllOffersStatus(f.value)}
+                  className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
+                    allOffersStatus === f.value
+                      ? "bg-primary text-primary-foreground"
+                      : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                  }`}
+                >
+                  {f.label}
+                </button>
+              ))}
+            </div>
+            <div className="relative max-w-64 flex-1">
+              <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+              <input
+                className="input-base pl-9 text-sm"
+                placeholder="Titre ou entreprise…"
+                value={allOffersSearch}
+                onChange={(e) => setAllOffersSearch(e.target.value)}
+              />
+            </div>
+          </div>
+
+          {allOffersLoading ? (
+            <div className="flex justify-center py-12">
+              <div className="size-7 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+            </div>
+          ) : !allOffers || allOffers.data.length === 0 ? (
+            <div className="empty-state py-16">
+              <ListFilter className="mb-3 size-10 text-muted-foreground/40" />
+              <p className="text-sm font-medium text-foreground">Aucune offre trouvée.</p>
+            </div>
+          ) : (
+            <div className="divide-y divide-border">
+              {allOffers.data.map((offer) => (
+                <div key={offer.id} className="flex flex-col gap-3 px-6 py-4 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="font-medium text-foreground">{offer.title}</span>
+                      <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${OFFER_STATUS_COLORS[offer.status] ?? "bg-muted text-muted-foreground"}`}>
+                        {OFFER_STATUS_LABELS[offer.status] ?? offer.status}
+                      </span>
+                    </div>
+                    <p className="mt-0.5 text-sm text-muted-foreground">
+                      {offer.companyName ?? "Entreprise inconnue"}
+                      {offer.location ? ` · ${offer.location}` : ""}
+                    </p>
+                  </div>
+                  <div className="flex shrink-0 items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setAdminApplicationsOfferFilter({ id: offer.id, title: offer.title });
+                        setAdminApplicationsPage(1);
+                        setActiveTab("applications");
+                      }}
+                      className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                      title="Voir les candidatures"
+                    >
+                      <FileText className="size-4" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setArchivingOffer(offer)}
+                      disabled={offer.status === "ARCHIVED"}
+                      title={offer.status === "ARCHIVED" ? "Déjà archivée" : "Archiver"}
+                      className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-amber-500/10 hover:text-amber-600 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
+                    >
+                      <Archive className="size-4" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setEditingOffer(offer)}
+                      disabled={offer.status === "PUBLISHED"}
+                      title={offer.status === "PUBLISHED" ? "Archivez l'offre avant de la modifier." : "Modifier"}
+                      className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
+                    >
+                      <Pencil className="size-4" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setDeletingOffer(offer)}
+                      className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+                      title="Supprimer"
+                    >
+                      <Trash2 className="size-4" />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {allOffers && Math.ceil(allOffers.total / 10) > 1 && (
+            <div className="flex items-center justify-between border-t border-border px-6 py-3">
+              <span className="text-sm text-muted-foreground">
+                {allOffers.total} offre{allOffers.total > 1 ? "s" : ""} · page {allOffersPage}/{Math.ceil(allOffers.total / 10)}
+              </span>
+              <div className="flex gap-1">
+                <Button size="icon-sm" variant="outline" disabled={allOffersPage <= 1} onClick={() => setAllOffersPage((p) => p - 1)}>
+                  <ChevronLeft className="size-4" />
+                </Button>
+                <Button size="icon-sm" variant="outline" disabled={allOffersPage >= Math.ceil(allOffers.total / 10)} onClick={() => setAllOffersPage((p) => p + 1)}>
+                  <ChevronRight className="size-4" />
+                </Button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── Onglet Candidatures ── */}
+      {activeTab === "applications" && (
+        <div className="rounded-2xl border border-border bg-card">
+          <div className="flex flex-col gap-3 border-b border-border px-6 py-4">
+            <div className="flex flex-wrap gap-1">
+              {([{ value: "ALL", label: "Tous" }, ...(Object.keys(APPLICATION_STATUS_LABELS) as ApplicationStatus[]).map((s) => ({ value: s, label: APPLICATION_STATUS_LABELS[s] }))]).map((f) => (
+                <button
+                  key={f.value}
+                  type="button"
+                  onClick={() => { setAdminApplicationsPage(1); setAdminApplicationsStatus(f.value); }}
+                  className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
+                    adminApplicationsStatus === f.value
+                      ? "bg-primary text-primary-foreground"
+                      : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                  }`}
+                >
+                  {f.label}
+                </button>
+              ))}
+            </div>
+            {adminApplicationsOfferFilter && (
+              <div className="flex w-fit items-center gap-2 rounded-lg bg-muted/50 px-3 py-1.5 text-xs text-foreground">
+                <span>Filtré par offre : <strong>{adminApplicationsOfferFilter.title}</strong></span>
+                <button
+                  type="button"
+                  onClick={() => { setAdminApplicationsOfferFilter(null); setAdminApplicationsPage(1); }}
+                  className="text-muted-foreground hover:text-foreground"
+                  title="Retirer le filtre"
+                >
+                  <X className="size-3.5" />
+                </button>
+              </div>
+            )}
+          </div>
+
+          {adminApplicationsLoading ? (
+            <div className="flex justify-center py-12">
+              <div className="size-7 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+            </div>
+          ) : !adminApplications || adminApplications.data.length === 0 ? (
+            <div className="empty-state py-16">
+              <FileText className="mb-3 size-10 text-muted-foreground/40" />
+              <p className="text-sm font-medium text-foreground">Aucune candidature trouvée.</p>
+            </div>
+          ) : (
+            <div className="space-y-3 px-6 py-4">
+              {adminApplications.data.map((application) => (
+                <AdminApplicationCard
+                  key={`${application.id}-${application.status}`}
+                  application={application}
+                  developer={adminApplicationsDevelopers[application.developerId]}
+                  updating={updatingApplicationId === application.id}
+                  onUpdate={(nextStatus, note, interviewMode, interviewLocation) =>
+                    void handleAdminApplicationUpdate(application, nextStatus, note, interviewMode, interviewLocation)
+                  }
+                />
+              ))}
+            </div>
+          )}
+
+          {adminApplications && Math.ceil(adminApplications.total / 10) > 1 && (
+            <div className="flex items-center justify-between border-t border-border px-6 py-3">
+              <span className="text-sm text-muted-foreground">
+                {adminApplications.total} candidature{adminApplications.total > 1 ? "s" : ""} · page {adminApplicationsPage}/{Math.ceil(adminApplications.total / 10)}
+              </span>
+              <div className="flex gap-1">
+                <Button size="icon-sm" variant="outline" disabled={adminApplicationsPage <= 1} onClick={() => setAdminApplicationsPage((p) => p - 1)}>
+                  <ChevronLeft className="size-4" />
+                </Button>
+                <Button size="icon-sm" variant="outline" disabled={adminApplicationsPage >= Math.ceil(adminApplications.total / 10)} onClick={() => setAdminApplicationsPage((p) => p + 1)}>
+                  <ChevronRight className="size-4" />
+                </Button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── Onglet Abonnements ── */}
+      {activeTab === "subscriptions" && (
+        <div className="rounded-2xl border border-border bg-card">
+          <div className="border-b border-border px-6 py-4">
+            <div className="relative max-w-64">
+              <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+              <input
+                className="input-base pl-9 text-sm"
+                placeholder="Nom d'entreprise…"
+                value={companiesSearch}
+                onChange={(e) => setCompaniesSearch(e.target.value)}
+              />
+            </div>
+          </div>
+
+          {companiesLoading ? (
+            <div className="flex justify-center py-12">
+              <div className="size-7 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+            </div>
+          ) : !companies || companies.data.length === 0 ? (
+            <div className="empty-state py-16">
+              <Building2 className="mb-3 size-10 text-muted-foreground/40" />
+              <p className="text-sm font-medium text-foreground">Aucune entreprise trouvée.</p>
+            </div>
+          ) : (
+            <div className="divide-y divide-border">
+              {companies.data.map((company) => {
+                const plan = company.subscription?.plan ?? "FREE";
+                return (
+                  <div key={company.id} className="flex flex-col gap-3 px-6 py-4 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="font-medium text-foreground">{company.name}</span>
+                        <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${plan === "PRO" ? "bg-violet-500/10 text-violet-700 dark:text-violet-400" : "bg-muted text-muted-foreground"}`}>
+                          {plan === "PRO" ? "Pro" : "Free"}
+                        </span>
+                        {company.subscription && (
+                          <span className="text-xs text-muted-foreground">{company.subscription.status}</span>
+                        )}
+                      </div>
+                      {company.siret && (
+                        <p className="mt-0.5 font-mono text-xs text-muted-foreground">SIRET {company.siret}</p>
+                      )}
+                      {company.subscription?.currentPeriodEnd && (
+                        <p className="mt-0.5 text-xs text-muted-foreground">
+                          Fin de période : {new Date(company.subscription.currentPeriodEnd).toLocaleDateString("fr-FR")}
+                        </p>
+                      )}
+                    </div>
+                    <div className="flex shrink-0 gap-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={changingPlan === company.id || plan === "FREE"}
+                        onClick={() => void handleSetPlan(company.id, "FREE")}
+                      >
+                        Forcer Free
+                      </Button>
+                      <Button
+                        size="sm"
+                        disabled={changingPlan === company.id || plan === "PRO"}
+                        onClick={() => void handleSetPlan(company.id, "PRO")}
+                      >
+                        Forcer Pro
+                      </Button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {companies && Math.ceil(companies.total / 10) > 1 && (
+            <div className="flex items-center justify-between border-t border-border px-6 py-3">
+              <span className="text-sm text-muted-foreground">
+                {companies.total} entreprise{companies.total > 1 ? "s" : ""} · page {companiesPage}/{Math.ceil(companies.total / 10)}
+              </span>
+              <div className="flex gap-1">
+                <Button size="icon-sm" variant="outline" disabled={companiesPage <= 1} onClick={() => setCompaniesPage((p) => p - 1)}>
+                  <ChevronLeft className="size-4" />
+                </Button>
+                <Button size="icon-sm" variant="outline" disabled={companiesPage >= Math.ceil(companies.total / 10)} onClick={() => setCompaniesPage((p) => p + 1)}>
                   <ChevronRight className="size-4" />
                 </Button>
               </div>
@@ -979,10 +1581,20 @@ function DeleteUserModal({ user, onClose, onSuccess }: { user: UserRow; onClose:
 
 // ── Composants utilitaires ────────────────────────────────────────────────────
 
-function Modal({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
+function Modal({
+  title,
+  onClose,
+  children,
+  className = "max-w-md",
+}: {
+  title: string;
+  onClose: () => void;
+  children: React.ReactNode;
+  className?: string;
+}) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
-      <div className="w-full max-w-md rounded-2xl border border-border bg-card p-6 shadow-xl">
+      <div className={`w-full rounded-2xl border border-border bg-card p-6 shadow-xl ${className}`}>
         <div className="mb-5 flex items-center justify-between">
           <h2 className="font-semibold text-foreground">{title}</h2>
           <button type="button" onClick={onClose} className="text-muted-foreground hover:text-foreground">
@@ -1293,5 +1905,510 @@ function RejectOfferModal({
         </div>
       </div>
     </Modal>
+  );
+}
+
+// ── Modal création/édition d'offre (gestion admin) ────────────────────────────
+
+type SelectedRecruiter = { id: string; name: string; companyId: string; companyName: string };
+
+async function extractApiErrorMessage(res: Response): Promise<string> {
+  try {
+    const data = (await res.json()) as {
+      message?: string | { formErrors?: string[]; fieldErrors?: Record<string, string[]> };
+      error?: { message?: string };
+    };
+    if (typeof data.message === "object" && data.message !== null) {
+      const fieldErrors = data.message.fieldErrors ?? {};
+      const msgs = Object.entries(fieldErrors).map(([field, errs]) => `${field} : ${errs.join(", ")}`).join(" — ");
+      return msgs || data.message.formErrors?.join(", ") || "Données invalides";
+    }
+    return (typeof data.message === "string" ? data.message : data.error?.message) ?? "Erreur lors de l'enregistrement";
+  } catch {
+    return "Erreur lors de l'enregistrement";
+  }
+}
+
+function buildJobOfferBody(form: JobOfferFormData) {
+  return {
+    title: form.title.trim(),
+    description: form.description.trim(),
+    type: form.type,
+    location: form.location.trim() || undefined,
+    country: form.country.trim() || undefined,
+    remoteOk: form.remoteOk,
+    requiredTechnologies: form.requiredTechnologies,
+    requiredTechLevels: Object.keys(form.requiredTechLevels).length > 0 ? form.requiredTechLevels : undefined,
+    salaryMin: form.salaryMin ? parseInt(form.salaryMin, 10) : undefined,
+    salaryMax: form.salaryMax ? parseInt(form.salaryMax, 10) : undefined,
+    isPublic: form.isPublic,
+  };
+}
+
+function AdminOfferFormModal({
+  offer,
+  onClose,
+  onSuccess,
+}: {
+  offer: ManagedOffer | null;
+  onClose: () => void;
+  onSuccess: () => void;
+}) {
+  const [recruiter, setRecruiter] = useState<SelectedRecruiter | null>(
+    offer ? { id: offer.recruiterId, name: "", companyId: offer.companyId, companyName: offer.companyName ?? "" } : null,
+  );
+
+  async function handleSave(form: JobOfferFormData) {
+    const body = buildJobOfferBody(form);
+
+    if (offer) {
+      const res = await fetch(`${apiUrl}/admin/job-offers/${offer.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) throw new Error(await extractApiErrorMessage(res));
+      onSuccess();
+      return;
+    }
+
+    if (!recruiter) throw new Error("Sélectionnez un recruteur.");
+    const res = await fetch(`${apiUrl}/admin/job-offers`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({
+        ...body,
+        recruiterId: recruiter.id,
+        companyId: recruiter.companyId,
+        companyName: recruiter.companyName || undefined,
+      }),
+    });
+    if (!res.ok) throw new Error(await extractApiErrorMessage(res));
+    onSuccess();
+  }
+
+  return (
+    <Modal
+      title={offer ? "Modifier l'offre" : "Créer une offre"}
+      onClose={onClose}
+      className="max-w-2xl max-h-[90vh] overflow-y-auto"
+    >
+      {!offer && (
+        <div className="mb-5">
+          <RecruiterPicker value={recruiter} onChange={setRecruiter} />
+        </div>
+      )}
+
+      {offer || recruiter ? (
+        <JobOfferForm
+          initial={
+            offer
+              ? {
+                  title: offer.title,
+                  description: offer.description,
+                  type: offer.type,
+                  location: offer.location ?? "",
+                  country: offer.country ?? "",
+                  remoteOk: offer.remoteOk,
+                  requiredTechnologies: offer.requiredTechnologies,
+                  requiredTechLevels: (offer.requiredTechLevels ?? {}) as Record<string, TechLevel>,
+                  salaryMin: offer.salaryMin?.toString() ?? "",
+                  salaryMax: offer.salaryMax?.toString() ?? "",
+                  isPublic: offer.isPublic,
+                }
+              : undefined
+          }
+          onSave={handleSave}
+          onCancel={onClose}
+          submitLabel={offer ? "Enregistrer" : "Créer l'offre"}
+        />
+      ) : (
+        <p className="rounded-lg border border-dashed border-border px-4 py-6 text-center text-sm text-muted-foreground">
+          Sélectionnez un recruteur pour continuer.
+        </p>
+      )}
+    </Modal>
+  );
+}
+
+function RecruiterPicker({
+  value,
+  onChange,
+}: {
+  value: SelectedRecruiter | null;
+  onChange: (v: SelectedRecruiter | null) => void;
+}) {
+  const [query, setQuery] = useState("");
+  const [results, setResults] = useState<UserRow[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [open, setOpen] = useState(false);
+
+  useEffect(() => {
+    if (!query.trim()) { setResults([]); return; }
+    setLoading(true);
+    const t = setTimeout(() => {
+      const params = new URLSearchParams({ page: "1", pageSize: "8", role: "RECRUITER", search: query.trim() });
+      fetch(`${apiUrl}/admin/users?${params}`, { credentials: "include" })
+        .then((r) => (r.ok ? (r.json() as Promise<Paginated>) : null))
+        .then((data) => setResults(data?.data ?? []))
+        .catch(() => setResults([]))
+        .finally(() => setLoading(false));
+    }, 300);
+    return () => clearTimeout(t);
+  }, [query]);
+
+  if (value) {
+    return (
+      <div className="flex items-center justify-between gap-3 rounded-xl border border-border bg-muted/30 px-4 py-3">
+        <div className="min-w-0">
+          <p className="truncate text-sm font-medium text-foreground">{value.name}</p>
+          <p className="truncate text-xs text-muted-foreground">{value.companyName || "Sans entreprise"}</p>
+        </div>
+        <button type="button" onClick={() => { onChange(null); setQuery(""); }} className="shrink-0 text-xs text-primary hover:underline">
+          Changer
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <Field label="Recruteur" required>
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+        <input
+          className="input-base pl-9"
+          value={query}
+          onChange={(e) => { setQuery(e.target.value); setOpen(true); }}
+          onFocus={() => setOpen(true)}
+          placeholder="Nom, email ou entreprise du recruteur…"
+        />
+      </div>
+      {open && query.trim() && (
+        <div className="mt-1 max-h-56 overflow-y-auto rounded-lg border border-border bg-card shadow-lg">
+          {loading ? (
+            <p className="px-3 py-2 text-xs text-muted-foreground">Recherche…</p>
+          ) : results.length === 0 ? (
+            <p className="px-3 py-2 text-xs text-muted-foreground">Aucun recruteur trouvé.</p>
+          ) : (
+            results.map((r) => (
+              <button
+                key={r.id}
+                type="button"
+                onClick={() => {
+                  onChange({
+                    id: r.id,
+                    name: r.name,
+                    companyId: r.recruiterProfile?.companyId ?? "",
+                    companyName: r.recruiterProfile?.company?.name ?? "",
+                  });
+                  setOpen(false);
+                }}
+                className="block w-full px-3 py-2 text-left text-sm hover:bg-muted"
+              >
+                <span className="font-medium text-foreground">{r.name}</span>
+                <span className="ml-2 text-xs text-muted-foreground">{r.recruiterProfile?.company?.name ?? ""}</span>
+              </button>
+            ))
+          )}
+        </div>
+      )}
+    </Field>
+  );
+}
+
+// Affiché dans les modals d'archivage/suppression admin : informe sur le
+// nombre de candidatures liées avant que l'admin ne confirme l'action.
+function OfferApplicationsCountNotice({
+  offerId,
+  onViewAll,
+}: {
+  offerId: string;
+  onViewAll?: () => void;
+}) {
+  const [count, setCount] = useState<{ total: number; active: number } | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    fetch(`${apiUrl}/admin/job-offers/${offerId}/applications-count`, { credentials: "include" })
+      .then((r) => (r.ok ? (r.json() as Promise<{ total: number; active: number }>) : null))
+      .then((data) => { if (!cancelled) setCount(data); })
+      .catch(() => { if (!cancelled) setCount(null); })
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+  }, [offerId]);
+
+  if (loading) {
+    return <p className="text-xs text-muted-foreground">Vérification des candidatures…</p>;
+  }
+  if (!count || count.total === 0) {
+    return <p className="text-xs text-muted-foreground">Aucune candidature liée à cette offre.</p>;
+  }
+  return (
+    <p className={`text-sm ${count.active > 0 ? "text-amber-600" : "text-muted-foreground"}`}>
+      {count.total} candidature{count.total > 1 ? "s" : ""} au total
+      {count.active > 0 && <> dont <strong>{count.active}</strong> encore en cours</>}
+      {count.active > 0 && " — l'action sera refusée tant qu'elles ne sont pas résolues."}
+      {onViewAll && (
+        <>
+          {" "}
+          <button type="button" onClick={onViewAll} className="text-primary hover:underline">
+            Voir les candidatures
+          </button>
+        </>
+      )}
+    </p>
+  );
+}
+
+// ── Modal suppression d'offre (gestion admin) ─────────────────────────────────
+
+function DeleteOfferModal({
+  offer,
+  onClose,
+  onConfirm,
+  onViewApplications,
+}: {
+  offer: ManagedOffer;
+  onClose: () => void;
+  onConfirm: () => void;
+  onViewApplications?: () => void;
+}) {
+  const [loading, setLoading] = useState(false);
+
+  return (
+    <Modal title="Supprimer l'offre" onClose={onClose}>
+      <div className="space-y-4">
+        <div className="flex items-start gap-3 rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3">
+          <AlertTriangle className="mt-0.5 size-4 shrink-0 text-destructive" />
+          <div className="text-sm text-foreground">
+            <p className="font-medium">Cette action est irréversible.</p>
+            <p className="mt-1 text-muted-foreground">
+              L&apos;offre <strong>{offer.title}</strong> et son historique seront définitivement supprimés.
+            </p>
+          </div>
+        </div>
+        <OfferApplicationsCountNotice offerId={offer.id} onViewAll={onViewApplications} />
+        <div className="flex gap-3">
+          <Button
+            type="button"
+            variant="destructive"
+            className="flex-1"
+            disabled={loading}
+            onClick={() => { setLoading(true); onConfirm(); }}
+          >
+            {loading ? "Suppression…" : "Supprimer définitivement"}
+          </Button>
+          <Button type="button" variant="outline" onClick={onClose} disabled={loading}>Annuler</Button>
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
+// ── Modal archivage d'offre (gestion admin) ───────────────────────────────────
+
+function ArchiveOfferModal({
+  offer,
+  loading,
+  onClose,
+  onConfirm,
+  onViewApplications,
+}: {
+  offer: ManagedOffer;
+  loading: boolean;
+  onClose: () => void;
+  onConfirm: () => void;
+  onViewApplications?: () => void;
+}) {
+  return (
+    <Modal title="Archiver l'offre" onClose={onClose}>
+      <div className="space-y-4">
+        <p className="text-sm text-muted-foreground">
+          L&apos;offre <strong className="text-foreground">{offer.title}</strong> sera retirée de la liste
+          publique. Elle redeviendra modifiable par le recruteur (qui devra la resoumettre pour
+          republication).
+        </p>
+        <OfferApplicationsCountNotice offerId={offer.id} onViewAll={onViewApplications} />
+        <div className="flex gap-3">
+          <Button
+            type="button"
+            className="flex-1 bg-amber-600 hover:bg-amber-700 text-white"
+            disabled={loading}
+            onClick={onConfirm}
+          >
+            <Archive className="size-4" />
+            {loading ? "Archivage…" : "Archiver l'offre"}
+          </Button>
+          <Button type="button" variant="outline" onClick={onClose} disabled={loading}>Annuler</Button>
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
+function AdminApplicationCard({
+  application,
+  developer,
+  updating,
+  onUpdate,
+}: {
+  application: AdminApplication;
+  developer: DeveloperSummary | undefined;
+  updating: boolean;
+  onUpdate: (
+    nextStatus: ApplicationStatus,
+    note: string,
+    interviewMode: InterviewMode,
+    interviewLocation: string,
+  ) => void;
+}) {
+  const isTerminal = APPLICATION_TERMINAL_STATUSES.includes(application.status);
+  const availableStatuses = getAdminTargetStatuses(application.status);
+  const [nextStatus, setNextStatus] = useState<ApplicationStatus>(getInitialAdminTargetStatus(application.status));
+  const [note, setNote] = useState("");
+  const [interviewMode, setInterviewMode] = useState<InterviewMode>(application.interviewMode ?? "REMOTE");
+  const [interviewLocation, setInterviewLocation] = useState(application.interviewLocation ?? "");
+
+  return (
+    <div className="rounded-lg border border-border bg-background p-4">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="flex min-w-0 items-start gap-3">
+          <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground">
+            <UserCircle2 className="size-6" />
+          </div>
+          <div className="min-w-0">
+            <p className="truncate text-sm font-semibold text-foreground">
+              {developer ? `${developer.firstName} ${developer.lastName}` : `Candidat ${application.developerId.slice(0, 8)}`}
+            </p>
+            {developer?.title && (
+              <p className="truncate text-xs text-muted-foreground">{developer.title}</p>
+            )}
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              Reçue le {new Date(application.createdAt).toLocaleDateString("fr-FR")}
+            </p>
+          </div>
+        </div>
+        <span className={`shrink-0 rounded-full px-2.5 py-0.5 text-xs font-medium ${APPLICATION_STATUS_COLORS[application.status]}`}>
+          {APPLICATION_STATUS_LABELS[application.status]}
+        </span>
+      </div>
+
+      <div className="mt-3 flex flex-wrap items-center gap-3">
+        <Link
+          href={`/developpeurs/${application.developerId}`}
+          className="text-xs font-medium text-primary hover:underline"
+        >
+          Voir le profil
+        </Link>
+        {application.coverLetter && (
+          <details className="text-xs text-muted-foreground">
+            <summary className="cursor-pointer text-primary hover:underline">
+              Lettre de motivation
+            </summary>
+            <p className="mt-2 rounded-lg bg-muted/50 px-3 py-2 text-sm text-foreground/90">
+              {application.coverLetter}
+            </p>
+          </details>
+        )}
+      </div>
+
+      {!isTerminal ? (
+        <div className="mt-4 space-y-3 rounded-lg border border-border bg-muted/30 p-3">
+          {application.status !== "INTERVIEW" && (
+            <p className="text-xs text-muted-foreground">
+              « Acceptée » devient disponible après un passage en entretien.
+            </p>
+          )}
+          <div className="flex flex-wrap items-end gap-2">
+            <div className="min-w-[140px] flex-1">
+              <label className="mb-1 block text-xs font-medium text-muted-foreground">
+                Statut
+              </label>
+              <select
+                value={nextStatus}
+                onChange={(event) => setNextStatus(event.target.value as ApplicationStatus)}
+                className="input-base"
+              >
+                {availableStatuses.map((status) => (
+                  <option key={status} value={status}>
+                    {APPLICATION_STATUS_LABELS[status]}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="min-w-[180px] flex-[2]">
+              <label className="mb-1 block text-xs font-medium text-muted-foreground">
+                Note
+              </label>
+              <input
+                type="text"
+                value={note}
+                onChange={(event) => setNote(event.target.value)}
+                placeholder="Commentaire visible dans l'historique"
+                className="input-base"
+              />
+            </div>
+          </div>
+
+          {nextStatus === "INTERVIEW" && (
+            <div className="flex flex-wrap items-end gap-2">
+              <div className="min-w-[140px]">
+                <label className="mb-1 block text-xs font-medium text-muted-foreground">
+                  Format
+                </label>
+                <select
+                  value={interviewMode}
+                  onChange={(event) => setInterviewMode(event.target.value as InterviewMode)}
+                  className="input-base"
+                >
+                  <option value="REMOTE">Distanciel</option>
+                  <option value="IN_PERSON">Présentiel</option>
+                </select>
+              </div>
+              <div className="min-w-[220px] flex-1">
+                <label className="mb-1 block text-xs font-medium text-muted-foreground">
+                  Lien ou adresse
+                </label>
+                <input
+                  type="text"
+                  value={interviewLocation}
+                  onChange={(event) => setInterviewLocation(event.target.value)}
+                  placeholder="Lien de visio ou adresse"
+                  className="input-base"
+                />
+              </div>
+            </div>
+          )}
+
+          <Button
+            size="sm"
+            disabled={updating || nextStatus === application.status}
+            onClick={() => onUpdate(nextStatus, note, interviewMode, interviewLocation)}
+          >
+            {updating ? "Mise à jour…" : "Résoudre / mettre à jour"}
+          </Button>
+        </div>
+      ) : (
+        <p className="mt-3 rounded-lg bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
+          Cette candidature est résolue et ne bloque plus l&apos;archivage.
+        </p>
+      )}
+    </div>
+  );
+}
+
+function getInitialAdminTargetStatus(status: ApplicationStatus): ApplicationStatus {
+  if (APPLICATION_TERMINAL_STATUSES.includes(status)) return status;
+  return getAdminTargetStatuses(status)[0] ?? "VIEWED";
+}
+
+function getAdminTargetStatuses(status: ApplicationStatus): ApplicationStatus[] {
+  if (APPLICATION_TERMINAL_STATUSES.includes(status)) return [status];
+  return ADMIN_APPLICATION_TARGET_STATUSES.filter(
+    (target) => target !== "ACCEPTED" || status === "INTERVIEW",
   );
 }

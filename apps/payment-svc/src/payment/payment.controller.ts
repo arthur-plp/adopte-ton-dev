@@ -11,6 +11,11 @@ export class PaymentController {
     return this.service.getSubscription(data.companyId);
   }
 
+  @MessagePattern({ cmd: "payment.adminSetPlan" })
+  adminSetPlan(@Payload() data: { companyId: string; plan: "FREE" | "PRO" }) {
+    return this.service.adminSetPlan(data.companyId, data.plan);
+  }
+
   @MessagePattern({ cmd: "payment.createCheckoutSession" })
   createCheckoutSession(
     @Payload()

@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Delete,
@@ -19,6 +20,16 @@ import { AuthGuard, type AuthenticatedUser } from '../auth/auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
 import { Role } from '@repo/types';
+import {
+  AdminCreateJobOfferSchema,
+  UpdateJobOfferSchema,
+  AdminSetPlanSchema,
+  UpdateApplicationStatusSchema,
+  type AdminCreateJobOfferDto,
+  type UpdateJobOfferDto,
+  type UpdateApplicationStatusDto,
+  type AdminSetPlanDto,
+} from '@repo/contracts';
 import type { Request } from 'express';
 
 type AuthRequest = Request & { user: AuthenticatedUser };
@@ -50,6 +61,7 @@ export class AdminController {
     @Inject('JOBS_SVC') private readonly jobsSvc: ClientProxy,
     @Inject('APPLICATIONS_SVC')
     private readonly applicationsSvc: ClientProxy,
+    @Inject('PAYMENT_SVC') private readonly paymentSvc: ClientProxy,
   ) {}
 
   private async send<T>(pattern: { cmd: string }, data: unknown): Promise<T> {
@@ -80,6 +92,41 @@ export class AdminController {
     } catch (err: unknown) {
       toHttpException(err);
     }
+  }
+
+  private async sendPayment<T>(
+    pattern: { cmd: string },
+    data: unknown,
+  ): Promise<T> {
+    try {
+      return await lastValueFrom(this.paymentSvc.send<T>(pattern, data));
+    } catch (err: unknown) {
+      toHttpException(err);
+    }
+  }
+
+  private parseAdminCreate(body: unknown): AdminCreateJobOfferDto {
+    const result = AdminCreateJobOfferSchema.safeParse(body);
+    if (!result.success) throw new BadRequestException(result.error.flatten());
+    return result.data;
+  }
+
+  private parseUpdate(body: unknown): UpdateJobOfferDto {
+    const result = UpdateJobOfferSchema.safeParse(body);
+    if (!result.success) throw new BadRequestException(result.error.flatten());
+    return result.data;
+  }
+
+  private parseUpdateStatus(body: unknown): UpdateApplicationStatusDto {
+    const result = UpdateApplicationStatusSchema.safeParse(body);
+    if (!result.success) throw new BadRequestException(result.error.flatten());
+    return result.data;
+  }
+
+  private parseSetPlan(body: unknown): AdminSetPlanDto {
+    const result = AdminSetPlanSchema.safeParse(body);
+    if (!result.success) throw new BadRequestException(result.error.flatten());
+    return result.data;
   }
 
   @Get('stats')
@@ -186,6 +233,182 @@ export class AdminController {
     return this.sendJobs(
       { cmd: 'job.getHistory' },
       { id, requesterId: req.user.id, isAdmin: true },
+    );
+  }
+
+  // ── Gestion des offres (CRUD complet, indépendant de la modération) ──────
+
+  @Get('job-offers/manage')
+  @ApiOperation({
+    summary: 'Lister toutes les offres (tous statuts, paginé + recherche)',
+  })
+  listAllOffers(
+    @Query('page') page = '1',
+    @Query('pageSize') pageSize = '20',
+    @Query('status') status?: string,
+    @Query('search') search?: string,
+  ) {
+    return this.sendJobs(
+      { cmd: 'job.findAllForAdmin' },
+      {
+        page: Math.max(1, parseInt(page, 10)),
+        pageSize: Math.min(100, parseInt(pageSize, 10)),
+        status: status || undefined,
+        search: search?.trim() || undefined,
+      },
+    );
+  }
+
+  @Post('job-offers')
+  @ApiOperation({ summary: "Créer une offre pour le compte d'un recruteur" })
+  async createOffer(@Req() req: AuthRequest, @Body() body: unknown) {
+    const dto = this.parseAdminCreate(body);
+    const { recruiterId, companyId, companyName, ...rest } = dto;
+    return this.sendJobs(
+      { cmd: 'job.create' },
+      {
+        recruiterId,
+        companyId,
+        companyName,
+        dto: rest,
+        actor: { role: 'ADMIN', id: req.user.id },
+      },
+    );
+  }
+
+  @Patch('job-offers/:id')
+  @ApiOperation({ summary: 'Modifier une offre (bypass propriétaire)' })
+  async updateOffer(
+    @Req() req: AuthRequest,
+    @Param('id') id: string,
+    @Body() body: unknown,
+  ) {
+    const dto = this.parseUpdate(body);
+    return this.sendJobs(
+      { cmd: 'job.update' },
+      { id, recruiterId: req.user.id, dto, isAdmin: true },
+    );
+  }
+
+  @Delete('job-offers/:id')
+  @ApiOperation({ summary: 'Supprimer une offre (bypass propriétaire)' })
+  deleteOffer(@Req() req: AuthRequest, @Param('id') id: string) {
+    return this.sendJobs(
+      { cmd: 'job.delete' },
+      { id, recruiterId: req.user.id, isAdmin: true },
+    );
+  }
+
+  @Post('job-offers/:id/archive')
+  @ApiOperation({ summary: 'Archiver une offre (bypass propriétaire)' })
+  archiveOffer(@Req() req: AuthRequest, @Param('id') id: string) {
+    return this.sendJobs(
+      { cmd: 'job.archive' },
+      { id, recruiterId: req.user.id, isAdmin: true },
+    );
+  }
+
+  @Get('job-offers/:id/applications-count')
+  @ApiOperation({
+    summary:
+      'Nombre de candidatures liées à une offre (affiché avant archivage/suppression)',
+  })
+  getOfferApplicationsCount(@Param('id') id: string) {
+    return this.sendApplications(
+      { cmd: 'application.countByJobOffer' },
+      { jobOfferId: id },
+    );
+  }
+
+  @Get('applications')
+  @ApiOperation({
+    summary:
+      'Lister les candidatures (paginé, filtrable par offre et/ou statut, lecture admin sans effet de bord)',
+  })
+  listApplications(
+    @Query('page') page = '1',
+    @Query('pageSize') pageSize = '20',
+    @Query('status') status?: string,
+    @Query('jobOfferId') jobOfferId?: string,
+  ) {
+    return this.sendApplications(
+      { cmd: 'application.findAllForAdmin' },
+      {
+        page: Math.max(1, parseInt(page, 10)),
+        pageSize: Math.min(100, parseInt(pageSize, 10)),
+        status: status || undefined,
+        jobOfferId: jobOfferId || undefined,
+      },
+    );
+  }
+
+  @Patch('applications/:id/status')
+  @ApiOperation({
+    summary: "Changer le statut d'une candidature (bypass propriétaire)",
+  })
+  async updateApplicationStatus(
+    @Req() req: AuthRequest,
+    @Param('id') id: string,
+    @Body() body: unknown,
+  ) {
+    const dto = this.parseUpdateStatus(body);
+    return this.sendApplications(
+      { cmd: 'application.updateStatus' },
+      { id, recruiterId: req.user.id, dto, isAdmin: true },
+    );
+  }
+
+  // ── Abonnements ──────────────────────────────────────────────────────────
+
+  @Get('companies')
+  @ApiOperation({
+    summary: "Lister les entreprises avec leur plan d'abonnement",
+  })
+  async listCompanies(
+    @Query('page') page = '1',
+    @Query('pageSize') pageSize = '20',
+    @Query('search') search?: string,
+  ) {
+    const companies = await this.send<{
+      data: { id: string; name: string; siret: string | null }[];
+      total: number;
+      page: number;
+      pageSize: number;
+    }>(
+      { cmd: 'admin.listCompanies' },
+      {
+        page: Math.max(1, parseInt(page, 10)),
+        pageSize: Math.min(100, parseInt(pageSize, 10)),
+        search: search?.trim() || undefined,
+      },
+    );
+    const data = await Promise.all(
+      companies.data.map(async (company) => {
+        try {
+          const subscription = await this.sendPayment<{
+            plan: string;
+            status: string;
+            currentPeriodEnd: string | null;
+          }>({ cmd: 'payment.getSubscription' }, { companyId: company.id });
+          return { ...company, subscription };
+        } catch {
+          return { ...company, subscription: null };
+        }
+      }),
+    );
+    return { ...companies, data };
+  }
+
+  @Patch('companies/:companyId/plan')
+  @ApiOperation({ summary: "Forcer le plan d'une entreprise (override admin)" })
+  async setCompanyPlan(
+    @Param('companyId') companyId: string,
+    @Body() body: unknown,
+  ) {
+    const dto = this.parseSetPlan(body);
+    return this.sendPayment(
+      { cmd: 'payment.adminSetPlan' },
+      { companyId, plan: dto.plan },
     );
   }
 

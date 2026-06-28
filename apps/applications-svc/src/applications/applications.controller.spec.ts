@@ -9,9 +9,11 @@ const mockService = {
   withdraw: jest.fn(),
   reactivate: jest.fn(),
   findByJobOffer: jest.fn(),
+  findAllForAdmin: jest.fn(),
   updateStatus: jest.fn(),
   getHistory: jest.fn(),
   hasActiveApplicationsForJobOffer: jest.fn(),
+  countApplicationsForJobOffer: jest.fn(),
   createDocumentRequest: jest.fn(),
   listDocumentRequests: jest.fn(),
   createUploadUrl: jest.fn(),
@@ -115,7 +117,48 @@ describe("ApplicationsController", () => {
       "app-1",
       "recruiter-1",
       { status: ApplicationStatus.INTERVIEW },
+      false,
     );
+  });
+
+  it("updateStatus → transmet isAdmin=true au service quand fourni", async () => {
+    mockService.updateStatus.mockResolvedValueOnce({
+      ...baseApplication,
+      status: ApplicationStatus.REJECTED,
+    });
+    await controller.updateStatus({
+      id: "app-1",
+      recruiterId: "admin-1",
+      dto: { status: ApplicationStatus.REJECTED },
+      isAdmin: true,
+    });
+    expect(mockService.updateStatus).toHaveBeenCalledWith(
+      "app-1",
+      "admin-1",
+      { status: ApplicationStatus.REJECTED },
+      true,
+    );
+  });
+
+  it("findAllForAdmin → délègue les paramètres de pagination/filtres au service", async () => {
+    const paginated = {
+      data: [baseApplication],
+      total: 1,
+      page: 1,
+      pageSize: 20,
+    };
+    mockService.findAllForAdmin.mockResolvedValueOnce(paginated);
+    const result = await controller.findAllForAdmin({
+      page: 1,
+      pageSize: 20,
+      jobOfferId: "job-1",
+    });
+    expect(mockService.findAllForAdmin).toHaveBeenCalledWith({
+      page: 1,
+      pageSize: 20,
+      jobOfferId: "job-1",
+    });
+    expect(result).toEqual(paginated);
   });
 
   it("getHistory → délègue id, requesterId, requesterRole et isAdmin au service", async () => {
@@ -145,6 +188,18 @@ describe("ApplicationsController", () => {
       "job-1",
     );
     expect(result).toEqual({ hasActive: true });
+  });
+
+  it("countByJobOffer → délègue jobOfferId au service", async () => {
+    mockService.countApplicationsForJobOffer.mockResolvedValueOnce({
+      total: 5,
+      active: 2,
+    });
+    const result = await controller.countByJobOffer({ jobOfferId: "job-1" });
+    expect(mockService.countApplicationsForJobOffer).toHaveBeenCalledWith(
+      "job-1",
+    );
+    expect(result).toEqual({ total: 5, active: 2 });
   });
 
   it("createDocumentRequest → délègue applicationId, requesterId, requesterRole et dto au service", async () => {
