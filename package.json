@@ -15,9 +15,9 @@
     "clean:cache": "turbo clean"
   },
   "devDependencies": {
-    "prettier": "^3.7.4",
-    "turbo": "^2.9.16",
-    "typescript": "5.9.2"
+    "prettier": "^3.9.4",
+    "turbo": "^2.10.2",
+    "typescript": "6.0.3"
   },
   "packageManager": "pnpm@9.0.0",
   "engines": {
