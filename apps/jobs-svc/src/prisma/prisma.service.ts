@@ -1,7 +1,5 @@
 import { Injectable, OnModuleInit, OnModuleDestroy } from "@nestjs/common";
 import { PrismaClient } from "../../generated/prisma";
-import { PrismaPg } from "@prisma/adapter-pg";
-import { Pool } from "pg";
 
 async function withRetry<T>(fn: () => T | Promise<T>, retries = 3): Promise<T> {
   for (let i = 0; i < retries; i++) {
@@ -26,19 +24,7 @@ export class PrismaService implements OnModuleInit, OnModuleDestroy {
   private readonly _prisma: PrismaClient;
 
   constructor() {
-    // idleTimeoutMillis: 10000 ensures idle connections are recycled every 10s,
-    // preventing stale connections (P1017) after periods of inactivity.
-    const pool = new Pool({
-      connectionString: process.env["DATABASE_URL"] ?? "",
-      keepAlive: true,
-      keepAliveInitialDelayMillis: 10000,
-      idleTimeoutMillis: 10000,
-      connectionTimeoutMillis: 10000,
-      max: 5,
-    });
-
-    const adapter = new PrismaPg(pool);
-    this._prisma = new PrismaClient({ adapter });
+    this._prisma = new PrismaClient();
 
     return new Proxy(this, {
       get(target, prop, receiver) {
