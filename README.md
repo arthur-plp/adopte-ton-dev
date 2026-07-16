@@ -24,4 +24,4 @@ Favoriser l'employabilité des jeunes développeurs en leur donnant visibilité 
 - Pour les juniors : une vitrine professionnelle pour se faire connaître et décrocher des missions ou des stages/alternances.
 - Pour les entreprises : une source de talents accessible, économique et orientée pratique.
 
-Made with ❤️ by Arthur PHILIPPE — [LinkedIn](https://www.linkedin.com/in/arthur-philippe/) — [Site web](https://arthurphilippe.fr)
+Made with ❤️ by Arthur PHILIPPE — [LinkedIn](https://www.linkedin.com/in/arthur-philippe/) — [Site web](https://adopte-ton-dev.arthurphilippe.fr)
