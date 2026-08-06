@@ -1,4 +1,4 @@
-FROM node:22-alpine AS base
+FROM node:25-alpine AS base
 RUN corepack enable && corepack prepare pnpm@latest --activate
 WORKDIR /app
 
@@ -22,7 +22,7 @@ RUN pnpm --filter notifications-svc... build
 # Conserver la même profondeur de dossiers que dans le builder (apps/notifications-svc/…
 # + node_modules/.pnpm à la racine) : pnpm crée des symlinks relatifs entre les deux,
 # les aplatir casserait leur résolution (ex: node_modules/prisma -> ../../../node_modules/.pnpm/…).
-FROM node:22-alpine AS runner
+FROM node:25-alpine AS runner
 WORKDIR /app
 ENV NODE_ENV=production
 
